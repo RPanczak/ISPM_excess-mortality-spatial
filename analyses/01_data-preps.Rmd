@@ -96,5 +96,52 @@ write_fst(deaths_1969_2020_raw, "data-raw/BfS/deaths_1969_2020_raw.fst")
 unlink("data-raw/BfS/px-x-0102020206_102.px")
 ```
 
+```{r eval=FALSE}
+deaths_1969_2020 <- read_fst("data-raw/BfS/deaths_1969_2020_raw.fst") %>% 
+  as_tibble() %>% 
+  mutate(jahr = as.integer(as.character(jahr))) %>% 
+  mutate(kanton_bezirk_gemeinde = as.character(kanton_bezirk_gemeinde)) %>% 
+  mutate(value = as.integer(value)) %>% 
+  filter(altersklasse != "Altersklasse - Total") %>% 
+  filter(staatsangehorigkeit_kategorie != "Staatsangehörigkeit - Total") %>% 
+  filter(geschlecht != "Geschlecht - Total") %>% 
+  filter(str_detect(kanton_bezirk_gemeinde, fixed("......"))) %>% 
+  group_by(kanton_bezirk_gemeinde, jahr, staatsangehorigkeit_kategorie, altersklasse, geschlecht) %>% 
+  summarize(deaths = sum(value)) %>% 
+  ungroup() %>% 
+  mutate(across(where(is.factor), fct_drop))
 
+geonames <- deaths_1969_2020 %>% 
+  select(kanton_bezirk_gemeinde) %>% 
+  distinct() %>% 
+  mutate(temp = str_replace(kanton_bezirk_gemeinde, 
+                            fixed("......"), "")) %>% 
+  mutate(gemeinde_num = word(temp, 1, 1) ,
+         gemeinde_txt = word(temp, 2, -1)) %>% 
+  select(-temp)
+
+deaths_1969_2020 %<>% 
+  left_join(geonames) %>% 
+  relocate(gemeinde_num, gemeinde_txt) %>% 
+  select(-kanton_bezirk_gemeinde) %>% 
+  rename(year = jahr, 
+         nationality = staatsangehorigkeit_kategorie,
+         age = altersklasse,
+         sex = geschlecht) %>% 
+  mutate(sex = fct_recode(sex, Men = "Mann", Women = "Frau"),
+         age = fct_recode(age, 
+                          "<20" = "Unter 20 Jahren", 
+                          "20-29" = "20-29 Jahre", 
+                          "30-39" = "30-39 Jahre", 
+                          "40-49" = "40-49 Jahre", 
+                          "50-59" = "50-59 Jahre", 
+                          "60-69" = "60-69 Jahre", 
+                          "70-79" = "70-79 Jahre", 
+                          "80-89" = "80-89 Jahre", 
+                          ">90" = "90 Jahre und mehr"))
+
+
+write_fst(deaths_1969_2020, "data/BfS/deaths_1969_2020.fst")
+rm(geonames); gc()
+```
 

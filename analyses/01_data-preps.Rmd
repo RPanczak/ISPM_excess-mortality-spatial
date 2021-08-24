@@ -87,7 +87,8 @@ download.file(url = "https://www.bfs.admin.ch/bfsstatic/dam/assets/17664403/mast
 
 zip("data-raw/BfS/px-x-0102020206_102.px.zip", files = "data-raw/BfS/px-x-0102020206_102.px")
 
-deaths_1969_2020_raw <- pxR::read.px("data-raw/BfS/px-x-0102020206_102.px") %>% 
+deaths_1969_2020_raw <- pxR::read.px("data-raw/BfS/px-x-0102020206_102.px",
+                                     encoding = "latin9") %>% 
   as_tibble() %>% remove_empty(c("rows", "cols")) %>% clean_names()
 
 # write_rds(deaths_1969_2020_raw, "data-raw/BfS/deaths_1969_2020_raw.Rds")
@@ -129,6 +130,7 @@ deaths_1969_2020 %<>%
          age = altersklasse,
          sex = geschlecht) %>% 
   mutate(sex = fct_recode(sex, Men = "Mann", Women = "Frau"),
+         nationality = fct_recode(nationality, Swiss = "Schweiz", Foreigner = "Ausland"),
          age = fct_recode(age, 
                           "<20" = "Unter 20 Jahren", 
                           "20-29" = "20-29 Jahre", 
@@ -139,7 +141,6 @@ deaths_1969_2020 %<>%
                           "70-79" = "70-79 Jahre", 
                           "80-89" = "80-89 Jahre", 
                           ">90" = "90 Jahre und mehr"))
-
 
 write_fst(deaths_1969_2020, "data/BfS/deaths_1969_2020.fst")
 rm(geonames); gc()

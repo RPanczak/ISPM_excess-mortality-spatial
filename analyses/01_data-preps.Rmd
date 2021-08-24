@@ -1,0 +1,100 @@
+---
+title: "Spatial mortality"
+subtitle: "Data preparation"
+author: "Radek Panczak"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::robobook:
+    code_folding: show
+    self_contained: true
+    highlight: pygments
+editor_options: 
+  chunk_output_type: console
+knit: (function(inputFile, encoding) {
+  rmarkdown::render(inputFile, encoding = encoding, output_dir = "../docs") })
+---
+
+<!-- ----------------------------------------------------- -->
+
+```{r setup, include = FALSE}
+set.seed(12345)
+options(scipen = 999)
+options(max.print = "75")
+
+library(pacman)
+p_load(fst, 
+       tidyverse, magrittr, janitor, scales, lubridate, 
+       kableExtra)
+
+import::from("sjmisc", "frq")
+```
+
+
+```{r setup, include = FALSE}
+tidyverse::tidyverse_conflicts()
+
+# library(conflicted)
+conflicted::conflict_scout()
+```
+
+```{r knit-setup, include = FALSE}
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_chunk$set(cache = FALSE,
+                      prompt = FALSE,
+                      tidy = FALSE,
+                      comment = NA,
+                      message = FALSE,
+                      warning = FALSE)
+
+knitr::opts_knit$set(width = 75)
+
+mu <- Hmisc::markupSpecs$html
+```
+
+<!-- ----------------------------------------------------- -->
+
+# BfS 
+
+## Spatial data
+
+[Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/administrative-grenzen/generalisierte-gemeindegrenzen.assetdetail.11947559.html)
+
+```{r eval=FALSE}
+download.file(url = "https://www.bfs.admin.ch/bfsstatic/dam/assets/11947559/master",
+              destfile = "data-raw/BfS/ag-b-00.03-875-gg20.zip",
+              method = "curl")
+
+unzip("data-raw/BfS/ag-b-00.03-875-gg20.zip", exdir = "data-raw/BfS/ag-b-00.03-875-gg20")
+
+unlink("data-raw/BfS/ag-b-00.03-875-gg20.zip")
+unlink("data-raw/BfS/ag-b-00.03-875-gg20/txt", recursive = TRUE)
+unlink("data-raw/BfS/ag-b-00.03-875-gg20/kmz", recursive = TRUE)
+unlink("data-raw/BfS/ag-b-00.03-875-gg20/ggg_2020-LV03", recursive = TRUE)
+unlink("data-raw/BfS/ag-b-00.03-875-gg20/ggg_2020-LV95/ggg_2020-LV95.gdb", recursive = TRUE)
+```
+
+## Mortality data
+
+```{r eval=FALSE}
+# Deaths by institutional units (canton, district, commune), sex, citizenship (category), marital status and age class
+# https://www.bfs.admin.ch/bfs/en/home/statistics/population/births-deaths/deaths.assetdetail.17664403.html
+# language https://github.com/cjgb/pxR/issues/9
+
+download.file(url = "https://www.bfs.admin.ch/bfsstatic/dam/assets/17664403/master",
+              destfile = "data-raw/BfS/px-x-0102020206_102.px",
+              method = "curl")
+
+zip("data-raw/BfS/px-x-0102020206_102.px.zip", files = "data-raw/BfS/px-x-0102020206_102.px")
+
+deaths_1969_2020_raw <- pxR::read.px("data-raw/BfS/px-x-0102020206_102.px") %>% 
+  as_tibble() %>% remove_empty(c("rows", "cols")) %>% clean_names()
+
+# write_rds(deaths_1969_2020_raw, "data-raw/BfS/deaths_1969_2020_raw.Rds")
+write_fst(deaths_1969_2020_raw, "data-raw/BfS/deaths_1969_2020_raw.fst")
+
+unlink("data-raw/BfS/px-x-0102020206_102.px")
+```
+
+
+

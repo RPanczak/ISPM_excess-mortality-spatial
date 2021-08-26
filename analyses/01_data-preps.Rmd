@@ -164,3 +164,9 @@ write_fst(deaths_1969_2020, "data/BfS/deaths_1969_2020.fst")
 rm(geonames); gc()
 ```
 
+```{r}
+deaths_2015_2020 <- read_fst("data/BfS/deaths_1969_2020.fst") %>% 
+  as_tibble() %>% 
+  filter(year >= 2015)
+```
+

@@ -22,9 +22,8 @@ options(scipen = 999)
 options(max.print = "75")
 
 library(pacman)
-p_load(fst, 
-       tidyverse, magrittr, janitor, scales, lubridate, 
-       kableExtra)
+p_load(fst, readxl, sf, 
+       tidyverse, magrittr, janitor, scales, lubridate, kableExtra)
 
 import::from("sjmisc", "frq")
 ```
@@ -54,7 +53,8 @@ mu <- Hmisc::markupSpecs$html
 
 <!-- ----------------------------------------------------- -->
 
-# BfS 
+# Data sources 
+
 
 ## Spatial data 2020
 
@@ -74,9 +74,18 @@ unlink("data-raw/BfS/ag-b-00.03-875-gg20/ggg_2020-LV03", recursive = TRUE)
 unlink("data-raw/BfS/ag-b-00.03-875-gg20/ggg_2020-LV95/ggg_2020-LV95.gdb", recursive = TRUE)
 ```
 
+
 ## Spatial data 2021
 
-[Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/administrative-grenzen/generalisierte-gemeindegrenzen.assetdetail.17964056.html)
+[Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/administrative-grenzen/generalisierte-gemeindegrenzen.assetdetail.17964056.html).  
+
+Three versions of data:  
+
+> "Generalisierte Gemeindegrenzen, Stand 01.01.2021 & 18.04.2021 & 01.07.2021"	
+
+Currently using `01.07` edition.  
+
+Exxcluding nonresidential communities of `Staatswald Galm`, `Comunanza Cadenazzo/Monteceneri` & `Comunanza Capriasca/Lugano`.  
 
 ```{r eval=FALSE}
 download.file(url = "https://www.bfs.admin.ch/bfsstatic/dam/assets/17964056/master",
@@ -92,7 +101,54 @@ unlink("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV03", recursive = TRUE)
 unlink("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/ggg_2021-LV95.gdb", recursive = TRUE)
 ```
 
-## Mortality data
+```{r}
+gg21 <- 
+# st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01012021.shp")
+st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01072021.shp") %>% 
+  filter(!GMDNR %in% c(2391, 5391, 5394))
+```
+
+
+## Community boundaries mutations
+
+Using `Gemeindestand - Stand vom 01.07.2021.xlsx` from [here](https://www.agvchapp.bfs.admin.ch/de/home) we can identify communities with changes during the study period.  
+
+```{r}
+histcomm <- read_excel("data-raw/BfS/Gemeindestand - Stand vom 01.07.2021.xlsx", 
+                       col_types = c("numeric", "text", "skip", 
+                                     "skip", "numeric", "text", "text")) %>%
+  remove_empty(c("rows", "cols")) %>% clean_names() %>% 
+  mutate(datum_der_aufnahme = ymd(datum_der_aufnahme)) %>% 
+  filter(datum_der_aufnahme >= ymd("2015-01-01") & datum_der_aufnahme < ymd("2021-07-01")) %>% 
+  arrange(desc(datum_der_aufnahme), gemeindename)
+```
+
+There were `r length(unique(histcomm$bfs_gde_nummer))` communities with changes recorded:  
+
+```{r echo=FALSE}
+histcomm %>% 
+  kbl() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE) %>% 
+  column_spec(1, italic = TRUE) %>%
+  row_spec(1, italic = FALSE)
+```
+
+
+```{r eval=FALSE, include=FALSE}
+# Auf den 18. April 2021 fusionierten die ehemaligen politischen Gemeinden Croglio, Monteggio, Ponte Tresa und Sessa zur neuen politischen Gemeinde Tresa.
+
+histcomm %>% 
+  filter(bfs_gde_nummer == 5239)
+
+histcomm %>% 
+  filter(bfs_gde_nummer %in% c(5178, 5202, 5213, 5222))
+
+
+```
+
+
+## Mortality data 2015-2020
 
 ```{r eval=FALSE}
 # Deaths by institutional units (canton, district, commune), sex, citizenship (category), marital status and age class
@@ -180,11 +236,11 @@ deaths_1969_2020 %<>%
 levels(deaths_1969_2020$civil) # and why on earth only single works?
 
 levels(deaths_1969_2020$civil) <- c( 
-                             Single      = "Ledig",
-                             Verheiratet = "Married", 
-                             Verwitwet   = "Widowed", 
-                             Geschieden  = "Divorced", 
-                             Anderer     = "Other")
+  Single      = "Ledig",
+  Verheiratet = "Married", 
+  Verwitwet   = "Widowed", 
+  Geschieden  = "Divorced", 
+  Anderer     = "Other")
 
 levels(deaths_1969_2020$civil) # now it's all flipped?
 
@@ -199,4 +255,10 @@ deaths_2015_2020 <- read_fst("data/BfS/deaths_1969_2020.fst") %>%
 
 write_fst(deaths_2015_2020, "data/BfS/deaths_2015_2020.fst")
 ```
+
+## Mortality data 2021
+
+TBD
+
+
 

@@ -103,14 +103,13 @@ download.file(url = "https://www.bfs.admin.ch/bfsstatic/dam/assets/17664403/mast
               destfile = "data-raw/BfS/px-x-0102020206_102.px",
               method = "curl")
 
-zip("data-raw/BfS/px-x-0102020206_102.px.zip", files = "data-raw/BfS/px-x-0102020206_102.px")
-
 deaths_1969_2020_raw <- pxR::read.px("data-raw/BfS/px-x-0102020206_102.px",
                                      encoding = "latin9") %>% 
   as_tibble() %>% remove_empty(c("rows", "cols")) %>% clean_names()
 
-# write_rds(deaths_1969_2020_raw, "data-raw/BfS/deaths_1969_2020_raw.Rds")
 write_fst(deaths_1969_2020_raw, "data-raw/BfS/deaths_1969_2020_raw.fst")
+
+zip("data-raw/BfS/px-x-0102020206_102.zip", files = "data-raw/BfS/px-x-0102020206_102.px")
 
 unlink("data-raw/BfS/px-x-0102020206_102.px")
 ```
@@ -197,5 +196,7 @@ rm(geonames); gc()
 deaths_2015_2020 <- read_fst("data/BfS/deaths_1969_2020.fst") %>% 
   as_tibble() %>% 
   filter(year >= 2015)
+
+write_fst(deaths_2015_2020, "data/BfS/deaths_2015_2020.fst")
 ```
 

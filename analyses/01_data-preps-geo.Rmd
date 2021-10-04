@@ -1,0 +1,172 @@
+---
+title: "Spatial analyses of excess mortality in CH"
+subtitle: "Geodata preparation"
+author: "Radek Panczak"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::robobook:
+    code_folding: show
+    self_contained: true
+    highlight: pygments
+editor_options: 
+  chunk_output_type: console
+knit: (function(inputFile, encoding) {
+  rmarkdown::render(inputFile, encoding = encoding, output_dir = "../docs") })
+---
+
+<!-- ----------------------------------------------------- -->
+
+```{r setup, include = FALSE}
+set.seed(12345)
+options(scipen = 999)
+options(max.print = "75")
+
+library(pacman)
+p_load(fst, readxl, sf, 
+       tidyverse, magrittr, janitor, scales, lubridate, kableExtra)
+
+import::from("sjmisc", "frq")
+```
+
+
+```{r setup, include = FALSE}
+tidyverse::tidyverse_conflicts()
+
+conflicted::conflict_scout()
+```
+
+```{r knit-setup, include = FALSE}
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_chunk$set(cache = FALSE,
+                      prompt = FALSE,
+                      tidy = FALSE,
+                      comment = NA,
+                      message = FALSE,
+                      warning = FALSE)
+
+knitr::opts_knit$set(width = 75)
+
+mu <- Hmisc::markupSpecs$html
+```
+
+<!-- ----------------------------------------------------- -->
+
+# Data sources 
+
+## Spatial data 2020
+
+[Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/administrative-grenzen/generalisierte-gemeindegrenzen.assetdetail.11947559.html)
+
+```{r eval=FALSE}
+download.file(url = "https://www.bfs.admin.ch/bfsstatic/dam/assets/11947559/master",
+              destfile = "data-raw/BfS/ag-b-00.03-875-gg20.zip",
+              method = "curl")
+
+unzip("data-raw/BfS/ag-b-00.03-875-gg20.zip", exdir = "data-raw/BfS/ag-b-00.03-875-gg20")
+
+unlink("data-raw/BfS/ag-b-00.03-875-gg20.zip")
+unlink("data-raw/BfS/ag-b-00.03-875-gg20/txt", recursive = TRUE)
+unlink("data-raw/BfS/ag-b-00.03-875-gg20/kmz", recursive = TRUE)
+unlink("data-raw/BfS/ag-b-00.03-875-gg20/ggg_2020-LV03", recursive = TRUE)
+unlink("data-raw/BfS/ag-b-00.03-875-gg20/ggg_2020-LV95/ggg_2020-LV95.gdb", recursive = TRUE)
+```
+
+
+## Spatial data 2021
+
+### Source
+
+[Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/administrative-grenzen/generalisierte-gemeindegrenzen.assetdetail.17964056.html).  
+
+Contains three versions of data:  
+
+> "Generalisierte Gemeindegrenzen, Stand 01.01.2021 & 18.04.2021 & 01.07.2021"	
+
+Currently using `01.07` edition.  
+
+```{r eval=FALSE}
+download.file(url = "https://www.bfs.admin.ch/bfsstatic/dam/assets/17964056/master",
+              destfile = "data-raw/BfS/ag-b-00.03-875-gg21.zip",
+              method = "curl")
+
+unzip("data-raw/BfS/ag-b-00.03-875-gg21.zip", exdir = "data-raw/BfS/ag-b-00.03-875-gg21")
+
+unlink("data-raw/BfS/ag-b-00.03-875-gg21.zip")
+unlink("data-raw/BfS/ag-b-00.03-875-gg21/txt", recursive = TRUE)
+unlink("data-raw/BfS/ag-b-00.03-875-gg21/kmz", recursive = TRUE)
+unlink("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV03", recursive = TRUE)
+unlink("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/ggg_2021-LV95.gdb", recursive = TRUE)
+```
+
+```{r}
+gg21 <- 
+  # st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01012021.shp")
+  st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01072021.shp") 
+```
+
+### Preparations
+
+Excluding non-residential communities of `Staatswald Galm`, `Comunanza Cadenazzo/Monteceneri` & `Comunanza Capriasca/Lugano`.  
+
+```{r}
+gg21 %>% 
+  st_drop_geometry() %>% 
+  filter(GMDNR %in% c(2391, 5391, 5394)) %>% 
+  select(GMDNAME)
+```
+
+```{r include=FALSE}
+gg21 %<>% 
+  filter(!GMDNR %in% c(2391, 5391, 5394))
+```
+
+## Community boundaries mutations
+
+Using `Gemeindestand - Stand vom 01.07.2021.xlsx` from [here](https://www.agvchapp.bfs.admin.ch/de/home) we can identify communities with changes during the study period.  
+
+```{r}
+histcomm <- read_excel("data-raw/BfS/Gemeindestand - Stand vom 01.07.2021.xlsx", 
+                       col_types = c("numeric", "text", "skip", 
+                                     "skip", "numeric", "text", "text")) %>%
+  remove_empty(c("rows", "cols")) %>% clean_names() %>% 
+  mutate(datum_der_aufnahme = ymd(datum_der_aufnahme)) %>% 
+  filter(datum_der_aufnahme >= ymd("2015-01-01") & 
+           datum_der_aufnahme < ymd("2021-07-01")) %>% 
+  arrange(desc(datum_der_aufnahme), gemeindename)
+```
+
+There were `r length(unique(histcomm$bfs_gde_nummer))` communities with changes recorded:  
+
+```{r echo=FALSE}
+histcomm %>% 
+  kbl() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE) %>% 
+  column_spec(1, italic = TRUE) %>%
+  row_spec(1, italic = FALSE)
+```
+
+
+```{r eval=FALSE, include=FALSE}
+# Auf den 18. April 2021 fusionierten die ehemaligen politischen Gemeinden Croglio, Monteggio, Ponte Tresa und Sessa zur neuen politischen Gemeinde Tresa.
+
+histcomm %>% 
+  filter(bfs_gde_nummer == 5239)
+
+histcomm %>% 
+  filter(bfs_gde_nummer %in% c(5178, 5202, 5213, 5222))
+
+gg21 %>% 
+  st_drop_geometry() %>% 
+  filter(GMDNR %in% c(5178, 5202, 5213, 5222, 5239)) %>% 
+  select(GMDNR, GMDNAME)
+
+st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01012021.shp",
+        quiet = TRUE) %>% 
+  st_drop_geometry() %>% 
+  filter(GMDNR %in% c(5178, 5202, 5213, 5222, 5239)) %>% 
+  select(GMDNR, GMDNAME)
+```
+
+

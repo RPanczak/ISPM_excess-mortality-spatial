@@ -22,7 +22,8 @@ options(scipen = 999)
 options(max.print = "75")
 
 library(pacman)
-p_load(sf, tidyverse, magrittr, scales)
+p_load(sf, tidyverse, readxl, magrittr, 
+       scales, janitor, lubridate)
 
 import::from("sjmisc", "frq")
 ```
@@ -95,7 +96,6 @@ write_rds(kt21, "data/BfS/kt21.Rds")
 write_rds(se21, "data/BfS/se21.Rds")
 ```
 
-
 ```{r eval=FALSE, include=FALSE}
 kt21 %>% 
   st_geometry() %>% 
@@ -119,23 +119,27 @@ unlink("data-raw/swisstopo/swissboundaries3d_2021-01_2056_5728.shp.zip")
 
 ```{r}
 st_gg21 <- 
-  st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp") 
+  st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp") %>% 
+  st_zm(drop = TRUE, what = "ZM")
 
 # st_bz21 <- 
-#   st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_BEZIRKSGEBIET.shp")
+#   st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_BEZIRKSGEBIET.shp") %>% 
+# st_zm(drop = TRUE, what = "ZM")
 
 st_kt21 <- 
-  st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp")
+  st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp") %>% 
+  st_zm(drop = TRUE, what = "ZM")
 
 # write_rds(st_bz21, "data/swisstopo/st_bz21.Rds")
 write_rds(st_kt21, "data/swisstopo/st_kt21.Rds")
 ```
 
 
-
 # Preparations
 
-Excluding non-residential communities of `Staatswald Galm`, `Comunanza Cadenazzo/Monteceneri` & `Comunanza Capriasca/Lugano`.  
+## Non-residential communities
+
+Excluding `Staatswald Galm`, `Comunanza Cadenazzo/Monteceneri` & `Comunanza Capriasca/Lugano`.  
 
 ```{r}
 gg21 %>% 
@@ -146,7 +150,52 @@ gg21 %>%
 
 ```{r include=FALSE}
 gg21 %<>% 
-  filter(!GMDNR %in% c(2391, 5391, 5394))
+  filter(!GMDNR %in% c(2391, 5391, 5394)) %>% 
+  select(GMDNR, GMDNAME, BZNR, KTNR) %>% 
+  arrange(GMDNR)
+
+st_gg21 %<>% 
+  filter(!BFS_NUMMER %in% c(2391, 5391, 5394)) %>% 
+  filter(OBJEKTART != "Kantonsgebiet") %>% 
+  filter(ICC == "CH") %>% 
+  select(BFS_NUMMER, NAME, BEZIRKSNUM, KANTONSNUM, GEM_TEIL) %>% 
+  rename(GMDNR = BFS_NUMMER,
+         GMDNAME = NAME,
+         BZNR = BEZIRKSNUM,
+         KTNR = KANTONSNUM) %>% 
+  arrange(GMDNR)
+```
+
+## Multipart features
+
+Example of Monthey 
+
+`gg21` is `MULTIPOLYGON`
+
+`st_gg21` is `POLYGON`
+
+
+```{r}
+gg21 %>% 
+  filter(GMDNR == 6153) %>% 
+  select(GMDNR) %>% 
+  plot()
+
+st_gg21 %>% 
+  filter(GMDNR == 6153) %>%
+  select(GEM_TEIL) %>% 
+  plot()
+```
+
+
+```{r eval=FALSE}
+gg21 %>%
+  filter(! GMDNR %in% st_gg21$BFS_NUMMER) %>% 
+  nrow()
+
+st_gg21 %>%
+  filter(! BFS_NUMMER %in% gg21$GMDNR) %>% 
+  nrow()
 ```
 
 
@@ -154,8 +203,6 @@ gg21 %<>%
 write_rds(gg21, "data/BfS/gg21.Rds")
 write_rds(st_gg21, "data/swisstopo/st_gg21.Rds")
 ```
-
-
 
 
 # Community boundaries mutations

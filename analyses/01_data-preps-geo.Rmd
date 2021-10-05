@@ -54,29 +54,6 @@ mu <- Hmisc::markupSpecs$html
 
 # Data sources 
 
-## BfS data 2020
-
-[Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/administrative-grenzen/generalisierte-gemeindegrenzen.assetdetail.11947559.html)
-
-```{r eval=FALSE}
-download.file(url = "https://www.bfs.admin.ch/bfsstatic/dam/assets/11947559/master",
-              destfile = "data-raw/BfS/ag-b-00.03-875-gg20.zip",
-              method = "curl")
-
-unzip("data-raw/BfS/ag-b-00.03-875-gg20.zip", exdir = "data-raw/BfS/ag-b-00.03-875-gg20")
-
-unlink("data-raw/BfS/ag-b-00.03-875-gg20.zip")
-unlink("data-raw/BfS/ag-b-00.03-875-gg20/txt", recursive = TRUE)
-unlink("data-raw/BfS/ag-b-00.03-875-gg20/kmz", recursive = TRUE)
-unlink("data-raw/BfS/ag-b-00.03-875-gg20/ggg_2020-LV03", recursive = TRUE)
-unlink("data-raw/BfS/ag-b-00.03-875-gg20/ggg_2020-LV95/ggg_2020-LV95.gdb", recursive = TRUE)
-```
-
-```{r eval=FALSE}
-gg20 <- 
-  st_read("data-raw/BfS/ag-b-00.03-875-gg20/ggg_2020-LV95/shp/g1g20.shp")
-```
-
 ## BfS data 2021
 
 [Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/administrative-grenzen/generalisierte-gemeindegrenzen.assetdetail.17964056.html).  
@@ -103,8 +80,6 @@ unlink("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/ggg_2021-LV95.gdb", recur
 
 ```{r}
 gg21 <- 
-  # if Jan is better?
-  # st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01012021.shp")
   st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01072021.shp") 
 
 bz21 <- 
@@ -134,15 +109,6 @@ kt21 %>%
 `swissBOUNDARIES3D` data available from [here](https://www.swisstopo.admin.ch/de/geodata/landscape/boundaries3d.html). Also exist for 1st Jan and XX July versions.  
 
 ```{r eval=FALSE}
-download.file(url = "https://data.geo.admin.ch/ch.swisstopo.swissboundaries3d/swissboundaries3d_2021-01/swissboundaries3d_2021-01_2056_5728.shp.zip",
-              destfile = "data-raw/swisstopo/swissboundaries3d_2021-01_2056_5728.shp.zip",
-              method = "curl")
-
-# unzip("data-raw/swisstopo/swissboundaries3d_2021-01_2056_5728.shp.zip", 
-#       exdir = "data-raw/swisstopo/swissboundaries3d_2021-01_2056_5728")
-
-# unlink("data-raw/swisstopo/swissboundaries3d_2021-01_2056_5728.shp.zip") 
-
 download.file(url = "https://data.geo.admin.ch/ch.swisstopo.swissboundaries3d/swissboundaries3d_2021-07/swissboundaries3d_2021-07_2056_5728.shp.zip",
               destfile = "data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728.shp.zip",
               method = "curl")

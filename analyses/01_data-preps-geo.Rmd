@@ -54,7 +54,7 @@ mu <- Hmisc::markupSpecs$html
 
 # Data sources 
 
-## Spatial data 2020
+## BfS data 2020
 
 [Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/administrative-grenzen/generalisierte-gemeindegrenzen.assetdetail.11947559.html)
 
@@ -72,10 +72,12 @@ unlink("data-raw/BfS/ag-b-00.03-875-gg20/ggg_2020-LV03", recursive = TRUE)
 unlink("data-raw/BfS/ag-b-00.03-875-gg20/ggg_2020-LV95/ggg_2020-LV95.gdb", recursive = TRUE)
 ```
 
+```{r eval=FALSE}
+gg20 <- 
+  st_read("data-raw/BfS/ag-b-00.03-875-gg20/ggg_2020-LV95/shp/g1g20.shp")
+```
 
-## Spatial data 2021
-
-### Source
+## BfS data 2021
 
 [Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/administrative-grenzen/generalisierte-gemeindegrenzen.assetdetail.17964056.html).  
 
@@ -101,11 +103,74 @@ unlink("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/ggg_2021-LV95.gdb", recur
 
 ```{r}
 gg21 <- 
+  # if Jan is better?
   # st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01012021.shp")
   st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01072021.shp") 
+
+bz21 <- 
+  st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1b21.shp")
+
+kt21 <- 
+  st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1k21.shp")
+
+se21 <- 
+  st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1s21.shp")
+
+write_fst(gg21, "data/BfS/gg21.fst")
+write_fst(bz21, "data/BfS/bz21.fst")
+write_fst(kt21, "data/BfS/kt21.fst")
+write_fst(se21, "data/BfS/se21.fst")
 ```
 
-### Preparations
+
+```{r eval=FALSE, include=FALSE}
+kt21 %>% 
+  st_geometry() %>% 
+  plot()
+```
+
+## swisstopo data 2021
+
+`swissBOUNDARIES3D` data available from [here](https://www.swisstopo.admin.ch/de/geodata/landscape/boundaries3d.html). Also exist for 1st Jan and XX July versions.  
+
+```{r eval=FALSE}
+download.file(url = "https://data.geo.admin.ch/ch.swisstopo.swissboundaries3d/swissboundaries3d_2021-01/swissboundaries3d_2021-01_2056_5728.shp.zip",
+              destfile = "data-raw/swisstopo/swissboundaries3d_2021-01_2056_5728.shp.zip",
+              method = "curl")
+
+# unzip("data-raw/swisstopo/swissboundaries3d_2021-01_2056_5728.shp.zip", 
+#       exdir = "data-raw/swisstopo/swissboundaries3d_2021-01_2056_5728")
+
+# unlink("data-raw/swisstopo/swissboundaries3d_2021-01_2056_5728.shp.zip") 
+
+download.file(url = "https://data.geo.admin.ch/ch.swisstopo.swissboundaries3d/swissboundaries3d_2021-07/swissboundaries3d_2021-07_2056_5728.shp.zip",
+              destfile = "data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728.shp.zip",
+              method = "curl")
+
+unzip("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728.shp.zip", 
+      exdir = "data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728")
+
+unlink("data-raw/swisstopo/swissboundaries3d_2021-01_2056_5728.shp.zip")
+```
+
+```{r}
+st_gg21 <- 
+  st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp") 
+
+# st_bz21 <- 
+#   st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_BEZIRKSGEBIET.shp")
+
+st_kt21 <- 
+  st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp")
+
+write_fst(st_gg21, "data/swisstopo/st_gg21.fst")
+# write_fst(st_bz21, "data/swisstopo/st_bz21.fst")
+write_fst(st_kt21, "data/swisstopo/st_kt21.fst")
+```
+
+
+
+# Preparations
 
 Excluding non-residential communities of `Staatswald Galm`, `Comunanza Cadenazzo/Monteceneri` & `Comunanza Capriasca/Lugano`.  
 
@@ -121,7 +186,12 @@ gg21 %<>%
   filter(!GMDNR %in% c(2391, 5391, 5394))
 ```
 
-## Community boundaries mutations
+
+
+
+
+
+# Community boundaries mutations
 
 Using `Gemeindestand - Stand vom 01.07.2021.xlsx` from [here](https://www.agvchapp.bfs.admin.ch/de/home) we can identify communities with changes during the study period.  
 

@@ -74,8 +74,27 @@ deaths_2015_2021 <- read_csv("data-raw/BfS-closed/05OCT21_Lieferung_Panczak.csv"
   ungroup()
 ```
 
-```{r}
+Description of data:  
+
+```{r echo=FALSE}
 report::report(deaths_2015_2021)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Deaths across variables:  
+deaths_2015_2021 %>%
+  mutate(month = factor(month)) %>% 
+  uncount(deaths) %>% 
+  select(-GMDNAME, -canton) %>% 
+  gtsummary::tbl_summary(by = year)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Canton x year distribution:  
+deaths_2015_2021 %>%
+  uncount(deaths) %>% 
+  select(year, canton) %>% 
+  gtsummary::tbl_summary(by = year)
 ```
 
 ## Codes of geographical areas
@@ -125,7 +144,7 @@ rm(no_cases)
 
 ## Age groups
 
-Simplified to `< 40`, `40 - 59` , `60 - 69`, `70 - 79` & `≥ 80`
+Simplified to `<40`, `40-59` , `60-69`, `70-79` & `80+`
 
 ```{r}
 frq(deaths_2015_2021, agegroup)
@@ -199,7 +218,7 @@ deaths_2015_2021_exp <-
 
 That obviously drastically increases the size of the dataset from `r number(nrow(deaths_2015_2021), big.mark = ",")` to `r number(nrow(deaths_2015_2021_exp), big.mark = ",")` (*ie.* 2,163 communities each with 2,016 data points).  
 
-Needless to say that creates large amount of zeroe cells:
+Needless to say that creates large amount of zero cells:
 
 ```{r echo=FALSE}
 frq(deaths_2015_2021_exp, deaths == 0)
@@ -207,9 +226,11 @@ frq(deaths_2015_2021_exp, deaths == 0)
 
 ## Examples of time series
 
+### Communities Bern & Meienried:  
+
 ```{r echo=FALSE}
 deaths_2015_2021_exp %>% 
-  filter(GMDNAME %in% c("Zürich", "Bern", "Meienried")) %>% 
+  filter(GMDNAME %in% c("Bern", "Meienried")) %>% 
   group_by(GMDNAME, date) %>% 
   summarise(deaths = sum(deaths)) %>% 
   ungroup() %>% 
@@ -253,17 +274,17 @@ That reduces the size of the dataset to `r number(nrow(deaths_2015_2021_bez), bi
 
 Proportion of zero cells decreases:
 
-```{r}
+```{r echo=FALSE}
 frq(deaths_2015_2021_bez, deaths == 0)
 ```
 
 ## Examples of time series
 
-As above, Bern, Zurich & Seeland:   
+### Districts Bern & Seeland
 
 ```{r echo=FALSE}
 deaths_2015_2021_bez %>% 
-  filter(BZNR %in% c(112, 246, 243)) %>% 
+  filter(BZNR %in% c(246, 243)) %>% 
   group_by(BZNR, date) %>% 
   summarise(deaths = sum(deaths)) %>% 
   ungroup() %>% 

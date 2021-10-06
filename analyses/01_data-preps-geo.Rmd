@@ -1,11 +1,11 @@
 ---
-title: "Spatial analyses of excess mortality in CH"
+title: "Spatial analyses of 2020-21 excess mortality in CH"
 subtitle: "Geodata preparation"
 author: "Radek Panczak"
 date: "`r Sys.Date()`"
 output:
   rmdformats::robobook:
-    code_folding: show
+    code_folding: show 
     self_contained: true
     highlight: pygments
 editor_options: 
@@ -22,14 +22,15 @@ options(scipen = 999)
 options(max.print = "75")
 
 library(pacman)
-p_load(sf, tidyverse, readxl, magrittr, 
-       scales, janitor, lubridate)
+p_load(tidyverse, readxl, magrittr, 
+       scales, janitor, lubridate, kableExtra,
+       sf, tmap)
 
 import::from("sjmisc", "frq")
 ```
 
 
-```{r setup, include = FALSE}
+```{r conflicts, include = FALSE}
 tidyverse::tidyverse_conflicts()
 
 conflicted::conflict_scout()
@@ -54,7 +55,7 @@ mu <- Hmisc::markupSpecs$html
 
 # Data sources 
 
-## BfS data 2021
+## BfS data 2021 {.tabset}
 
 [Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/administrative-grenzen/generalisierte-gemeindegrenzen.assetdetail.17964056.html).  
 
@@ -80,31 +81,57 @@ unlink("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/ggg_2021-LV95.gdb", recur
 
 ```{r}
 gg21 <- 
-  st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01072021.shp") 
+  st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01072021.shp",
+          as_tibble = TRUE) %>% 
+  st_set_crs(2056)
 
 bz21 <- 
-  st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1b21.shp")
+  st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1b21.shp",
+          as_tibble = TRUE) 
 
 kt21 <- 
-  st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1k21.shp")
+  st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1k21.shp",
+          as_tibble = TRUE) 
 
 se21 <- 
-  st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1s21.shp")
+  st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1s21.shp",
+          as_tibble = TRUE) 
 
 write_rds(bz21, "data/BfS/bz21.Rds")
 write_rds(kt21, "data/BfS/kt21.Rds")
 write_rds(se21, "data/BfS/se21.Rds")
 ```
 
-```{r eval=FALSE, include=FALSE}
-kt21 %>% 
-  st_geometry() %>% 
-  plot()
+### Canton 
+
+```{r echo=FALSE}
+tm_shape(se21, is.master = FALSE) +
+  tm_fill() + 
+  tm_shape(kt21) +
+  tm_borders()
+```
+
+### District 
+
+```{r echo=FALSE}
+tm_shape(se21, is.master = FALSE) +
+  tm_fill() + 
+  tm_shape(bz21) +
+  tm_borders()
+```
+
+### Community 
+
+```{r echo=FALSE}
+tm_shape(se21, is.master = FALSE) +
+  tm_fill() + 
+  tm_shape(gg21) +
+  tm_borders()
 ```
 
 ## swisstopo data 2021
 
-`swissBOUNDARIES3D` data available from [here](https://www.swisstopo.admin.ch/de/geodata/landscape/boundaries3d.html). Also exist for 1st Jan and XX July versions.  
+`swissBOUNDARIES3D` data available from [here](https://www.swisstopo.admin.ch/de/geodata/landscape/boundaries3d.html). Also exist for XX July versions.  
 
 ```{r eval=FALSE}
 download.file(url = "https://data.geo.admin.ch/ch.swisstopo.swissboundaries3d/swissboundaries3d_2021-07/swissboundaries3d_2021-07_2056_5728.shp.zip",
@@ -119,21 +146,89 @@ unlink("data-raw/swisstopo/swissboundaries3d_2021-01_2056_5728.shp.zip")
 
 ```{r}
 st_gg21 <- 
-  st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp") %>% 
+  st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp",
+          as_tibble = TRUE) %>% 
   st_zm(drop = TRUE, what = "ZM")
 
 # st_bz21 <- 
-#   st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_BEZIRKSGEBIET.shp") %>% 
+#   st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_BEZIRKSGEBIET.shp",
+# as_tibble = TRUE) %>% 
 # st_zm(drop = TRUE, what = "ZM")
 
 st_kt21 <- 
-  st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp") %>% 
+  st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp",
+          as_tibble = TRUE) %>% 
   st_zm(drop = TRUE, what = "ZM")
 
 # write_rds(st_bz21, "data/swisstopo/st_bz21.Rds")
 write_rds(st_kt21, "data/swisstopo/st_kt21.Rds")
 ```
 
+## Important differences
+
+### Resolution
+
+swisstopo borders (in  blue below) offer better resolution and will be used for certain spatial operations (like linking to SEP) whereas BfS data are smaller in size and easier to plot. Example of Bern:  
+
+```{r echo=FALSE}
+tm_shape(st_gg21 %>% filter(BFS_NUMMER == 351)) +
+  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
+  tm_shape(gg21 %>% filter(GMDNR == 351)) +
+  tm_borders(col = "red", lwd = 2, alpha = 0.5) +
+  tm_layout(
+    title = "Different spatial resolutions"
+  )
+```
+
+### Water bodies
+
+Additionally datasets differ in terms of conceptualization of the boundaries of water bodies. BfS data reach the shore of the lake, whereas swisstopo extends them over lakes.  
+
+```{r echo=FALSE}
+tm_shape(se21 %>% filter(GMDNR == 9151), is.master = FALSE) +
+  tm_fill(col = "gray", alpha = 0.5) +
+  tm_shape(st_gg21 %>% filter(BFS_NUMMER == 2051), is.master = TRUE) +
+  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
+  tm_shape(gg21 %>% filter(GMDNR == 2051)) +
+  tm_borders(col = "red", lwd = 2, alpha = 0.5) +
+  tm_layout(
+    title = "Different lake boundaries"
+  )
+```
+
+### Multipart features
+
+BfS stores data as `MULTIPOLYGON` 
+
+```{r echo=FALSE}
+gg21 %>% 
+  filter(GMDNR == 6153) %>% 
+  select(GMDNR) %>% 
+  plot()
+```
+
+whereas swisstopo as `POLYGON`.  In such case community Monthey will be represented as four rows of data (individual polygons) instead of one.  
+
+```{r echo=FALSE}
+st_gg21 %>% 
+  filter(BFS_NUMMER == 6153) %>%
+  select(GEM_TEIL) %>% 
+  plot()
+```
+
+That might have some implications in terms of spatial operations (maybe contiguity too?).  Data could be converted between types if needed. 
+
+```{r eval=FALSE}
+gg21 %>%
+  filter(! GMDNR %in% st_gg21$BFS_NUMMER) %>% 
+  nrow()
+
+st_gg21 %>%
+  filter(! BFS_NUMMER %in% gg21$GMDNR) %>% 
+  nrow()
+```
+
+<!-- ----------------------------------------------------- -->
 
 # Preparations
 
@@ -156,7 +251,9 @@ gg21 %<>%
 
 st_gg21 %<>% 
   filter(!BFS_NUMMER %in% c(2391, 5391, 5394)) %>% 
+  # exclude lakes
   filter(OBJEKTART != "Kantonsgebiet") %>% 
+  # exclude FL & enclaves
   filter(ICC == "CH") %>% 
   select(BFS_NUMMER, NAME, BEZIRKSNUM, KANTONSNUM, GEM_TEIL) %>% 
   rename(GMDNR = BFS_NUMMER,
@@ -166,44 +263,12 @@ st_gg21 %<>%
   arrange(GMDNR)
 ```
 
-## Multipart features
-
-Example of Monthey 
-
-`gg21` is `MULTIPOLYGON`
-
-`st_gg21` is `POLYGON`
-
-
-```{r}
-gg21 %>% 
-  filter(GMDNR == 6153) %>% 
-  select(GMDNR) %>% 
-  plot()
-
-st_gg21 %>% 
-  filter(GMDNR == 6153) %>%
-  select(GEM_TEIL) %>% 
-  plot()
-```
-
-
-```{r eval=FALSE}
-gg21 %>%
-  filter(! GMDNR %in% st_gg21$BFS_NUMMER) %>% 
-  nrow()
-
-st_gg21 %>%
-  filter(! BFS_NUMMER %in% gg21$GMDNR) %>% 
-  nrow()
-```
-
-
 ```{r}
 write_rds(gg21, "data/BfS/gg21.Rds")
 write_rds(st_gg21, "data/swisstopo/st_gg21.Rds")
 ```
 
+<!-- ----------------------------------------------------- -->
 
 # Community boundaries mutations
 
@@ -220,10 +285,13 @@ histcomm <- read_excel("data-raw/BfS/Gemeindestand - Stand vom 01.07.2021.xlsx",
   arrange(desc(datum_der_aufnahme), gemeindename)
 ```
 
-There were `r length(unique(histcomm$bfs_gde_nummer))` communities with changes recorded:  
+There were `r length(unique(histcomm$bfs_gde_nummer))` communities with changes recorded in `2015-01-01` - `2021-07-01` period.  
+
+Here is list of changes from `2020-01-01` onwards that could affect other data that date for instance refer to  `2020-12-31`:  
 
 ```{r echo=FALSE}
 histcomm %>% 
+  filter(datum_der_aufnahme >= ymd("2021-01-01")) %>% 
   kbl() %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE) %>% 
@@ -231,26 +299,22 @@ histcomm %>%
   row_spec(1, italic = FALSE)
 ```
 
+Luckily only one of these changes occurred after `2021-01-01` and it was a fusion which is easier to handle:  
+
+> Auf den 18. April 2021 fusionierten die ehemaligen politischen Gemeinden Croglio, Monteggio, Ponte Tresa und Sessa zur neuen politischen Gemeinde Tresa
 
 ```{r eval=FALSE, include=FALSE}
-# Auf den 18. April 2021 fusionierten die ehemaligen politischen Gemeinden Croglio, Monteggio, Ponte Tresa und Sessa zur neuen politischen Gemeinde Tresa.
-
 histcomm %>% 
-  filter(bfs_gde_nummer == 5239)
-
-histcomm %>% 
-  filter(bfs_gde_nummer %in% c(5178, 5202, 5213, 5222))
+  filter(bfs_gde_nummer %in% c(5178, 5202, 5213, 5222, 5239))
 
 gg21 %>% 
   st_drop_geometry() %>% 
   filter(GMDNR %in% c(5178, 5202, 5213, 5222, 5239)) %>% 
   select(GMDNR, GMDNAME)
 
-st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01012021.shp",
-        quiet = TRUE) %>% 
-  st_drop_geometry() %>% 
-  filter(GMDNR %in% c(5178, 5202, 5213, 5222, 5239)) %>% 
-  select(GMDNR, GMDNAME)
+# st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01012021.shp",
+#         quiet = TRUE) %>% 
+#   st_drop_geometry() %>% 
+#   filter(GMDNR %in% c(5178, 5202, 5213, 5222, 5239)) %>% 
+#   select(GMDNR, GMDNAME)
 ```
-
-

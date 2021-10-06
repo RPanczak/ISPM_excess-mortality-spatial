@@ -1,5 +1,5 @@
 ---
-title: "Spatial analyses of excess mortality in CH"
+title: "Spatial analyses of 2020-21 excess mortality in CH"
 subtitle: "Mortality data preparation"
 author: "Radek Panczak"
 date: "`r Sys.Date()`"
@@ -22,14 +22,12 @@ options(scipen = 999)
 options(max.print = "75")
 
 library(pacman)
-p_load(fst, readxl, 
-       tidyverse, magrittr, janitor, scales, lubridate, kableExtra)
+p_load(fst, tidyverse, magrittr, janitor, scales, lubridate, kableExtra)
 
 import::from("sjmisc", "frq")
 ```
 
-
-```{r setup, include = FALSE}
+```{r conflicts, include = FALSE}
 tidyverse::tidyverse_conflicts()
 
 conflicted::conflict_scout()
@@ -52,119 +50,112 @@ mu <- Hmisc::markupSpecs$html
 
 <!-- ----------------------------------------------------- -->
 
-# Data sources 
+# Mortality data 2015-2021
 
-## Mortality data 2015-2020
+## Source 
 
-```{r eval=FALSE}
-# Deaths by institutional units (canton, district, commune), sex, citizenship (category), marital status and age class
-# https://www.bfs.admin.ch/bfs/en/home/statistics/population/births-deaths/deaths.assetdetail.17664403.html
-# language https://github.com/cjgb/pxR/issues/9
-
-download.file(url = "https://www.bfs.admin.ch/bfsstatic/dam/assets/17664403/master",
-              destfile = "data-raw/BfS/px-x-0102020206_102.px",
-              method = "curl")
-
-deaths_1969_2020_raw <- pxR::read.px("data-raw/BfS/px-x-0102020206_102.px",
-                                     encoding = "latin9") %>% 
-  as_tibble() %>% remove_empty(c("rows", "cols")) %>% clean_names()
-
-write_fst(deaths_1969_2020_raw, "data-raw/BfS/deaths_1969_2020_raw.fst")
-
-zip("data-raw/BfS/px-x-0102020206_102.zip", files = "data-raw/BfS/px-x-0102020206_102.px")
-
-unlink("data-raw/BfS/px-x-0102020206_102.px")
-```
+Custom file delivered by BfS covering 2021 period and standardizing communities to Jul 2021. 
 
 ```{r eval=FALSE}
-deaths_1969_2020 <- read_fst("data-raw/BfS/deaths_1969_2020_raw.fst") %>% 
-  as_tibble() %>% 
-  mutate(jahr = as.integer(as.character(jahr))) %>% 
-  mutate(kanton_bezirk_gemeinde = as.character(kanton_bezirk_gemeinde)) %>% 
-  mutate(value = as.integer(value)) %>% 
-  filter(altersklasse != "Altersklasse - Total") %>% 
-  filter(staatsangehorigkeit_kategorie != "Staatsangehörigkeit - Total") %>% 
-  filter(geschlecht != "Geschlecht - Total") %>% 
-  filter(zivilstand != "Zivilstand - Total") %>% 
-  filter(str_detect(kanton_bezirk_gemeinde, fixed("......"))) %>% 
-  mutate(across(where(is.factor), fct_drop))
-
-levels(deaths_1969_2020$zivilstand)
-
-geonames <- deaths_1969_2020 %>% 
-  select(kanton_bezirk_gemeinde) %>% 
-  distinct() %>% 
-  mutate(temp = str_replace(kanton_bezirk_gemeinde, fixed("......"), "")) %>% 
-  mutate(gemeinde_num = word(temp, 1, 1) ,
-         gemeinde_txt = word(temp, 2, -1)) %>% 
-  select(-temp)
-
-deaths_1969_2020 %<>%
-  left_join(geonames) %>% 
-  relocate(gemeinde_num, gemeinde_txt) %>% 
-  select(-kanton_bezirk_gemeinde) %>% 
-  rename(
-    year = jahr, 
-    nationality = staatsangehorigkeit_kategorie,
-    age = altersklasse,
-    civil = zivilstand,
-    sex = geschlecht
-  ) 
-
-deaths_1969_2020 %<>%
-  mutate(
-    sex =         fct_recode(sex, 
-                             Men   = "Mann", 
-                             Women = "Frau"),
-    civil =       fct_recode(civil, 
-                             Single      = "Ledig",
-                             Verheiratet = "Married", 
-                             Verwitwet   = "Widowed", 
-                             Geschieden  = "Divorced", 
-                             Anderer     = "Other"),
-    nationality = fct_recode(nationality, 
-                             Swiss     = "Schweiz", 
-                             Foreigner = "Ausland"),
-    age =         fct_recode(age, 
-                             "<20" = "Unter 20 Jahren", 
-                             "20-29" = "20-29 Jahre", 
-                             "30-39" = "30-39 Jahre", 
-                             "40-49" = "40-49 Jahre", 
-                             "50-59" = "50-59 Jahre", 
-                             "60-69" = "60-69 Jahre", 
-                             "70-79" = "70-79 Jahre", 
-                             "80-89" = "80-89 Jahre", 
-                             ">90" = "90 Jahre und mehr")
-  )
-# ) %>% 
-# mutate(civil = fct_relevel(civil, "Married"))
-
-levels(deaths_1969_2020$civil) # and why on earth only single works?
-
-levels(deaths_1969_2020$civil) <- c( 
-  Single      = "Ledig",
-  Verheiratet = "Married", 
-  Verwitwet   = "Widowed", 
-  Geschieden  = "Divorced", 
-  Anderer     = "Other")
-
-levels(deaths_1969_2020$civil) # now it's all flipped?
-
-write_fst(deaths_1969_2020, "data/BfS/deaths_1969_2020.fst")
-rm(geonames); gc()
+deaths_2015_2021 <- read_csv("data-raw/BfS-closed/05OCT21_Lieferung_Panczak.csv", 
+                             col_types = cols(year = col_integer(), 
+                                              month = col_integer(), 
+                                              COUNT = col_integer()),
+                             locale = readr::locale(encoding = "latin1")) %>% 
+  mutate(sex = if_else(sex == "F", "Female", "Male"),
+         nationality = if_else(nationality == "Schweiz", "Swiss", "Foreigner"))
 ```
 
 ```{r}
-deaths_2015_2020 <- read_fst("data/BfS/deaths_1969_2020.fst") %>% 
-  as_tibble() %>% 
-  filter(year >= 2015)
-
-write_fst(deaths_2015_2020, "data/BfS/deaths_2015_2020.fst")
+report::report(deaths_2015_2021)
 ```
 
-## Mortality data 2021
+## Age groups
 
-TBD
+Simplified to `< 40`, `40 - 59` , `60 - 69`, `70 - 79` & `≥ 80`
+
+```{r}
+frq(deaths_2015_2021, agegroup)
+
+deaths_2015_2021 %<>% 
+  mutate(
+    age = case_when(
+      agegroup == "[0-10)" ~   "<40",
+      agegroup == "[10-20)" ~  "<40",
+      agegroup == "[20-30)" ~  "<40",
+      agegroup == "[30-40)" ~  "<40",
+      
+      agegroup == "[40-50)" ~  "40-49",
+      agegroup == "[50-60)" ~  "50-59",
+      agegroup == "[60-70)" ~  "60-69",
+      agegroup == "[70-80)" ~  "70-79",
+      
+      agegroup == "[80-90)" ~  "80+",
+      agegroup == "[90-116)" ~ "80+" ,
+      TRUE ~                    agegroup)
+    ) %>% 
+  select(-agegroup) %>% 
+  group_by(year, month, canton, community, sex, age, nationality) %>% 
+  summarise(deaths = sum(COUNT)) %>% 
+  ungroup()
+
+frq(deaths_2015_2021, age)
+```
+
+## Distribution of death counts
+
+Obviously highly skewed. No zeroes here yet! No pop denominator either!  
+
+```{r}
+deaths_2015_2021 %>% 
+  ggplot(aes(deaths)) + 
+  geom_histogram(binwidth = 1)
+```
+
+## Filling with zeroes
+
+All possible combinations of `year, month, canton, community, age, sex, nationality` are used and then empty strata are filled with zeroes.  
+
+```{r}
+deaths_2015_2021_exp <- deaths_2015_2021 %>% 
+  select(-deaths) %>% 
+  expand(year, month, canton, community, age, sex, nationality) %>% 
+  left_join(deaths_2015_2021) %>% 
+  replace_na(list(deaths = 0)) %>% 
+  mutate(date = ymd(paste(year, month, "1", sep = " "))) %>% 
+  relocate(date, .after = month)
+```
+
+That obviously drastically increases the size of the dataset from `r number(nrow(deaths_2015_2021), big.mark = ",")` to `r number(nrow(deaths_2015_2021_exp), big.mark = ",")` with huge amount of zeroes:
+
+```{r}
+frq(deaths_2015_2021_exp, deaths == 0)
+```
+
+## Examples of time series
+
+```{r}
+deaths_2015_2021_exp %>% 
+  filter(community %in% c("Zürich", "Bern")) %>% 
+  group_by(community, date) %>% 
+  summarise(deaths = sum(deaths)) %>% 
+  ggplot(aes(x = date, y = deaths, group = community, color = community)) + 
+  geom_line() + geom_point()
+```
+
+```{r include=FALSE}
+write_fst(deaths_2015_2021, "data/BfS-closed/deaths_2015_2021.fst")
+write_fst(deaths_2015_2021_exp, "data/BfS-closed/deaths_2015_2021_exp.fst")
+```
+
+<!-- ----------------------------------------------------- -->
+
+# Simplification of data
+
+## Removing months
+
+
+## Aggregating to districts
 
 
 

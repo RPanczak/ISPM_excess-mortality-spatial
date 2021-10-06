@@ -212,8 +212,21 @@ deaths_2015_2021_exp %>%
   filter(GMDNAME %in% c("Zürich", "Bern", "Meienried")) %>% 
   group_by(GMDNAME, date) %>% 
   summarise(deaths = sum(deaths)) %>% 
+  ungroup() %>% 
   ggplot(aes(x = date, y = deaths, group = GMDNAME, color = GMDNAME)) + 
   geom_line() + geom_point()
+```
+
+## All time series
+
+```{r echo=FALSE}
+deaths_2015_2021_exp %>% 
+  group_by(GMDNAME, date) %>% 
+  summarise(deaths = sum(deaths)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = date, y = deaths, group = GMDNAME)) + 
+  geom_line(colour = "darkorchid", alpha = 0.25) +
+  theme_minimal()
 ```
 
 ```{r include=FALSE}
@@ -253,8 +266,21 @@ deaths_2015_2021_bez %>%
   filter(BZNR %in% c(112, 246, 243)) %>% 
   group_by(BZNR, date) %>% 
   summarise(deaths = sum(deaths)) %>% 
+  ungroup() %>% 
   ggplot(aes(x = date, y = deaths, group = factor(BZNR), color = factor(BZNR))) + 
   geom_line() + geom_point()
+```
+
+## All time series
+
+```{r echo=FALSE}
+deaths_2015_2021_bez %>% 
+  group_by(BZNR, date) %>% 
+  summarise(deaths = sum(deaths)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = date, y = deaths, group = BZNR)) + 
+  geom_line(colour = "darkorchid", alpha = 0.25) +
+  theme_minimal()
 ```
 
 ```{r include=FALSE}

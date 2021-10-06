@@ -1,0 +1,81 @@
+---
+title: "Spatial analyses of 2020-21 excess mortality in CH"
+subtitle: "Ancillary data preparation"
+author: "Radek Panczak"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::robobook:
+    code_folding: show
+    self_contained: true
+    highlight: pygments
+editor_options: 
+  chunk_output_type: console
+knit: (function(inputFile, encoding) {
+  rmarkdown::render(inputFile, encoding = encoding, output_dir = "../docs") })
+---
+
+<!-- ----------------------------------------------------- -->
+
+```{r setup, include = FALSE}
+set.seed(12345)
+options(scipen = 999)
+options(max.print = "75")
+
+library(pacman)
+p_load(fst, readxl, 
+       tidyverse, magrittr, janitor, scales, lubridate, kableExtra,
+       sf, tmap)
+
+import::from("sjmisc", "frq")
+```
+
+
+```{r conflicts, include = FALSE}
+tidyverse::tidyverse_conflicts()
+
+conflicted::conflict_scout()
+```
+
+```{r knit-setup, include = FALSE}
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_chunk$set(cache = FALSE,
+                      prompt = FALSE,
+                      tidy = FALSE,
+                      comment = NA,
+                      message = FALSE,
+                      warning = FALSE)
+
+knitr::opts_knit$set(width = 75)
+
+mu <- Hmisc::markupSpecs$html
+```
+
+<!-- ----------------------------------------------------- -->
+
+# Population
+
+px-x-0102010000_103.xlsx
+
+px-x-0103010000_201.xlsx
+
+# Cartogram
+
+
+# Swiss-SEP
+
+
+# Raumgliederungen 
+
+From the [app](https://www.agvchapp.bfs.admin.ch/de/typologies/query). State as of 2021-07-01 to match spatial data nicely.  
+
+```{r}
+raum <- read_excel("data-raw/BfS/Raumgliederungen.xlsx", 
+    skip = 1) %>% 
+  remove_empty(c("rows", "cols")) %>% clean_names() %>% 
+  rename(GMDNR = bfs_gde_nummer) %>% 
+  filter(! is.na(GMDNR))
+
+anti_join(raum, gg21)
+```
+

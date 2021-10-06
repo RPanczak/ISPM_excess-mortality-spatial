@@ -88,12 +88,18 @@ raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx",
          BZNR = bezirks_nummer,
          BZNAME = bezirksname) %>% 
   select(GMDNR, GMDNAME, KTNAME, BZNR, BZNAME, 
-         stadtische_landliche_gebiete, sprachgebiete) %>% 
+         stadtische_landliche_gebiete, sprachgebiete,
+         urbanisierungsgrad_2011_degurba_eurostat) %>% 
   mutate(
-    r_urban = case_when(
+    r_urban1 = case_when(
       stadtische_landliche_gebiete == 1 ~  "Urban",
       stadtische_landliche_gebiete == 2 ~  "Periurban",
       stadtische_landliche_gebiete == 3 ~  "Rural",
+      TRUE ~  ""),
+     r_urban2 = case_when(
+      urbanisierungsgrad_2011_degurba_eurostat == 1 ~  "Dense",
+      urbanisierungsgrad_2011_degurba_eurostat == 2 ~  "Medium",
+      urbanisierungsgrad_2011_degurba_eurostat == 3 ~  "Low",
       TRUE ~  ""),
     r_lang = case_when(
       sprachgebiete == 1 ~  "German",
@@ -102,7 +108,8 @@ raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx",
       sprachgebiete == 4 ~  "Romansh",
       TRUE ~  "")
   ) %>% 
-  select(-stadtische_landliche_gebiete, -sprachgebiete)
+  select(-stadtische_landliche_gebiete, -sprachgebiete,
+         -urbanisierungsgrad_2011_degurba_eurostat)
 ```
 
 ```{r include=FALSE}
@@ -113,15 +120,32 @@ gg21_merged <- gg21 %>%
   relocate(KTNAME, .after = KTNR)
 ```
 
-## Urbanization
+## Urbanization 1 
 
 ```{r echo=FALSE}
-frq(raum, r_urban)
+frq(raum, r_urban1)
 
 tm_shape(se21, is.master = FALSE) +
   tm_fill(col = "#a7cdf2")  +
   tm_shape(gg21_merged) +
-  tm_fill(col = "r_urban")  +
+  tm_fill(col = "r_urban1")  +
+  tm_shape(kt21) +
+  tm_borders()  +
+  tm_layout(
+    title = "Urbanization 2021"
+  )
+```
+
+## Urbanization 2 
+
+Using [DEGURBA](https://ec.europa.eu/eurostat/web/degree-of-urbanisation/background).  
+```{r echo=FALSE}
+frq(raum, r_urban2)
+
+tm_shape(se21, is.master = FALSE) +
+  tm_fill(col = "#a7cdf2")  +
+  tm_shape(gg21_merged) +
+  tm_fill(col = "r_urban2")  +
   tm_shape(kt21) +
   tm_borders()  +
   tm_layout(

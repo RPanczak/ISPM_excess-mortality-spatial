@@ -53,11 +53,19 @@ mu <- Hmisc::markupSpecs$html
 
 <!-- ----------------------------------------------------- -->
 
+```{r include=FALSE}
+# prepared in 01.Rmd
+gg21 <- read_rds("data/BfS/gg21.Rds")
+se21 <- read_rds("data/BfS/se21.Rds")
+kt21 <- read_rds("data/BfS/kt21.Rds")
+
+st_gg21 <- read_rds("data/swisstopo/st_gg21.Rds")
+```
+
 # Population
 
 px-x-0102010000_103.xlsx
 
-px-x-0103010000_201.xlsx
 
 # Cartogram
 
@@ -67,15 +75,72 @@ px-x-0103010000_201.xlsx
 
 # Raumgliederungen 
 
-From the [app](https://www.agvchapp.bfs.admin.ch/de/typologies/query). State as of 2021-07-01 to match spatial data nicely.  
+From the [app](https://www.agvchapp.bfs.admin.ch/de/typologies/query). State as of `2021-07-01` to match spatial data nicely.  
 
 ```{r}
-raum <- read_excel("data-raw/BfS/Raumgliederungen.xlsx", 
-    skip = 1) %>% 
+raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx", 
+                  skip = 1) %>% 
   remove_empty(c("rows", "cols")) %>% clean_names() %>% 
-  rename(GMDNR = bfs_gde_nummer) %>% 
-  filter(! is.na(GMDNR))
-
-anti_join(raum, gg21)
+  filter(! is.na(bfs_gde_nummer)) %>% 
+  rename(GMDNR = bfs_gde_nummer,
+         GMDNAME = gemeindename,
+         KTNAME = kanton,
+         BZNR = bezirks_nummer,
+         BZNAME = bezirksname) %>% 
+  select(GMDNR, GMDNAME, KTNAME, BZNR, BZNAME, 
+         stadtische_landliche_gebiete, sprachgebiete) %>% 
+  mutate(
+    r_urban = case_when(
+      stadtische_landliche_gebiete == 1 ~  "Urban",
+      stadtische_landliche_gebiete == 2 ~  "Periurban",
+      stadtische_landliche_gebiete == 3 ~  "Rural",
+      TRUE ~  ""),
+    r_lang = case_when(
+      sprachgebiete == 1 ~  "German",
+      sprachgebiete == 2 ~  "French",
+      sprachgebiete == 3 ~  "Italian",
+      sprachgebiete == 4 ~  "Romansh",
+      TRUE ~  "")
+  ) %>% 
+  select(-stadtische_landliche_gebiete, -sprachgebiete)
 ```
 
+```{r include=FALSE}
+stopifnot(nrow(anti_join(raum, gg21)) == 0)
+
+gg21_merged <- gg21 %>% 
+  left_join(raum) %>% 
+  relocate(KTNAME, .after = KTNR)
+```
+
+## Urbanization
+
+```{r echo=FALSE}
+frq(raum, r_urban)
+
+tm_shape(se21, is.master = FALSE) +
+  tm_fill(col = "#a7cdf2")  +
+  tm_shape(gg21_merged) +
+  tm_fill(col = "r_urban")  +
+  tm_shape(kt21) +
+  tm_borders()  +
+  tm_layout(
+    title = "Urbanization 2021"
+  )
+```
+
+## Language region
+
+```{r echo=FALSE}
+frq(raum, r_lang)
+
+tm_shape(se21, is.master = FALSE) +
+  tm_fill(col = "#a7cdf2")  +
+  tm_shape(gg21_merged) +
+  tm_fill(col = "r_lang")  +
+  tm_shape(kt21) +
+  tm_borders()  +
+  tm_layout(
+    title = "Language region 2021"
+  )
+```

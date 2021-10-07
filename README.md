@@ -1,1 +1,1 @@
-# ISPM_geo-mortality
+## Spatial analyses of 2020-21 excess mortality in Switzerland 

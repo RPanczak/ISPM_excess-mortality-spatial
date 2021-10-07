@@ -279,6 +279,8 @@ write_rds(st_gg21, "data/swisstopo/st_gg21.Rds")
 
 ## Arbeitsmarktregionen 2018
 
+### Data sources 
+
 More info [here](https://www.bfs.admin.ch/bfs/de/home/aktuell/neue-veroeffentlichungen.gnpdetail.2019-0439.html).  
 
 ```{r}
@@ -310,13 +312,17 @@ raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx",
   relocate(ARGRNAME, .after = ARGRNR) %>% 
   relocate(ARNAME, .after = ARNR) %>% 
   mutate(border = if_else(ARNAME %in% c("Schaffhausen", "Basel", 
-                                      "Delémont", "Porrentruy", "Saignelégier–Le Noirmont", "La Chaux-de-Fonds",
-                                      "Le Chenit", "Genève",
-                                      "Locarno", "Lugano"), 
+                                        "Delémont", "Porrentruy", "Saignelégier–Le Noirmont", "La Chaux-de-Fonds",
+                                        "Le Chenit", "Genève",
+                                        "Locarno", "Lugano"), 
                           1, 0))
 
 write_rds(raum, "data/BfS/AR.Rds")
 ```
+
+### Preps
+
+List of regions was merged on the basis of community number and then these communitites were aggregated.  
 
 ```{r}
 argr_21 <- gg21 %>% 
@@ -389,6 +395,10 @@ tm_shape(se21, is.master = FALSE) +
   )
 ```
 
+### Border regions
+
+Defined on the basis of [this map](https://www.bfs.admin.ch/bfs/de/home/aktuell/neue-veroeffentlichungen.assetdetail.8706500.html).  Linked by name of the region since some codes seemed to be out of date? (e. Basel).  
+
 ```{r echo=FALSE}
 tm_shape(se21, is.master = FALSE) +
   tm_fill(col = "gray", alpha = 0.5) +
@@ -447,23 +457,34 @@ gg21 %>%
 Using `Gemeindestand - Stand vom 01.07.2021.xlsx` from [here](https://www.agvchapp.bfs.admin.ch/de/home) we can identify communities with changes during the study period.  
 
 ```{r}
-histcomm <- read_excel("data-raw/BfS/Gemeindestand - Stand vom 01.07.2021.xlsx", 
-                       col_types = c("numeric", "text", "skip", 
-                                     "skip", "numeric", "text", "text")) %>%
+histcomm <- read_xlsx("data-raw/BfS/Mutierte_Gemeinden_20150101_bis_20210701.xlsx", 
+                      col_types = c("numeric", "text", "numeric", 
+                                    "numeric", "text", "text", "numeric", 
+                                    "numeric", "text", "text"), 
+                      skip = 1) %>%
   remove_empty(c("rows", "cols")) %>% clean_names() %>% 
   mutate(datum_der_aufnahme = ymd(datum_der_aufnahme)) %>% 
-  filter(datum_der_aufnahme >= ymd("2015-01-01") & 
-           datum_der_aufnahme < ymd("2021-07-01")) %>% 
-  arrange(desc(datum_der_aufnahme), gemeindename)
+  arrange(desc(datum_der_aufnahme), gemeindename_5) %>% 
+  rename(kanton_old = kanton_2,
+         bezirks_num_old = bezirks_nummer_3,
+         bfs_gde_num_old = bfs_gde_nummer_4,
+         gemeindename_old = gemeindename_5,
+         kanton_new = kanton_6,
+         bezirks_num_new = bezirks_nummer_7,
+         bfs_gde_num_new = bfs_gde_nummer_8,
+         gemeindename_new = gemeindename_9)
+
+write_rds(histcomm, "data/BfS/histcomm.Rds")
 ```
 
-There were `r length(unique(histcomm$bfs_gde_nummer))` communities with changes recorded in `2015-01-01` - `2021-07-01` period.  
+There were `r length(unique(histcomm$bezirks_num_old))` communities with changes recorded in `2015-01-01` - `2021-07-01` period.  
 
 Here is list of changes from `2020-01-01` onwards that could affect other data that date for instance refer to  `2020-12-31`:  
 
 ```{r echo=FALSE}
 histcomm %>% 
   filter(datum_der_aufnahme >= ymd("2021-01-01")) %>% 
+  select(-kanton_new, -bezirks_num_old, -bezirks_num_new) %>% 
   kbl() %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE) %>% 
@@ -471,11 +492,11 @@ histcomm %>%
   row_spec(1, italic = FALSE)
 ```
 
-Luckily only one of these changes occurred after `2021-01-01` and it was a fusion which is easier to handle:  
-
-> Auf den 18. April 2021 fusionierten die ehemaligen politischen Gemeinden Croglio, Monteggio, Ponte Tresa und Sessa zur neuen politischen Gemeinde Tresa
+Luckily only few changes occurred after `2021-01-01` and it was a fusion which is easier to handle.  
 
 ```{r eval=FALSE, include=FALSE}
+# Auf den 18. April 2021 fusionierten die ehemaligen politischen Gemeinden Croglio, Monteggio, Ponte Tresa und Sessa zur neuen politischen Gemeinde Tresa
+
 histcomm %>% 
   filter(bfs_gde_nummer %in% c(5239))
 

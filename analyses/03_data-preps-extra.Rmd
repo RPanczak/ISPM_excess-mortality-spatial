@@ -22,7 +22,7 @@ options(scipen = 999)
 options(max.print = "75")
 
 library(pacman)
-p_load(fst, haven, readxl,
+p_load(haven, readxl,
        tidyverse, magrittr, janitor, scales, lubridate, kableExtra,
        sf, tmap)
 
@@ -71,9 +71,12 @@ Important info from footnotes:
 > *Datenquelle: Statistik der Bevölkerung und der Haushalte STATPOP*
 > *Definition der ständigen Wohnbevölkerung*
 
-```{r}
-deaths_2015_2021_exp <- read_fst("data/BfS-closed/deaths_2015_2021_exp.fst")
+Communitu mutations data after `2021-01-01` from Cordula are integrated into the data and pops are recalculated using these new codes to match mortality.  
 
+```{r}
+histcomm <- read_rds("data/BfS/histcomm.Rds") %>% 
+  filter(datum_der_aufnahme >= ymd("2021-01-01")) %>% 
+  select(bfs_gde_num_old, bfs_gde_num_new, gemeindename_new)
 
 population <- read_xlsx("data-raw/BfS/px-x-0103010000_201.xlsx", 
                         col_types = c("numeric", "skip", "numeric", 
@@ -113,9 +116,54 @@ population <- read_xlsx("data-raw/BfS/px-x-0103010000_201.xlsx",
   select(-x80_84_jahre, -x85_89_jahre, -x90_94_jahre,
          -x95_99_jahre, -x100_jahre_und_mehr) %>% 
   pivot_longer(cols = `<40`:`80+`, 
-               names_to = "age", values_to = "population")
+               names_to = "age", values_to = "population") %>% 
+  left_join(histcomm, by = c("GMDNR" = "bfs_gde_num_old")) %>% 
+  mutate(GMDNR = if_else(!is.na(bfs_gde_num_new), bfs_gde_num_new, GMDNR),
+         GMDNAME = if_else(!is.na(gemeindename_new), gemeindename_new, GMDNAME)) %>% 
+  select(-bfs_gde_num_new, -gemeindename_new) %>% 
+  group_by(year, GMDNR, GMDNAME, sex, nationality, age) %>% 
+  summarise(population = sum(population)) %>% 
+  ungroup()
 
-write_fst(population, "data/BfS/population.fst")
+# 2021 simply derived from 2020
+population <- 
+  bind_rows(population, 
+            population %>% 
+              filter(year == 2020) %>% 
+              mutate(year = 2021)
+  )
+
+write_rds(population, "data/BfS/population.Rds")
+```
+
+```{r}
+deaths_2015_2021_exp <- read_rds("data/BfS-closed/deaths_2015_2021_exp.Rds") 
+
+missing1 <- deaths_2015_2021_exp %>% 
+  anti_join(population) %>% 
+  select(GMDNAME) %>% 
+  distinct()
+
+missing2 <- population %>% 
+  anti_join(deaths_2015_2021_exp) %>% 
+  select(GMDNAME) %>% 
+  distinct()
+
+deaths_2015_2021_exp %<>% 
+  left_join(population) %>% 
+  # nonexistent strata should mean 0 pops
+  replace_na(list(population = 0)) %>% 
+  relocate(GMDNR)
+
+deaths_2015_2021_exp %>% 
+  filter(deaths > population) %>% 
+  arrange(GMDNR, date) %>% 
+  View()
+
+deaths_2015_2021_exp %>% 
+  filter(deaths == population) %>% 
+  filter(deaths != 0) %>% 
+  View()
 ```
 
 <!-- ----------------------------------------------------- -->

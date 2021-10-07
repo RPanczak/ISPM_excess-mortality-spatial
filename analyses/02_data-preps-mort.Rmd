@@ -22,7 +22,7 @@ options(scipen = 999)
 options(max.print = "75")
 
 library(pacman)
-p_load(fst, sf, tidyverse, magrittr, janitor, scales, lubridate, kableExtra)
+p_load(sf, tidyverse, magrittr, janitor, scales, lubridate, kableExtra)
 
 import::from("sjmisc", "frq")
 ```
@@ -260,8 +260,8 @@ deaths_2015_2021_exp %>%
 ```
 
 ```{r include=FALSE}
-write_fst(deaths_2015_2021, "data/BfS-closed/deaths_2015_2021.fst")
-write_fst(deaths_2015_2021_exp, "data/BfS-closed/deaths_2015_2021_exp.fst")
+write_rds(deaths_2015_2021, "data/BfS-closed/deaths_2015_2021.Rds")
+write_rds(deaths_2015_2021_exp, "data/BfS-closed/deaths_2015_2021_exp.Rds")
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -314,7 +314,7 @@ deaths_2015_2021_bez %>%
 ```
 
 ```{r include=FALSE}
-write_fst(deaths_2015_2021_bez, "data/BfS-closed/deaths_2015_2021_bez.fst")
+write_rds(deaths_2015_2021_bez, "data/BfS-closed/deaths_2015_2021_bez.Rds")
 ```
 
 ## Aggregating to Arbeitsmarktgrossregionen 
@@ -364,5 +364,5 @@ deaths_2015_2021_ar %>%
 ```
 
 ```{r include=FALSE}
-write_fst(deaths_2015_2021_ar, "data/BfS-closed/deaths_2015_2021_ar.fst")
+write_rds(deaths_2015_2021_ar, "data/BfS-closed/deaths_2015_2021_ar.Rds")
 ```

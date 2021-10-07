@@ -168,7 +168,7 @@ write_rds(st_kt21, "data/swisstopo/st_kt21.Rds")
 
 ### Resolution
 
-swisstopo borders (in  blue below) offer better resolution and will be used for certain spatial operations (like linking to SEP) whereas BfS data are smaller in size and easier to plot. Example of Bern:  
+swisstopo borders (in blue below) offer better resolution and will be used for certain spatial operations (like linking to SEP) whereas BfS data are smaller in size and easier to plot. Example of Bern:  
 
 ```{r echo=FALSE}
 tm_shape(st_gg21 %>% filter(BFS_NUMMER == 351)) +
@@ -218,14 +218,12 @@ st_gg21 %>%
 
 That might have some implications in terms of spatial operations (maybe contiguity too?).  Data could be converted between types if needed. 
 
-```{r eval=FALSE}
-gg21 %>%
-  filter(! GMDNR %in% st_gg21$BFS_NUMMER) %>% 
-  nrow()
-
-st_gg21 %>%
-  filter(! BFS_NUMMER %in% gg21$GMDNR) %>% 
-  nrow()
+```{r eval=FALSE, include=FALSE}
+# if conversion is needed
+st_gg21 %>% 
+  group_by(BFS_NUMMER) %>% 
+  summarise(BFS_NUMMER = first(BFS_NUMMER)) %>%
+  st_cast("MULTIPOLYGON") 
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -263,9 +261,168 @@ st_gg21 %<>%
   arrange(GMDNR)
 ```
 
+```{r eval=FALSE}
+# should be exact overlap
+gg21 %>%
+  filter(! GMDNR %in% st_gg21$GMDNR) %>% 
+  nrow()
+
+st_gg21 %>%
+  filter(! GMDNR %in% gg21$GMDNR) %>% 
+  nrow()
+```
+
 ```{r}
 write_rds(gg21, "data/BfS/gg21.Rds")
 write_rds(st_gg21, "data/swisstopo/st_gg21.Rds")
+```
+
+## Arbeitsmarktregionen 2018
+
+More info [here](https://www.bfs.admin.ch/bfs/de/home/aktuell/neue-veroeffentlichungen.gnpdetail.2019-0439.html).  
+
+```{r}
+raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx", 
+                  skip = 1) %>% 
+  remove_empty(c("rows", "cols")) %>% clean_names() %>% 
+  filter(! is.na(bfs_gde_nummer)) %>% 
+  rename(GMDNR = bfs_gde_nummer,
+         KTNAME = kanton,
+         BZNAME = bezirksname,
+         ARGRNR = arbeitsmarktgrossregionen_2018,
+         ARNR = arbeitsmarktregionen_2018) %>% 
+  select(GMDNR, KTNAME, BZNAME, 
+         ARGRNR, ARNR) %>% 
+  left_join(
+    read_xlsx("data-raw/BfS/Raumgliederungen.xlsx", 
+              skip = 1, sheet = "CH1+CL_GBAE+2018.0") %>% 
+      rename(
+        ARGRNR = Code,
+        ARGRNAME = Label)
+  ) %>% 
+  left_join(
+    read_xlsx("data-raw/BfS/Raumgliederungen.xlsx", 
+              skip = 1, sheet = "CH1+CL_BAE+2018.0") %>% 
+      rename(
+        ARNR = Code,
+        ARNAME = Label) 
+  ) %>% 
+  relocate(ARGRNAME, .after = ARGRNR) %>% 
+  relocate(ARNAME, .after = ARNR) %>% 
+  mutate(border = if_else(ARNAME %in% c("Schaffhausen", "Basel", 
+                                      "Delémont", "Porrentruy", "Saignelégier–Le Noirmont", "La Chaux-de-Fonds",
+                                      "Le Chenit", "Genève",
+                                      "Locarno", "Lugano"), 
+                          1, 0))
+```
+
+```{r}
+argr_21 <- gg21 %>% 
+  left_join(raum) %>% 
+  group_by(ARGRNR) %>% 
+  summarise(ARGRNR = first(ARGRNR),
+            ARGRNAME = first(ARGRNAME)) %>%
+  st_cast("MULTIPOLYGON") 
+
+ar_21 <- gg21 %>% 
+  left_join(raum) %>% 
+  group_by(ARNR) %>% 
+  summarise(ARNR = first(ARNR),
+            ARNAME = first(ARNAME),
+            border = first(border)) %>%
+  st_cast("MULTIPOLYGON") 
+
+st_write(argr_21, "data/geo/argr_21.shp", delete_dsn = TRUE)
+st_write(ar_21, "data/geo/ar_21.shp", delete_dsn = TRUE)
+
+# st_write(argr_21, "data/geo/argr_21_cor.shp", delete_dsn = TRUE)
+# st_write(ar_21, "data/geo/ar_21_cor.shp", delete_dsn = TRUE)
+```
+
+```{r include=FALSE}
+# same for swisstopo
+st_argr_21 <- st_gg21 %>% 
+  left_join(raum) %>% 
+  group_by(ARGRNR) %>% 
+  summarise(ARGRNR = first(ARGRNR),
+            ARGRNAME = first(ARGRNAME)) %>%
+  st_cast("MULTIPOLYGON") 
+
+st_ar_21 <- st_gg21 %>% 
+  left_join(raum) %>% 
+  group_by(ARNR) %>% 
+  summarise(ARNR = first(ARNR),
+            ARNAME = first(ARNAME),
+            border = first(border)) %>%
+  st_cast("MULTIPOLYGON") 
+
+st_write(st_argr_21, "data/geo/st_argr_21.shp", delete_dsn = TRUE)
+st_write(st_ar_21, "data/geo/st_ar_21.shp", delete_dsn = TRUE)
+
+# st_write(st_argr_21, "data/geo/st_argr_21_cor.shp", delete_dsn = TRUE)
+# st_write(st_ar_21, "data/geo/st_ar_21_cor.shp", delete_dsn = TRUE)
+```
+
+```{r echo=FALSE}
+tm_shape(se21, is.master = FALSE) +
+  tm_fill(col = "gray", alpha = 0.5) +
+  tm_shape(ar_21, is.master = TRUE) +
+  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
+  tm_shape(argr_21) +
+  tm_borders(col = "red", lwd = 2, alpha = 0.5) +
+  tm_layout(
+    title = "Regions & grosregions 2021"
+  )
+```
+
+```{r eval=FALSE, include=FALSE}
+tm_shape(se21, is.master = FALSE) +
+  tm_fill(col = "gray", alpha = 0.5) +
+  tm_shape(st_ar_21, is.master = TRUE) +
+  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
+  tm_shape(st_argr_21) +
+  tm_borders(col = "red", lwd = 2, alpha = 0.5) +
+  tm_layout(
+    title = "Regions & grosregions 2021"
+  )
+```
+
+```{r echo=FALSE}
+tm_shape(se21, is.master = FALSE) +
+  tm_fill(col = "gray", alpha = 0.5) +
+  tm_shape(ar_21) +
+  tm_fill(col = "border", lwd = 2, alpha = 0.5, palette = "cat", n = 2,
+          legend.show = FALSE) +
+  tm_shape(ar_21) +
+  tm_borders(col = "white") +
+  tm_layout(
+    title = "Border regions 2021"
+  )
+```
+
+```{r echo=FALSE}
+gg21 %>% 
+  left_join(raum) %>% 
+  filter(border == 1) %>%  
+  select(GMDNAME, BZNAME, ARGRNAME, ARNAME) %>% 
+  kbl() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE) %>% 
+  column_spec(1, italic = TRUE) %>%
+  row_spec(1, italic = FALSE)
+```
+
+```{r echo=FALSE}
+tm_shape(se21, is.master = FALSE) +
+  tm_fill(col = "gray", alpha = 0.5) +
+  tm_shape(gg21 %>% left_join(raum)) +
+  tm_fill(col = "border", lwd = 2, alpha = 0.5, palette = "cat", n = 2,
+          legend.show = FALSE) +
+  tm_shape(gg21) +
+  tm_borders(col = "white") +
+  tm_layout(
+    title = "Border communities 2021"
+  )
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -305,16 +462,19 @@ Luckily only one of these changes occurred after `2021-01-01` and it was a fusio
 
 ```{r eval=FALSE, include=FALSE}
 histcomm %>% 
-  filter(bfs_gde_nummer %in% c(5178, 5202, 5213, 5222, 5239))
+  filter(bfs_gde_nummer %in% c(5239))
+
+histcomm %>% 
+  filter(bfs_gde_nummer %in% c(5178, 5202, 5213, 5222))
 
 gg21 %>% 
   st_drop_geometry() %>% 
-  filter(GMDNR %in% c(5178, 5202, 5213, 5222, 5239)) %>% 
+  filter(GMDNR %in% c(5239)) %>% 
   select(GMDNR, GMDNAME)
 
 # st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01012021.shp",
 #         quiet = TRUE) %>% 
 #   st_drop_geometry() %>% 
-#   filter(GMDNR %in% c(5178, 5202, 5213, 5222, 5239)) %>% 
+#   filter(GMDNR %in% c(5178, 5202, 5213, 5222)) %>% 
 #   select(GMDNR, GMDNAME)
 ```

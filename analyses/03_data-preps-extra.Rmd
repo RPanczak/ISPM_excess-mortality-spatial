@@ -22,7 +22,7 @@ options(scipen = 999)
 options(max.print = "75")
 
 library(pacman)
-p_load(fst, haven, 
+p_load(fst, haven, readxl,
        tidyverse, magrittr, janitor, scales, lubridate, kableExtra,
        sf, tmap)
 
@@ -58,8 +58,65 @@ mu <- Hmisc::markupSpecs$html
 
 # Population
 
-px-x-0102010000_103.xlsx
+Data extracted from [`px-x-0103010000_201`](https://www.pxweb.bfs.admin.ch/pxweb/de/px-x-0103010000_201/-/px-x-0103010000_201.px/):
 
+> Ständige und nichtständige Wohnbevölkerung nach institutionellen Gliederungen, Staatsangehörigkeit (Kategorie), Geburtsort, Geschlecht und Altersklasse
+
+Important info from footnotes:
+
+> *Letzte Änderungen: Neuer Datensatz (Jahr 2020)*
+> *Stand der Datenbank: Juni 2021*
+> *Stichtag: 31. Dezember*
+> **Raumbezug: Gemeinden / 18.10.2020**
+> *Datenquelle: Statistik der Bevölkerung und der Haushalte STATPOP*
+> *Definition der ständigen Wohnbevölkerung*
+
+```{r}
+deaths_2015_2021_exp <- read_fst("data/BfS-closed/deaths_2015_2021_exp.fst")
+
+
+population <- read_xlsx("data-raw/BfS/px-x-0103010000_201.xlsx", 
+                        col_types = c("numeric", "skip", "numeric", 
+                                      "text", "skip", "skip", "skip", "text", 
+                                      "skip", "text", "numeric", "numeric", 
+                                      "numeric", "numeric", "numeric", 
+                                      "numeric", "numeric", "numeric", 
+                                      "numeric", "numeric", "numeric", 
+                                      "numeric", "numeric", "numeric", 
+                                      "numeric", "numeric", "numeric", 
+                                      "numeric", "numeric", "numeric", 
+                                      "numeric"), 
+                        skip = 1) %>%
+  remove_empty(c("rows", "cols")) %>% clean_names() %>% 
+  rename(year = x1, 
+         GMDNR = x2,
+         GMDNAME = x3) %>% 
+  mutate(sex = if_else(x5 == "Frau", "Female", "Male"),
+         nationality = if_else(x4 == "Schweiz", "Swiss", "Foreigner")) %>% 
+  select(-x4, -x5) %>% 
+  relocate(sex, .after = GMDNAME) %>% 
+  relocate(nationality, .after = sex) %>% 
+  mutate(GMDNAME = word(GMDNAME, 2, -1)) %>% 
+  fill(year, GMDNR, GMDNAME, nationality) %>% 
+  mutate(`<40` = x0_4_jahre + x5_9_jahre + x10_14_jahre + x15_19_jahre + 
+           x20_24_jahre + x25_29_jahre + x30_34_jahre + x35_39_jahre) %>% 
+  select(-x0_4_jahre, -x5_9_jahre, -x10_14_jahre, -x15_19_jahre,  
+         -x20_24_jahre, -x25_29_jahre, -x30_34_jahre, -x35_39_jahre) %>% 
+  mutate(`40-49` = x40_44_jahre + x45_49_jahre) %>% 
+  mutate(`50-59` = x50_54_jahre + x55_59_jahre) %>% 
+  mutate(`60-69` = x60_64_jahre + x65_69_jahre) %>% 
+  mutate(`70-79` = x70_74_jahre + x75_79_jahre) %>% 
+  select(-x40_44_jahre, -x45_49_jahre, -x50_54_jahre, -x55_59_jahre,
+         -x60_64_jahre, -x65_69_jahre, -x70_74_jahre, -x75_79_jahre) %>% 
+  mutate(`80+` = x80_84_jahre +x85_89_jahre + x90_94_jahre +
+           x95_99_jahre + x100_jahre_und_mehr) %>% 
+  select(-x80_84_jahre, -x85_89_jahre, -x90_94_jahre,
+         -x95_99_jahre, -x100_jahre_und_mehr) %>% 
+  pivot_longer(cols = `<40`:`80+`, 
+               names_to = "age", values_to = "population")
+
+write_fst(population, "data/BfS/population.fst")
+```
 
 <!-- ----------------------------------------------------- -->
 

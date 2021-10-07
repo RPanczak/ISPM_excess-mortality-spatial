@@ -314,6 +314,8 @@ raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx",
                                       "Le Chenit", "Genève",
                                       "Locarno", "Lugano"), 
                           1, 0))
+
+write_rds(raum, "data/BfS/AR.Rds")
 ```
 
 ```{r}
@@ -401,10 +403,10 @@ tm_shape(se21, is.master = FALSE) +
 ```
 
 ```{r echo=FALSE}
-gg21 %>% 
-  left_join(raum) %>% 
+ar_21 %>% 
+  st_drop_geometry() %>% 
   filter(border == 1) %>%  
-  select(GMDNAME, BZNAME, ARGRNAME, ARNAME) %>% 
+  select(-border) %>% 
   kbl() %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE) %>% 
@@ -423,6 +425,19 @@ tm_shape(se21, is.master = FALSE) +
   tm_layout(
     title = "Border communities 2021"
   )
+```
+
+```{r echo=FALSE}
+gg21 %>% 
+  st_drop_geometry() %>% 
+  left_join(raum) %>% 
+  filter(border == 1) %>%  
+  select(GMDNAME, BZNAME, ARGRNAME, ARNAME) %>% 
+  kbl() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE) %>% 
+  column_spec(1, italic = TRUE) %>%
+  row_spec(1, italic = FALSE)
 ```
 
 <!-- ----------------------------------------------------- -->

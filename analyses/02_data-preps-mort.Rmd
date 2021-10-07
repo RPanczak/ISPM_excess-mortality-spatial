@@ -101,7 +101,9 @@ deaths_2015_2021 %>%
 
 ```{r include=FALSE}
 gg21 <- read_rds("data/BfS/gg21.Rds") %>% 
-  st_drop_geometry()
+  st_drop_geometry() %>% 
+  # prepared in 01.Rmd
+  left_join(read_rds("data/BfS/AR.Rds"))
 ```
 
 ```{r include=FALSE}
@@ -133,6 +135,7 @@ no_cases <- gg21 %>%
 
 ```{r echo=FALSE}
 no_cases %>% 
+  select(GMDNAME, KTNAME) %>% 
   kbl() %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE) %>% 
@@ -144,11 +147,15 @@ rm(no_cases)
 
 ## Age groups
 
-Simplified to `<40`, `40-59` , `60-69`, `70-79` & `80+`
+Original age groups:  
+
+```{r echo=FALSE}
+frq(deaths_2015_2021, agegroup)
+```
+
+Were simplified to `<40`, `40-59` , `60-69`, `70-79` & `80+`
 
 ```{r}
-frq(deaths_2015_2021, agegroup)
-
 deaths_2015_2021 %<>% 
   mutate(
     age = case_when(
@@ -170,7 +177,9 @@ deaths_2015_2021 %<>%
   group_by(year, month, canton, GMDNAME, sex, age, nationality) %>% 
   summarise(deaths = sum(COUNT)) %>% 
   ungroup()
+```
 
+```{r echo=FALSE}
 frq(deaths_2015_2021, age)
 ```
 
@@ -216,7 +225,7 @@ deaths_2015_2021_exp <-
   ungroup()
 ```
 
-That obviously drastically increases the size of the dataset from `r number(nrow(deaths_2015_2021), big.mark = ",")` to `r number(nrow(deaths_2015_2021_exp), big.mark = ",")` (*ie.* 2,163 communities each with 2,016 data points).  
+That obviously increases the size of the dataset from `r number(nrow(deaths_2015_2021), big.mark = ",")` to `r number(nrow(deaths_2015_2021_exp), big.mark = ",")` (*ie.* 2,163 communities each with 2,016 data points).  
 
 Needless to say that creates large amount of zero cells:
 
@@ -306,4 +315,54 @@ deaths_2015_2021_bez %>%
 
 ```{r include=FALSE}
 write_fst(deaths_2015_2021_bez, "data/BfS-closed/deaths_2015_2021_bez.fst")
+```
+
+## Aggregating to Arbeitsmarktgrossregionen 
+
+```{r}
+deaths_2015_2021_ar <- deaths_2015_2021_exp %>% 
+  left_join(gg21 %>% select(GMDNAME, ARGRNR, ARGRNAME, ARNR, ARNAME)) %>% 
+  select(-GMDNAME) %>% 
+  group_by(ARGRNR, ARGRNAME, ARNR, ARNAME, 
+           canton, year, month, date, age, sex, nationality) %>% 
+  summarise(deaths = as.integer(sum(deaths))) %>% 
+  ungroup()
+```
+
+That reduces the size of the dataset to `r number(nrow(deaths_2015_2021_ar), big.mark = ",")`.  
+
+Proportion of zero cells:
+
+```{r echo=FALSE}
+frq(deaths_2015_2021_ar, deaths == 0)
+```
+
+## Examples of time series
+
+### Districts Bern & Biel/Bienne
+
+```{r echo=FALSE}
+deaths_2015_2021_ar %>% 
+  filter(ARNAME %in% c("Bern", "Biel/Bienne")) %>% 
+  group_by(ARNAME, date) %>% 
+  summarise(deaths = sum(deaths)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = date, y = deaths, group = factor(ARNAME), color = factor(ARNAME))) + 
+  geom_line() + geom_point()
+```
+
+## All time series
+
+```{r echo=FALSE}
+deaths_2015_2021_ar %>% 
+  group_by(ARNAME, date) %>% 
+  summarise(deaths = sum(deaths)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = date, y = deaths, group = ARNAME)) + 
+  geom_line(colour = "darkorchid", alpha = 0.25) +
+  theme_minimal()
+```
+
+```{r include=FALSE}
+write_fst(deaths_2015_2021_ar, "data/BfS-closed/deaths_2015_2021_ar.fst")
 ```

@@ -23,7 +23,7 @@ options(max.print = "75")
 
 library(pacman)
 p_load(tidyverse, readxl, magrittr, 
-       scales, janitor, lubridate, kableExtra,
+       scales, janitor, lubridate, DT,
        sf, tmap)
 
 import::from("sjmisc", "frq")
@@ -322,7 +322,7 @@ write_rds(raum, "data/BfS/AR.Rds")
 
 ### Preps
 
-List of regions was merged on the basis of community number and then these communitites were aggregated.  
+List of regions was merged on the basis of community number and then these communities were aggregated.  
 
 ```{r}
 argr_21 <- gg21 %>% 
@@ -343,6 +343,7 @@ ar_21 <- gg21 %>%
 st_write(argr_21, "data/geo/argr_21.shp", delete_dsn = TRUE)
 st_write(ar_21, "data/geo/ar_21.shp", delete_dsn = TRUE)
 
+# manual corrections in QGIS needed
 # st_write(argr_21, "data/geo/argr_21_cor.shp", delete_dsn = TRUE)
 # st_write(ar_21, "data/geo/ar_21_cor.shp", delete_dsn = TRUE)
 ```
@@ -397,7 +398,7 @@ tm_shape(se21, is.master = FALSE) +
 
 ### Border regions
 
-Defined on the basis of [this map](https://www.bfs.admin.ch/bfs/de/home/aktuell/neue-veroeffentlichungen.assetdetail.8706500.html).  Linked by name of the region since some codes seemed to be out of date? (e. Basel).  
+Defined on the basis of [this map](https://www.bfs.admin.ch/bfs/de/home/aktuell/neue-veroeffentlichungen.assetdetail.8706500.html).  Linked by name of the region since some codes seemed to be out of date? (ie. Basel).  
 
 ```{r echo=FALSE}
 tm_shape(se21, is.master = FALSE) +
@@ -417,11 +418,7 @@ ar_21 %>%
   st_drop_geometry() %>% 
   filter(border == 1) %>%  
   select(-border) %>% 
-  kbl() %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
-                full_width = FALSE) %>% 
-  column_spec(1, italic = TRUE) %>%
-  row_spec(1, italic = FALSE)
+  datatable() 
 ```
 
 ```{r echo=FALSE}
@@ -443,11 +440,7 @@ gg21 %>%
   left_join(raum) %>% 
   filter(border == 1) %>%  
   select(GMDNAME, BZNAME, ARGRNAME, ARNAME) %>% 
-  kbl() %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
-                full_width = FALSE) %>% 
-  column_spec(1, italic = TRUE) %>%
-  row_spec(1, italic = FALSE)
+  datatable() 
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -485,11 +478,7 @@ Here is list of changes from `2020-01-01` onwards that could affect other data t
 histcomm %>% 
   filter(datum_der_aufnahme >= ymd("2021-01-01")) %>% 
   select(-kanton_new, -bezirks_num_old, -bezirks_num_new) %>% 
-  kbl() %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
-                full_width = FALSE) %>% 
-  column_spec(1, italic = TRUE) %>%
-  row_spec(1, italic = FALSE)
+  datatable()
 ```
 
 Luckily only few changes occurred after `2021-01-01` and it was a fusion which is easier to handle.  

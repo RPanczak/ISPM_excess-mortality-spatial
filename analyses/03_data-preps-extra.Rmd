@@ -24,7 +24,7 @@ options(max.print = "75")
 library(pacman)
 p_load(haven, readxl,
        tidyverse, magrittr, janitor, scales, lubridate, 
-       kableExtra, DT, 
+       DT, 
        sf, tmap)
 
 import::from("sjmisc", "frq")
@@ -82,8 +82,19 @@ histcomm <- read_rds("data/BfS/histcomm.Rds") %>%
   select(bfs_gde_num_old, bfs_gde_num_new, gemeindename_new)
 ```
 
-```{r echo=FALSE}
+```{r eval=FALSE, include=FALSE}
 datatable(histcomm)
+```
+
+```{r eval=FALSE, include=FALSE}
+histcomm_14 <- read_excel("data-raw/BfS/Gemeindestand - Stand vom 01.07.2021.xlsx", 
+                          col_types = c("numeric", "text", "skip", 
+                                        "skip", "numeric", "text", "text")) %>%
+  remove_empty(c("rows", "cols")) %>% clean_names() %>% 
+  mutate(datum_der_aufnahme = ymd(datum_der_aufnahme)) %>% 
+  filter(datum_der_aufnahme >= ymd("2014-01-01") & 
+           datum_der_aufnahme < ymd("2015-01-01")) %>% 
+  arrange(desc(datum_der_aufnahme), gemeindename)
 ```
 
 ## Data preps
@@ -92,8 +103,9 @@ Data aggregated to age groups as in deaths dataset.
 
 ```{r}
 population <- read_xlsx("data-raw/BfS/px-x-0103010000_201.xlsx", 
-                        col_types = c("numeric", "skip", "numeric", 
-                                      "text", "skip", "skip", "skip", "text", 
+                        col_types = c("numeric", 
+                                      "skip", "numeric", "text", "skip", 
+                                      "skip", "skip", "text", "skip", "skip", 
                                       "skip", "text", "numeric", "numeric", 
                                       "numeric", "numeric", "numeric", 
                                       "numeric", "numeric", "numeric", 
@@ -139,6 +151,14 @@ population <- read_xlsx("data-raw/BfS/px-x-0103010000_201.xlsx",
   ungroup()
 ```
 
+Yearly totals (`31st Dec`!):  
+
+```{r}
+population %>% 
+  group_by(year) %>% 
+  summarise(population = sum(population))
+```
+
 ## 2021
 
 Chances of any reliable data for 2021 are pretty slim. One solution is to simply carry over 2020 data.  
@@ -156,14 +176,14 @@ write_rds(population, "data/BfS/population.Rds")
 
 ## Deaths <> population link
 
-Prepared population file is merged to deaths prepared in `02.Rmd`.  
+Prepared population file is merged to deaths prepared in `02.Rmd`. We use file based on place of residence.  
 
 Non-existent population count `communityXyearXageXsexXnationality` strata are assumed to mean 0 pops.  
 
 ```{r}
-deaths_2015_2021_exp <- read_rds("data/BfS-closed/deaths_2015_2021_exp.Rds") 
+w_deaths_2015_2021_exp <- read_rds("data/BfS-closed/w_deaths_2015_2021_exp.Rds") 
 
-deaths_2015_2021_exp %<>% 
+w_deaths_2015_2021_exp %<>% 
   left_join(population) %>% 
   replace_na(list(population = 0)) %>% 
   relocate(GMDNR)
@@ -171,24 +191,21 @@ deaths_2015_2021_exp %<>%
 
 ## Deaths > population problem
 
-There are some strata where count of deaths is larger than count of population. Usually the difference is in range of 1-2 and refers to very small counts, but community **Rennaz** in canton VD seems to have larger issue towards end of 2020?  
-
 ```{r}
-deaths_2015_2021_surplus <- deaths_2015_2021_exp %>% 
+w_deaths_2015_2021_surplus <- w_deaths_2015_2021_exp %>% 
   filter(deaths > population) %>% 
-  arrange(GMDNR, date)
+  arrange(GMDNR, date) %>% 
+  mutate(difference = population - deaths)
 ```
 
+There are `r number(nrow(w_deaths_2015_2021_surplus))` strata from `r number(length(unique(w_deaths_2015_2021_surplus$GMDNR)))`  communities where count of deaths is larger than count of population. The difference is in range of 1-2 and refers to very small counts of deaths/pops.   
+
 ```{r echo=FALSE}
-datatable(deaths_2015_2021_surplus)
+datatable(w_deaths_2015_2021_surplus)
 ```
 
 ```{r include=FALSE}
-# exported to share with Cordula
-deaths_2015_2021_surplus %>% 
-  openxlsx::write.xlsx("data/pop_deaths_errors.xlsx", overwrite = TRUE,
-                       creator = "@RPanczak", sheetName = "deaths",
-                       firstRow = TRUE, colWidths ="auto")
+rm(w_deaths_2015_2021_surplus)
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -199,13 +216,13 @@ munch::swc_get_mutations(5412)
 
 ```{r eval=FALSE, include=FALSE}
 # missing checks
-missing1 <- deaths_2015_2021_exp %>% 
+missing1 <- w_deaths_2015_2021_exp %>% 
   anti_join(population) %>% 
   select(GMDNAME) %>% 
   distinct()
 
 missing2 <- population %>% 
-  anti_join(deaths_2015_2021_exp) %>% 
+  anti_join(w_deaths_2015_2021_exp) %>% 
   select(GMDNAME) %>% 
   distinct()
 ```
@@ -214,8 +231,27 @@ missing2 <- population %>%
 
 # Cartogram
 
-```{r}
+2020 population counts (*ignoring age structure*) were used to derive cartograms.  
 
+```{r include=FALSE}
+# prepared in 01.Rmd
+gg21 <- read_rds("data/BfS/gg21.Rds")
+se21 <- read_rds("data/BfS/se21.Rds")
+kt21 <- read_rds("data/BfS/kt21.Rds")
+
+st_gg21 <- read_rds("data/swisstopo/st_gg21.Rds") %>% 
+  st_transform(crs = 2056)
+
+stopifnot(
+  length(unique(st_gg21$GMDNR)) == length(unique(gg21$GMDNR))
+)
+```
+
+```{r}
+population %>% 
+  filter(year == 2020) %>% 
+  group_by(GMDNR) %>% 
+  summarise(population = sum(population))
 ```
 
 
@@ -240,22 +276,9 @@ sep3 <- read_rds("../SNC_Swiss-SEP2/FINAL/RDS/ssep3_user_geo.Rds") %>%
 Using `r number(nrow(sep3), big.mark = ",")` n'hoods from version 3.0 (hence slightly unequal size of deciles!):  
 
 ```{r}
-st_drop_geometry(sep3) %>% 
+sep3 %>% 
+  st_drop_geometry() %>% 
   frq(ssep3_d)
-```
-
-```{r include=FALSE}
-# prepared in 01.Rmd
-gg21 <- read_rds("data/BfS/gg21.Rds")
-se21 <- read_rds("data/BfS/se21.Rds")
-kt21 <- read_rds("data/BfS/kt21.Rds")
-
-st_gg21 <- read_rds("data/swisstopo/st_gg21.Rds") %>% 
-  st_transform(crs = 2056)
-
-stopifnot(
-  length(unique(st_gg21$GMDNR)) == length(unique(gg21$GMDNR))
-)
 ```
 
 This is aggregated to the level of `r scales::number(length(unique(st_gg21$GMDNR)), big.mark = ",")` communities from swisstopo.

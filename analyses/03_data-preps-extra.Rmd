@@ -208,6 +208,8 @@ w_deaths_2015_2021_surplus %>%
 
 ```{r include=FALSE}
 rm(w_deaths_2015_2021_surplus)
+rm(w_deaths_2015_2021_exp)
+write_rds(w_deaths_2015_2021_pop, "data/BfS-closed/w_deaths_2015_2021_pop.Rds")
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -232,6 +234,10 @@ rm(missing1, missing2)
 
 2020 population counts (*ignoring age structure*) were used to derive cartograms.  
 
+## Communities
+
+Data  
+
 ```{r include=FALSE}
 # prepared in 01.Rmd
 gg21 <- read_rds("data/BfS/gg21.Rds")
@@ -246,13 +252,186 @@ stopifnot(
 )
 ```
 
-```{r}
-population %>% 
-  filter(year == 2020) %>% 
-  group_by(GMDNR) %>% 
-  summarise(population = sum(population))
+Preps  
+
+```{r eval=FALSE}
+carto_data <- 
+  gg21 %>% 
+  left_join(
+    population %>% 
+      filter(year == 2020) %>% 
+      group_by(GMDNR) %>% 
+      summarise(population = sum(population)) %>% 
+      ungroup()
+  ) 
+
+carto_data %>% 
+  select(-BZNR, -KTNR) %>% 
+  st_write("data/carto/in_gg21.shp", delete_dsn = TRUE)
+
+se21 %>% 
+  select(GMDNR, GMDNAME) %>% 
+  st_write("data/carto/in_se21.shp", delete_dsn = TRUE)
+
+# crashing :/
+# carto <- carto_data %>%
+#   cartogram::cartogram_cont("population")
+
+carto_ncont <- carto_data %>% 
+  cartogram::cartogram_ncont("population")
+
+carto_dorling <- carto_data %>% 
+  cartogram::cartogram_dorling("population")
+
+# write_rds(carto, "data/carto/carto.Rds")
+write_rds(carto_ncont, "data/carto/carto_ncont.Rds")
+write_rds(carto_dorling, "data/carto/carto_dorling.Rds")
+
+carto_data <- 
+  st_gg21 %>% 
+  select(GMDNR) %>% 
+  left_join(
+    population %>% 
+      filter(year == 2020) %>% 
+      group_by(GMDNR) %>% 
+      summarise(population = sum(population)) %>% 
+      ungroup()
+  )
+
+# crashing :/
+# carto <- carto_data %>%
+#   cartogram::cartogram_cont("population")
 ```
 
+```{r eval=FALSE}
+# ScapeToad version
+# java -Xmx1g -jar "C:\Program Files\ScapeToad-v11\ScapeToad.jar"
+```
+
+```{r}
+# carto <- read_rds("data/carto/carto.Rds")
+carto_ncont <- read_rds("data/carto/carto_ncont.Rds")
+carto_dorling <- read_rds("data/carto/carto_dorling.Rds")
+
+# ScapeToad version
+carto <- st_read("data/carto/out_gg21.shp")
+carto_se <- st_read("data/carto/out_se21.shp")
+
+tmap_mode("plot")
+```
+
+'Classic' cartogram  
+
+```{r echo=FALSE, warning=FALSE}
+tm_shape(carto) + 
+  tm_polygons("population", 
+              style = "jenks", legend.show = TRUE) +
+  tm_shape(carto_se) + 
+  tm_polygons("dodgerblue", 
+              style = "jenks", legend.show = TRUE, border.col = NA, alpha = 0.5) +
+  tm_layout(frame = FALSE)
+```
+
+Noncontinuous cartogram  
+
+```{r}
+tm_shape(kt21) + 
+  tm_borders() + 
+  tm_shape(carto_ncont) + 
+  tm_fill("population", 
+          style = "jenks", legend.show = TRUE) +
+  tm_layout(frame = FALSE)
+```
+
+Dorling carotgram  
+
+```{r}
+tm_shape(carto_dorling) + 
+  tm_fill("population", 
+          style = "jenks", legend.show = TRUE) +
+  tm_layout(frame = FALSE)
+```
+
+## AR
+
+Data  
+
+```{r include=FALSE}
+# prepared in 01.Rmd
+argr_21_cor <- st_read("data/geo/argr_21_cor.shp")
+ar_21_cor <- st_read("data/geo/ar_21_cor.shp")
+
+st_ar_21_cor <- st_read("data/geo/st_ar_21_cor.shp")
+
+raum <- read_rds("data/BfS/AR.Rds") %>% 
+  select(GMDNR, ARNR)
+```
+
+Preps  
+
+```{r eval=FALSE}
+ar_carto_data <- 
+  ar_21_cor %>% 
+  left_join(
+    population %>% 
+      filter(year == 2020) %>% 
+      group_by(GMDNR) %>% 
+      summarise(population = sum(population)) %>% 
+      ungroup() %>% 
+      left_join(raum) %>% 
+      group_by(ARNR) %>% 
+      summarise(population = sum(population)) %>% 
+      ungroup()     
+  ) 
+
+ar_carto <- ar_carto_data %>%
+  cartogram::cartogram_cont("population", itermax = 50)
+
+ar_carto_ncont <- ar_carto_data %>% 
+  cartogram::cartogram_ncont("population")
+
+ar_carto_dorling <- ar_carto_data %>% 
+  cartogram::cartogram_dorling("population")
+
+write_rds(ar_carto, "data/carto/ar_carto.Rds")
+write_rds(ar_carto_ncont, "data/carto/ar_carto_ncont.Rds")
+write_rds(ar_carto_dorling, "data/carto/ar_carto_dorling.Rds")
+```
+
+```{r}
+ar_carto <- read_rds("data/carto/ar_carto.Rds")
+ar_carto_ncont <- read_rds("data/carto/ar_carto_ncont.Rds")
+ar_carto_dorling <- read_rds("data/carto/ar_carto_dorling.Rds")
+```
+
+'Classic' cartogram  
+
+```{r echo=FALSE, warning=FALSE}
+tm_shape(ar_carto) + 
+  tm_polygons("population", 
+              style = "jenks", legend.show = TRUE) +
+  tm_layout(frame = FALSE)
+```
+
+Noncontinuous cartogram  
+
+```{r}
+tm_shape(kt21) + 
+  tm_borders() + 
+  tm_shape(ar_carto_ncont) + 
+  tm_fill("population", 
+          style = "jenks", legend.show = TRUE) +
+  tm_layout(frame = FALSE)
+```
+
+Dorling carotgram  
+
+```{r}
+tm_shape(ar_carto_dorling) + 
+  tm_fill("population", 
+          style = "jenks", legend.show = TRUE) +
+  tm_layout(frame = FALSE)
+```
 
 <!-- ----------------------------------------------------- -->
 

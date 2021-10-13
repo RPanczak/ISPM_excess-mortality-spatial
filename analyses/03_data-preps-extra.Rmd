@@ -181,9 +181,9 @@ Prepared population file is merged to deaths prepared in `02.Rmd`. We use file b
 Non-existent population count `communityXyearXageXsexXnationality` strata are assumed to mean 0 pops.  
 
 ```{r}
-w_deaths_2015_2021_exp <- read_rds("data/BfS-closed/w_deaths_2015_2021_exp.Rds") 
+w_deaths_2015_2021_exp <- read_rds("data/BfS-closed/w_deaths_2015_2021_exp.Rds")
 
-w_deaths_2015_2021_exp %<>% 
+w_deaths_2015_2021_pop <- w_deaths_2015_2021_exp %>% 
   left_join(population) %>% 
   replace_na(list(population = 0)) %>% 
   relocate(GMDNR)
@@ -192,7 +192,7 @@ w_deaths_2015_2021_exp %<>%
 ## Deaths > population problem
 
 ```{r}
-w_deaths_2015_2021_surplus <- w_deaths_2015_2021_exp %>% 
+w_deaths_2015_2021_surplus <- w_deaths_2015_2021_pop %>% 
   filter(deaths > population) %>% 
   arrange(GMDNR, date) %>% 
   mutate(difference = population - deaths)
@@ -201,17 +201,13 @@ w_deaths_2015_2021_surplus <- w_deaths_2015_2021_exp %>%
 There are `r number(nrow(w_deaths_2015_2021_surplus))` strata from `r number(length(unique(w_deaths_2015_2021_surplus$GMDNR)))`  communities where count of deaths is larger than count of population. The difference is in range of 1-2 and refers to very small counts of deaths/pops.   
 
 ```{r echo=FALSE}
-datatable(w_deaths_2015_2021_surplus)
+w_deaths_2015_2021_surplus %>% 
+  select(-GMDNR, -date) %>% 
+  datatable()
 ```
 
 ```{r include=FALSE}
 rm(w_deaths_2015_2021_surplus)
-```
-
-```{r eval=FALSE, include=FALSE}
-# Rennaz 
-munch::swc_get_mun_history(5412)
-munch::swc_get_mutations(5412)
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -222,9 +218,12 @@ missing1 <- w_deaths_2015_2021_exp %>%
   distinct()
 
 missing2 <- population %>% 
+  filter(year >2014) %>% 
   anti_join(w_deaths_2015_2021_exp) %>% 
   select(GMDNAME) %>% 
   distinct()
+
+rm(missing1, missing2)
 ```
 
 <!-- ----------------------------------------------------- -->

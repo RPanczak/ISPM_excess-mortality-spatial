@@ -1,6 +1,6 @@
 ---
 title: "Spatial analyses of 2020-21 excess mortality in CH"
-subtitle: "Mortality data preparation"
+subtitle: "Mortality data preparation (*Wohnort* based)"
 author: "Radek Panczak"
 date: "`r Sys.Date()`"
 output:
@@ -22,7 +22,7 @@ options(scipen = 999)
 options(max.print = "75")
 
 library(pacman)
-p_load(sf, tidyverse, magrittr, janitor, scales, lubridate, kableExtra)
+p_load(sf, tidyverse, magrittr, janitor, scales, lubridate, DT)
 
 import::from("sjmisc", "frq")
 ```
@@ -54,10 +54,12 @@ mu <- Hmisc::markupSpecs$html
 
 ## Source 
 
-Custom file delivered by BfS covering 2021 period and standardizing communities to Jul 2021. 
+Custom file delivered by BfS covering 2021 period and standardizing communities to Jul 2021.  
+
+Using **Wohnort** (the community where the person died) as unit of anlysis.   
 
 ```{r}
-deaths_2015_2021 <- read_csv("data-raw/BfS-closed/05OCT21_Lieferung_Panczak.csv", 
+w_deaths_2015_2021 <- read_csv("data-raw/BfS-closed/13OCT21_Lieferung_Panczak.csv", 
                              col_types = cols(year = col_integer(), 
                                               month = col_integer(), 
                                               COUNT = col_integer()),
@@ -77,12 +79,12 @@ deaths_2015_2021 <- read_csv("data-raw/BfS-closed/05OCT21_Lieferung_Panczak.csv"
 Description of data:  
 
 ```{r echo=FALSE}
-report::report(deaths_2015_2021)
+report::report(w_deaths_2015_2021)
 ```
 
 ```{r eval=FALSE, include=FALSE}
 # Deaths across variables:  
-deaths_2015_2021 %>%
+w_deaths_2015_2021 %>%
   mutate(month = factor(month)) %>% 
   uncount(deaths) %>% 
   select(-GMDNAME, -canton) %>% 
@@ -91,7 +93,7 @@ deaths_2015_2021 %>%
 
 ```{r eval=FALSE, include=FALSE}
 # Canton x year distribution:  
-deaths_2015_2021 %>%
+w_deaths_2015_2021 %>%
   uncount(deaths) %>% 
   select(year, canton) %>% 
   gtsummary::tbl_summary(by = year)
@@ -110,7 +112,7 @@ gg21 <- read_rds("data/BfS/gg21.Rds") %>%
 # Codes with no link
 # has to be empty 
 
-no_link <- deaths_2015_2021 %>% 
+no_link <- w_deaths_2015_2021 %>% 
   select(GMDNAME) %>% 
   distinct()  %>% 
   anti_join(gg21)
@@ -125,7 +127,7 @@ There were `r number(nrow(gg21), big.mark = ",")` communities in Jul 2021 in CH.
 ```{r echo=FALSE}
 no_cases <- gg21 %>% 
   anti_join(
-    deaths_2015_2021 %>% 
+    w_deaths_2015_2021 %>% 
       select(GMDNAME) %>% 
       distinct() 
   )
@@ -136,11 +138,7 @@ no_cases <- gg21 %>%
 ```{r echo=FALSE}
 no_cases %>% 
   select(GMDNAME, KTNAME) %>% 
-  kbl() %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
-                full_width = FALSE) %>% 
-  column_spec(1, italic = TRUE) %>%
-  row_spec(1, italic = FALSE)
+  datatable(options = list(paging = FALSE)) 
 
 rm(no_cases)
 ```
@@ -150,13 +148,13 @@ rm(no_cases)
 Original age groups:  
 
 ```{r echo=FALSE}
-frq(deaths_2015_2021, agegroup)
+frq(w_deaths_2015_2021, agegroup)
 ```
 
 Were simplified to `<40`, `40-59` , `60-69`, `70-79` & `80+`
 
 ```{r}
-deaths_2015_2021 %<>% 
+w_deaths_2015_2021 %<>% 
   mutate(
     age = case_when(
       agegroup == "[0-10)" ~   "<40",
@@ -180,15 +178,16 @@ deaths_2015_2021 %<>%
 ```
 
 ```{r echo=FALSE}
-frq(deaths_2015_2021, age)
+frq(w_deaths_2015_2021, age)
 ```
 
 ## Distribution of death counts
 
-Obviously highly skewed. No zeroes here yet! No pop denominator either!  
+Obviously highly skewed.  
+Note:  No zeroes here yet! No pop denominator either!  
 
 ```{r}
-deaths_2015_2021 %>% 
+w_deaths_2015_2021 %>% 
   ggplot(aes(deaths)) + 
   geom_histogram(binwidth = 1)
 ```
@@ -200,11 +199,11 @@ All possible combinations of `year, month, canton, community, age, sex, national
 This expansion also includes communities with zero deaths described above.  
 
 ```{r}
-deaths_2015_2021_exp <- 
+w_deaths_2015_2021_exp <- 
   gg21 %>% 
   select(GMDNAME) %>% 
   distinct() %>% 
-  left_join(deaths_2015_2021) %>% 
+  left_join(w_deaths_2015_2021) %>% 
   select(-deaths, -canton) %>% 
   # avoiding NAs
   mutate(
@@ -215,7 +214,7 @@ deaths_2015_2021_exp <-
     nationality = if_else(is.na(nationality), "Swiss", nationality),
   ) %>% 
   expand(GMDNAME, year, month, age, sex, nationality) %>% 
-  left_join(deaths_2015_2021) %>% 
+  left_join(w_deaths_2015_2021) %>% 
   replace_na(list(deaths = 0)) %>% 
   mutate(date = ymd(paste(year, month, "1", sep = " "))) %>% 
   relocate(date, .after = month) %>% 
@@ -225,12 +224,12 @@ deaths_2015_2021_exp <-
   ungroup()
 ```
 
-That obviously increases the size of the dataset from `r number(nrow(deaths_2015_2021), big.mark = ",")` to `r number(nrow(deaths_2015_2021_exp), big.mark = ",")` (*ie.* 2,163 communities each with 2,016 data points).  
+That obviously increases the size of the dataset from `r number(nrow(w_deaths_2015_2021), big.mark = ",")` to `r number(nrow(w_deaths_2015_2021_exp), big.mark = ",")` (*ie.* 2,163 communities each with 2,016 data points).  
 
 Needless to say that creates large amount of zero cells:
 
 ```{r echo=FALSE}
-frq(deaths_2015_2021_exp, deaths == 0)
+frq(w_deaths_2015_2021_exp, deaths == 0)
 ```
 
 ## Examples of time series
@@ -238,7 +237,7 @@ frq(deaths_2015_2021_exp, deaths == 0)
 ### Communities Bern & Meienried:  
 
 ```{r echo=FALSE}
-deaths_2015_2021_exp %>% 
+w_deaths_2015_2021_exp %>% 
   filter(GMDNAME %in% c("Bern", "Meienried")) %>% 
   group_by(GMDNAME, date) %>% 
   summarise(deaths = sum(deaths)) %>% 
@@ -250,7 +249,7 @@ deaths_2015_2021_exp %>%
 ## All time series
 
 ```{r echo=FALSE}
-deaths_2015_2021_exp %>% 
+w_deaths_2015_2021_exp %>% 
   group_by(GMDNAME, date) %>% 
   summarise(deaths = sum(deaths)) %>% 
   ungroup() %>% 
@@ -260,8 +259,8 @@ deaths_2015_2021_exp %>%
 ```
 
 ```{r include=FALSE}
-write_rds(deaths_2015_2021, "data/BfS-closed/deaths_2015_2021.Rds")
-write_rds(deaths_2015_2021_exp, "data/BfS-closed/deaths_2015_2021_exp.Rds")
+# write_rds(w_deaths_2015_2021, "data/BfS-closed/w_deaths_2015_2021.Rds")
+write_rds(w_deaths_2015_2021_exp, "data/BfS-closed/w_deaths_2015_2021_exp.Rds")
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -271,7 +270,7 @@ write_rds(deaths_2015_2021_exp, "data/BfS-closed/deaths_2015_2021_exp.Rds")
 ## Aggregating to districts
 
 ```{r}
-deaths_2015_2021_bez <- deaths_2015_2021_exp %>% 
+w_deaths_2015_2021_bez <- w_deaths_2015_2021_exp %>% 
   left_join(gg21 %>% select(GMDNAME, BZNR)) %>% 
   select(-GMDNAME) %>% 
   group_by(BZNR, canton, year, month, date, age, sex, nationality) %>% 
@@ -279,12 +278,12 @@ deaths_2015_2021_bez <- deaths_2015_2021_exp %>%
   ungroup()
 ```
 
-That reduces the size of the dataset to `r number(nrow(deaths_2015_2021_bez), big.mark = ",")`.  
+That reduces the size of the dataset to `r number(nrow(w_deaths_2015_2021_bez), big.mark = ",")`.  
 
 Proportion of zero cells decreases:
 
 ```{r echo=FALSE}
-frq(deaths_2015_2021_bez, deaths == 0)
+frq(w_deaths_2015_2021_bez, deaths == 0)
 ```
 
 ## Examples of time series
@@ -292,7 +291,7 @@ frq(deaths_2015_2021_bez, deaths == 0)
 ### Districts Bern & Seeland
 
 ```{r echo=FALSE}
-deaths_2015_2021_bez %>% 
+w_deaths_2015_2021_bez %>% 
   filter(BZNR %in% c(246, 243)) %>% 
   group_by(BZNR, date) %>% 
   summarise(deaths = sum(deaths)) %>% 
@@ -304,7 +303,7 @@ deaths_2015_2021_bez %>%
 ## All time series
 
 ```{r echo=FALSE}
-deaths_2015_2021_bez %>% 
+w_deaths_2015_2021_bez %>% 
   group_by(BZNR, date) %>% 
   summarise(deaths = sum(deaths)) %>% 
   ungroup() %>% 
@@ -314,13 +313,13 @@ deaths_2015_2021_bez %>%
 ```
 
 ```{r include=FALSE}
-write_rds(deaths_2015_2021_bez, "data/BfS-closed/deaths_2015_2021_bez.Rds")
+write_rds(w_deaths_2015_2021_bez, "data/BfS-closed/w_deaths_2015_2021_bez.Rds")
 ```
 
 ## Aggregating to Arbeitsmarktgrossregionen 
 
 ```{r}
-deaths_2015_2021_ar <- deaths_2015_2021_exp %>% 
+w_deaths_2015_2021_ar <- w_deaths_2015_2021_exp %>% 
   left_join(gg21 %>% select(GMDNAME, ARGRNR, ARGRNAME, ARNR, ARNAME)) %>% 
   select(-GMDNAME) %>% 
   group_by(ARGRNR, ARGRNAME, ARNR, ARNAME, 
@@ -329,12 +328,12 @@ deaths_2015_2021_ar <- deaths_2015_2021_exp %>%
   ungroup()
 ```
 
-That reduces the size of the dataset to `r number(nrow(deaths_2015_2021_ar), big.mark = ",")`.  
+That reduces the size of the dataset to `r number(nrow(w_deaths_2015_2021_ar), big.mark = ",")`.  
 
 Proportion of zero cells:
 
 ```{r echo=FALSE}
-frq(deaths_2015_2021_ar, deaths == 0)
+frq(w_deaths_2015_2021_ar, deaths == 0)
 ```
 
 ## Examples of time series
@@ -342,7 +341,7 @@ frq(deaths_2015_2021_ar, deaths == 0)
 ### Districts Bern & Biel/Bienne
 
 ```{r echo=FALSE}
-deaths_2015_2021_ar %>% 
+w_deaths_2015_2021_ar %>% 
   filter(ARNAME %in% c("Bern", "Biel/Bienne")) %>% 
   group_by(ARNAME, date) %>% 
   summarise(deaths = sum(deaths)) %>% 
@@ -354,7 +353,7 @@ deaths_2015_2021_ar %>%
 ## All time series
 
 ```{r echo=FALSE}
-deaths_2015_2021_ar %>% 
+w_deaths_2015_2021_ar %>% 
   group_by(ARNAME, date) %>% 
   summarise(deaths = sum(deaths)) %>% 
   ungroup() %>% 
@@ -364,5 +363,5 @@ deaths_2015_2021_ar %>%
 ```
 
 ```{r include=FALSE}
-write_rds(deaths_2015_2021_ar, "data/BfS-closed/deaths_2015_2021_ar.Rds")
+write_rds(w_deaths_2015_2021_ar, "data/BfS-closed/w_deaths_2015_2021_ar.Rds")
 ```

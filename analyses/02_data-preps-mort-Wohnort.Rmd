@@ -60,10 +60,10 @@ Using **Wohnort** (the community where the person died) as unit of anlysis.
 
 ```{r}
 w_deaths_2015_2021 <- read_csv("data-raw/BfS-closed/13OCT21_Lieferung_Panczak_Wohnort.csv", 
-                             col_types = cols(year = col_integer(), 
-                                              month = col_integer(), 
-                                              COUNT = col_integer()),
-                             locale = readr::locale(encoding = "latin1")) %>% 
+                               col_types = cols(year = col_integer(), 
+                                                month = col_integer(), 
+                                                COUNT = col_integer()),
+                               locale = readr::locale(encoding = "latin1")) %>% 
   mutate(sex = if_else(sex == "F", "Female", "Male"),
          nationality = if_else(nationality == "Schweiz", "Swiss", "Foreigner")) %>% 
   select(-canton, -community) %>% 
@@ -174,7 +174,7 @@ w_deaths_2015_2021 %<>%
       TRUE ~                    agegroup)
   ) %>% 
   select(-agegroup) %>% 
-  group_by(year, month, canton, GMDNAME, sex, age, nationality) %>% 
+  group_by(GMDNAME, year, month, canton, sex, age, nationality) %>% 
   summarise(deaths = sum(COUNT)) %>% 
   ungroup()
 ```
@@ -223,7 +223,11 @@ w_deaths_2015_2021_exp <-
   relocate(canton, .after = GMDNAME) %>% 
   group_by(GMDNAME) %>% 
   fill(canton, .direction = "downup") %>% 
-  ungroup()
+  ungroup() %>% 
+  left_join(gg21 %>% 
+              select(GMDNAME, GMDNR)) %>% 
+  relocate(GMDNR) %>% 
+  arrange(GMDNR, year, month, age, sex, nationality)
 ```
 
 That obviously increases the size of the dataset from `r number(nrow(w_deaths_2015_2021), big.mark = ",")` to `r number(nrow(w_deaths_2015_2021_exp), big.mark = ",")` (*ie.* 2,163 communities each with 2,016 data points).  

@@ -172,7 +172,7 @@ s_deaths_2015_2021 %<>%
       TRUE ~                    agegroup)
   ) %>% 
   select(-agegroup) %>% 
-  group_by(year, month, canton, GMDNAME, sex, age, nationality) %>% 
+  group_by(GMDNAME, year, month, canton, sex, age, nationality) %>% 
   summarise(deaths = sum(COUNT)) %>% 
   ungroup()
 ```
@@ -221,7 +221,11 @@ s_deaths_2015_2021_exp <-
   relocate(canton, .after = GMDNAME) %>% 
   group_by(GMDNAME) %>% 
   fill(canton, .direction = "downup") %>% 
-  ungroup()
+  ungroup() %>% 
+  left_join(gg21 %>% 
+              select(GMDNAME, GMDNR)) %>% 
+  relocate(GMDNR) %>% 
+  arrange(GMDNR, year, month, age, sex, nationality)
 ```
 
 That obviously increases the size of the dataset from `r number(nrow(s_deaths_2015_2021), big.mark = ",")` to `r number(nrow(s_deaths_2015_2021_exp), big.mark = ",")` (*ie.* 2,163 communities each with 2,016 data points).  

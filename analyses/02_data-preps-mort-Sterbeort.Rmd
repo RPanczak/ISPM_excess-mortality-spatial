@@ -69,7 +69,7 @@ s_deaths_2015_2021 <- read_csv("data-raw/BfS-closed/05OCT21_Lieferung_Panczak.cs
   rename(GMDNAME = community) %>% 
   # hyphen in name >> doesnt link to spatial data
   mutate(GMDNAME = if_else(GMDNAME == "La Grande-Béroche", "La Grande Béroche", GMDNAME)) %>% 
-  # name change? >> TBresolved with Cordula
+  # name change? >> resolved with Cordula
   mutate(GMDNAME = if_else(GMDNAME == "Klosters-Serneus", "Klosters", GMDNAME)) %>% 
   group_by(year, month, canton, GMDNAME, agegroup, sex, nationality) %>% 
   summarise(COUNT = sum(COUNT)) %>% 

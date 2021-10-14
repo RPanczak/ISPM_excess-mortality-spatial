@@ -229,6 +229,27 @@ rm(w_deaths_2015_2021_exp)
 gc()
 ```
 
+## Labour market aggregates
+
+Prepared population was also aggregated to labour market regions and joined to deaths.  
+
+```{r}
+raum <- read_rds("data/BfS/AR.Rds") %>% 
+  select(GMDNR, ARNR, ARNAME)
+
+w_deaths_2015_2021_ar <- read_rds("data/BfS-closed/w_deaths_2015_2021_ar.Rds")
+
+population_ar <- population %>% 
+  left_join(raum) %>% 
+  group_by(year, ARNR, ARNAME, sex, nationality, age) %>% 
+  summarise(population = sum(population)) %>% 
+  ungroup()
+
+w_deaths_2015_2021_ar_pop <- w_deaths_2015_2021_ar %>% 
+  left_join(population_ar) %>% 
+  replace_na(list(population = 0)) 
+```
+
 <!-- ----------------------------------------------------- -->
 
 # Cartogram
@@ -362,17 +383,13 @@ tm_shape(carto_dorling) +
 rm(carto, carto_dorling, carto_ncont, carto_se); gc()
 ```
 
-## AR
+## Labour market regions
 
 ```{r include=FALSE}
 # prepared in 01.Rmd
-argr_21_cor <- st_read("data/geo/argr_21_cor.shp")
 ar_21_cor <- st_read("data/geo/ar_21_cor.shp") %>% select(-ARNAME)
 
 st_ar_21_cor <- st_read("data/geo/st_ar_21_cor.shp") %>% select(-ARNAME)
-
-raum <- read_rds("data/BfS/AR.Rds") %>% 
-  select(GMDNR, ARNR, ARNAME)
 ```
 
 ```{r eval=FALSE}
@@ -662,6 +679,7 @@ ssep3_gem_21_pop_geo %>%
 ## Population based averages for labour market regions
 
 ```{r include=FALSE}
+# using swisstopo due to bfs geodata errors :/
 ar_21 <- st_read("data/geo/st_ar_21_cor.shp") %>% 
   select(-ARNAME)
 ```
@@ -824,5 +842,18 @@ w_deaths_2015_2021_pop %<>%
   )
 
 write_rds(w_deaths_2015_2021_pop, "data/BfS-closed/w_deaths_2015_2021_pop.Rds")
+
+w_deaths_2015_2021_ar_pop %>% 
+  left_join(
+    st_read("data/geo/ar_21.shp") %>% 
+      st_drop_geometry() %>% 
+      select(ARNR, border)
+  ) %>% 
+  left_join(ssep3_ar_21_pop_geo %>% 
+              st_drop_geometry() %>% 
+              select(-pop)
+  )
+
+write_rds(w_deaths_2015_2021_ar_pop, "data/BfS-closed/w_deaths_2015_2021_ar_pop.Rds")
 ```
 

@@ -277,7 +277,7 @@ write_rds(gg21, "data/BfS/gg21.Rds")
 write_rds(st_gg21, "data/swisstopo/st_gg21.Rds")
 ```
 
-## Arbeitsmarktregionen 2018
+## Labour market areas 2018
 
 ### Data sources 
 

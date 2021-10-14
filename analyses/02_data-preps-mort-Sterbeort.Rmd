@@ -269,58 +269,9 @@ write_rds(s_deaths_2015_2021_exp, "data/BfS-closed/s_deaths_2015_2021_exp.Rds")
 
 <!-- ----------------------------------------------------- -->
 
-# Simplification of data
+# Aggregating to labour market areas 
 
-## Aggregating to districts
-
-```{r}
-s_deaths_2015_2021_bez <- s_deaths_2015_2021_exp %>% 
-  left_join(gg21 %>% select(GMDNAME, BZNR)) %>% 
-  select(-GMDNAME) %>% 
-  group_by(BZNR, canton, year, month, date, age, sex, nationality) %>% 
-  summarise(deaths = as.integer(sum(deaths))) %>% 
-  ungroup()
-```
-
-That reduces the size of the dataset to `r number(nrow(s_deaths_2015_2021_bez), big.mark = ",")`.  
-
-Proportion of zero cells decreases:
-
-```{r echo=FALSE}
-frq(s_deaths_2015_2021_bez, deaths == 0)
-```
-
-## Examples of time series
-
-### Districts Bern & Seeland
-
-```{r echo=FALSE}
-s_deaths_2015_2021_bez %>% 
-  filter(BZNR %in% c(246, 243)) %>% 
-  group_by(BZNR, date) %>% 
-  summarise(deaths = sum(deaths)) %>% 
-  ungroup() %>% 
-  ggplot(aes(x = date, y = deaths, group = factor(BZNR), color = factor(BZNR))) + 
-  geom_line() + geom_point()
-```
-
-## All time series
-
-```{r echo=FALSE}
-s_deaths_2015_2021_bez %>% 
-  group_by(BZNR, date) %>% 
-  summarise(deaths = sum(deaths)) %>% 
-  ungroup() %>% 
-  ggplot(aes(x = date, y = deaths, group = BZNR)) + 
-  geom_line(colour = "darkorchid", alpha = 0.25) +
-  theme_minimal()
-```
-
-```{r include=FALSE}
-write_rds(s_deaths_2015_2021_bez, "data/BfS-closed/s_deaths_2015_2021_bez.Rds")
-```
-
-## Aggregating to Arbeitsmarktgrossregionen 
+## Preps
 
 ```{r}
 s_deaths_2015_2021_ar <- s_deaths_2015_2021_exp %>% 

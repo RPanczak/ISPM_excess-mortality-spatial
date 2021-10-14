@@ -158,6 +158,19 @@ population %>%
   datatable(rownames = FALSE, options = list(dom = 't'))
 ```
 
+Age distributions over years  
+
+```{r}
+population %>% 
+  filter(age != "<40") %>% 
+  group_by(year, age, sex) %>% 
+  summarise(population = sum(population)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = age, y = population, fill = as.factor(year))) + 
+  geom_col(position = "dodge") + 
+  scale_fill_viridis_d()
+```
+
 ## 2021
 
 Chances of any reliable data for 2021 are pretty slim. One solution is to simply carry over 2020 data.  

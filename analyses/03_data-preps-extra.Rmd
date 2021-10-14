@@ -28,8 +28,6 @@ p_load(haven, readxl,
        sf, tmap)
 
 import::from("sjmisc", "frq")
-
-tmap_mode("view")
 ```
 
 
@@ -153,10 +151,11 @@ population <- read_xlsx("data-raw/BfS/px-x-0103010000_201.xlsx",
 
 Yearly totals (`31st Dec`!):  
 
-```{r}
+```{r echo=FALSE}
 population %>% 
   group_by(year) %>% 
-  summarise(population = sum(population))
+  summarise(population = sum(population)) %>% 
+  datatable(rownames = FALSE, options = list(dom = 't'))
 ```
 
 ## 2021
@@ -170,7 +169,9 @@ population <-
               filter(year == 2020) %>% 
               mutate(year = 2021)
   )
+```
 
+```{r include=FALSE}
 write_rds(population, "data/BfS/population.Rds")
 ```
 
@@ -206,12 +207,6 @@ w_deaths_2015_2021_surplus %>%
   datatable()
 ```
 
-```{r include=FALSE}
-rm(w_deaths_2015_2021_surplus)
-rm(w_deaths_2015_2021_exp)
-write_rds(w_deaths_2015_2021_pop, "data/BfS-closed/w_deaths_2015_2021_pop.Rds")
-```
-
 ```{r eval=FALSE, include=FALSE}
 # missing checks
 missing1 <- w_deaths_2015_2021_exp %>% 
@@ -228,6 +223,12 @@ missing2 <- population %>%
 rm(missing1, missing2)
 ```
 
+```{r include=FALSE}
+rm(w_deaths_2015_2021_surplus)
+rm(w_deaths_2015_2021_exp)
+gc()
+```
+
 <!-- ----------------------------------------------------- -->
 
 # Cartogram
@@ -236,23 +237,16 @@ rm(missing1, missing2)
 
 ## Communities
 
-Data  
-
 ```{r include=FALSE}
 # prepared in 01.Rmd
-gg21 <- read_rds("data/BfS/gg21.Rds")
-se21 <- read_rds("data/BfS/se21.Rds")
-kt21 <- read_rds("data/BfS/kt21.Rds")
+gg21 <- read_rds("data/BfS/gg21.Rds") %>% select(GMDNR)
+se21 <- read_rds("data/BfS/se21.Rds") %>% select(GMDNR, GMDNAME)
+kt21 <- read_rds("data/BfS/kt21.Rds") %>% select(KTNR, KTNAME)
 
 st_gg21 <- read_rds("data/swisstopo/st_gg21.Rds") %>% 
-  st_transform(crs = 2056)
-
-stopifnot(
-  length(unique(st_gg21$GMDNR)) == length(unique(gg21$GMDNR))
-)
+  st_transform(crs = 2056) %>% 
+  select(-GEM_TEIL)
 ```
-
-Preps  
 
 ```{r eval=FALSE}
 carto_data <- 
@@ -277,26 +271,31 @@ se21 %>%
 # carto <- carto_data %>%
 #   cartogram::cartogram_cont("population")
 
+# write_rds(carto, "data/carto/carto.Rds")
+
 carto_ncont <- carto_data %>% 
   cartogram::cartogram_ncont("population")
+
+write_rds(carto_ncont, "data/carto/carto_ncont.Rds")
 
 carto_dorling <- carto_data %>% 
   cartogram::cartogram_dorling("population")
 
-# write_rds(carto, "data/carto/carto.Rds")
-write_rds(carto_ncont, "data/carto/carto_ncont.Rds")
 write_rds(carto_dorling, "data/carto/carto_dorling.Rds")
+```
 
-carto_data <- 
-  st_gg21 %>% 
-  select(GMDNR) %>% 
-  left_join(
-    population %>% 
-      filter(year == 2020) %>% 
-      group_by(GMDNR) %>% 
-      summarise(population = sum(population)) %>% 
-      ungroup()
-  )
+```{r eval=FALSE, include=FALSE}
+# checking on swisstopo
+# carto_data <- 
+#   st_gg21 %>% 
+#   select(GMDNR) %>% 
+#   left_join(
+#     population %>% 
+#       filter(year == 2020) %>% 
+#       group_by(GMDNR) %>% 
+#       summarise(population = sum(population)) %>% 
+#       ungroup()
+#   )
 
 # crashing :/
 # carto <- carto_data %>%
@@ -308,7 +307,7 @@ carto_data <-
 # java -Xmx1g -jar "C:\Program Files\ScapeToad-v11\ScapeToad.jar"
 ```
 
-```{r}
+```{r include=FALSE}
 # carto <- read_rds("data/carto/carto.Rds")
 carto_ncont <- read_rds("data/carto/carto_ncont.Rds")
 carto_dorling <- read_rds("data/carto/carto_dorling.Rds")
@@ -320,54 +319,61 @@ carto_se <- st_read("data/carto/out_se21.shp")
 tmap_mode("plot")
 ```
 
-'Classic' cartogram  
+### 'Classic' cartogram  
 
-```{r echo=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 tm_shape(carto) + 
   tm_polygons("population", 
-              style = "jenks", legend.show = TRUE) +
+              style = "bclust", n = 5,
+              palette = "-RdYlGn",
+              legend.show = TRUE) +
   tm_shape(carto_se) + 
   tm_polygons("dodgerblue", 
-              style = "jenks", legend.show = TRUE, border.col = NA, alpha = 0.5) +
+              legend.show = TRUE, border.col = NA, alpha = 0.5) +
   tm_layout(frame = FALSE)
 ```
 
-Noncontinuous cartogram  
+### Noncontinuous cartogram  
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 tm_shape(kt21) + 
   tm_borders() + 
   tm_shape(carto_ncont) + 
   tm_fill("population", 
-          style = "jenks", legend.show = TRUE) +
+          style = "bclust", n = 5,
+          palette = "-RdYlGn",
+          legend.show = TRUE) +
   tm_layout(frame = FALSE)
 ```
 
-Dorling carotgram  
+### Dorling carotgram  
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 tm_shape(carto_dorling) + 
   tm_fill("population", 
-          style = "jenks", legend.show = TRUE) +
+          style = "bclust", n = 5,
+          palette = "-RdYlGn",
+          legend.show = TRUE) +
   tm_layout(frame = FALSE)
+```
+
+
+```{r include=FALSE}
+rm(carto, carto_dorling, carto_ncont, carto_se); gc()
 ```
 
 ## AR
 
-Data  
-
 ```{r include=FALSE}
 # prepared in 01.Rmd
 argr_21_cor <- st_read("data/geo/argr_21_cor.shp")
-ar_21_cor <- st_read("data/geo/ar_21_cor.shp")
+ar_21_cor <- st_read("data/geo/ar_21_cor.shp") %>% select(-ARNAME)
 
-st_ar_21_cor <- st_read("data/geo/st_ar_21_cor.shp")
+st_ar_21_cor <- st_read("data/geo/st_ar_21_cor.shp") %>% select(-ARNAME)
 
 raum <- read_rds("data/BfS/AR.Rds") %>% 
-  select(GMDNR, ARNR)
+  select(GMDNR, ARNR, ARNAME)
 ```
-
-Preps  
 
 ```{r eval=FALSE}
 ar_carto_data <- 
@@ -379,7 +385,7 @@ ar_carto_data <-
       summarise(population = sum(population)) %>% 
       ungroup() %>% 
       left_join(raum) %>% 
-      group_by(ARNR) %>% 
+      group_by(ARNR, ARNAME) %>% 
       summarise(population = sum(population)) %>% 
       ungroup()     
   ) 
@@ -398,39 +404,49 @@ write_rds(ar_carto_ncont, "data/carto/ar_carto_ncont.Rds")
 write_rds(ar_carto_dorling, "data/carto/ar_carto_dorling.Rds")
 ```
 
-```{r}
+```{r include=FALSE}
 ar_carto <- read_rds("data/carto/ar_carto.Rds")
 ar_carto_ncont <- read_rds("data/carto/ar_carto_ncont.Rds")
 ar_carto_dorling <- read_rds("data/carto/ar_carto_dorling.Rds")
 ```
 
-'Classic' cartogram  
+### 'Classic' cartogram  
 
-```{r echo=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 tm_shape(ar_carto) + 
   tm_polygons("population", 
-              style = "jenks", legend.show = TRUE) +
+              style = "bclust", n = 5,
+              palette = "-RdYlGn",
+              legend.show = TRUE) +
   tm_layout(frame = FALSE)
 ```
 
-Noncontinuous cartogram  
+### Noncontinuous cartogram  
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 tm_shape(kt21) + 
   tm_borders() + 
   tm_shape(ar_carto_ncont) + 
   tm_fill("population", 
-          style = "jenks", legend.show = TRUE) +
+          style = "bclust", n = 5,
+          palette = "-RdYlGn",
+          legend.show = TRUE) +
   tm_layout(frame = FALSE)
 ```
 
-Dorling carotgram  
+### Dorling carotgram  
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 tm_shape(ar_carto_dorling) + 
   tm_fill("population", 
-          style = "jenks", legend.show = TRUE) +
+          style = "bclust", n = 5,
+          palette = "-RdYlGn",
+          legend.show = TRUE) +
   tm_layout(frame = FALSE)
+```
+
+```{r include=FALSE}
+rm(ar_carto, ar_carto_ncont, ar_carto_dorling); gc()
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -441,6 +457,9 @@ tm_shape(ar_carto_dorling) +
 sep3 <- read_rds("../SNC_Swiss-SEP2/FINAL/RDS/ssep3_user_geo.Rds") %>%
   select(gisid, ssep3, ssep3_d) %>% 
   st_transform(crs = 2056)
+```
+
+```{r eval=FALSE, include=FALSE}
 # %>%
 #   mutate(ssep3_d = factor(ssep3_d,
 #                           levels = 1:10,
@@ -453,7 +472,7 @@ sep3 <- read_rds("../SNC_Swiss-SEP2/FINAL/RDS/ssep3_user_geo.Rds") %>%
 
 Using `r number(nrow(sep3), big.mark = ",")` n'hoods from version 3.0 (hence slightly unequal size of deciles!):  
 
-```{r}
+```{r echo=FALSE}
 sep3 %>% 
   st_drop_geometry() %>% 
   frq(ssep3_d)
@@ -463,40 +482,46 @@ This is aggregated to the level of `r scales::number(length(unique(st_gg21$GMDNR
 
 ## STATPOP
 
-```{r include=FALSE}
-r18_bu_orig <- read_dta("../SNC_core/data-raw/statpop/r18_bu_orig.dta") %>% 
+```{r}
+r19_bu_orig <- read_dta("../SNC_core/data-raw/statpop/r19_bu_orig.dta") %>% 
   zap_label() %>% zap_formats()
 
-r18_bu <- r18_bu_orig %>% 
-  filter(between(r18_gklas, 1110, 1122)) %>% 
-  filter(!is.na(r18_gklas)) %>% 
-  select(r18_egid, r18_comm, r18_gdename,
-         r18_ecoord, r18_ncoord,
-         r18_nrpers_main) %>% 
-  # select(r18_nrpers_total, r18_nrpers_perm) %>% 
-  # filter(!is.na(r18_ncoord)) %>% 
-  # filter(!is.na(r18_ecoord)) %>% 
-  st_as_sf(coords = c("r18_ecoord", "r18_ncoord"), 
+r19_bu <- r19_bu_orig %>% 
+  # filter(between(r19_gklas, 1110, 1122)) %>% 
+  # filter(!is.na(r19_gklas)) %>% 
+  select(r19_egid_snc, r19_comm, r19_gdename,
+         r19_ecoord, r19_ncoord,
+         r19_nrpers_main) %>% 
+  # select(r19_nrpers_total, r19_nrpers_perm) %>% 
+  # filter(!is.na(r19_ncoord)) %>% 
+  # filter(!is.na(r19_ecoord)) %>% 
+  filter(r19_nrpers_main > 0) %>% 
+  st_as_sf(coords = c("r19_ecoord", "r19_ncoord"), 
            crs = 2056,
            remove = TRUE)
 ```
 
-Using data from `STATPOP` **2018**. 
+Using data from `STATPOP` **2019**.  
 
-Used dataset consists of `r scales::number(nrow(r18_bu), big.mark = ",")` buildings. Excluding `r scales::number(nrow(filter(r18_bu_orig, !between(r18_gklas, 1110, 1122))), big.mark = ",")` nonresidential buildings and `r scales::number(nrow(filter(r18_bu_orig, is.na(r18_gklas))), big.mark = ",")` buildings missing information on classifications.   
+Used dataset consists of `r scales::number(nrow(r19_bu), big.mark = ",")` buildings with at least one person registered inside. Variable `r19_nrpers_main` was used for this estimate.^[Slightly different populations would be obtained with different conceptual models of *residential populations* by using either `r19_nrpers_total` or `r19_nrpers_perm` variables!] Population of CH estimated from this dataset is `r scales::number(sum(r19_bu$r19_nrpers_main), big.mark = ",")`.   
 
-The nearest building with SSEP was found; point dataset was then overlaid with community boundaries and summary measures of population based index were created and population level SEP was aggregated by community. `r18_nrpers_main` was used for population.^[Slightly different populations would be obtained with different conceptual models of *residential populations* by using either `r18_nrpers_total` or `r18_nrpers_perm` variables!]  
+The nearest building with SSEP was assigned for each of these building. The point dataset was then overlaid with community boundaries and summary measures of population based index were created and population level SEP was aggregated by community. 
 
 ```{r include=FALSE}
-rm(r18_bu_orig)
-gc()
+rm(r19_bu_orig); gc()
 ```
 
-## 'nhood based averages
+## 'nhood based averages for communities
 
-```{r include=FALSE}
+```{r eval=FALSE}
+st_gg21 <- read_rds("data/swisstopo/st_gg21.Rds") %>% 
+  st_transform(crs = 2056) %>% 
+  select(GMDNR)
+
 ssep3_gem_21 <- 
-  st_join(sep3, st_gg21, join = st_intersects) 
+  st_join(sep3, 
+          st_gg21, 
+          join = st_intersects) 
 
 # tm_shape(gg21) +
 #   tm_polygons() +
@@ -511,284 +536,186 @@ ssep3_gem_21_neigh <- ssep3_gem_21 %>%
             ssep3_median = median(ssep3)) %>% 
   ungroup() 
 
-rm(ssep3_gem_21); gc()
-
-breaks1 <- sep3 %>% 
-  st_drop_geometry() %>% 
-  group_by(ssep3_d) %>% 
-  summarize(min = min(ssep3),
-            max = max(ssep3))
-
 ssep3_gem_21_neigh_geo <- inner_join(gg21, ssep3_gem_21_neigh) %>% 
   filter(!is.na(ssep3_median)) %>% 
-  mutate(median_ssep3_samp_d = ntile(ssep3_median, 10)) %>% 
-  mutate(median_ssep3_samp_d = factor(median_ssep3_samp_d,
-                                      levels = 1:10,
-                                      labels = c("1st - lowest", 
-                                                 "2", "3", "4", 
-                                                 "5th decile", 
-                                                 "6", "7", "8", "9", 
-                                                 "10th - highest")))
+  mutate(median_ssep3_d = ntile(ssep3_median, 10)) %>% 
+  mutate(median_ssep3_d = factor(median_ssep3_d,
+                                 levels = 1:10,
+                                 labels = c("1st - lowest", 
+                                            "2", "3", "4", 
+                                            "5th decile", 
+                                            "6", "7", "8", "9", 
+                                            "10th - highest")))
 
-ssep3_gem_21_neigh_geo$median_ssep3_full_d <- cut(ssep3_gem_21_neigh_geo$ssep3_median, 
-                                                  breaks = c(breaks1$min, 100),
-                                                  include.lowest = TRUE,
-                                                  labels = c("1st - lowest", 
-                                                             "2", "3", "4", 
-                                                             "5th decile", 
-                                                             "6", "7", "8", "9", 
-                                                             "10th - highest"))
+write_rds(ssep3_gem_21_neigh_geo, "data/sep/ssep3_gem_21_neigh_geo.rds")
+```
 
-rm(ssep3_gem_21_neigh); gc()
-
-# write_rds(ssep3_gem_21_neigh_geo, "data/sep/ssep3_gem_21_neigh_geo.rds")
+```{r include=FALSE}
+ssep3_gem_21_neigh_geo <- read_rds("data/sep/ssep3_gem_21_neigh_geo.rds")
 ```
 
 Watch out for small n! Here some examples with communities below 20 n'hoods
 
-```{r}
+```{r echo=FALSE}
 ssep3_gem_21_neigh_geo %>% 
   st_drop_geometry() %>% 
-  select(GMDNR, n) %>% 
+  select(GMDNR, GMDNAME, n) %>% 
   inner_join(st_drop_geometry(st_gg21)) %>% 
-  filter(n < 19) %>% 
-  arrange(n)
+  select(-GMDNR) %>% 
+  filter(n < 20) %>%
+  arrange(n) %>% 
+  datatable(rownames = FALSE, options = list(dom = 't'))
 
-ssep3_gem_21_neigh_geo %>% 
-  filter(n < 19) %>% 
-  qtm(borders = "red", fill = "red")
+# ssep3_gem_21_neigh_geo %>% 
+#   filter(n < 20) %>%
+#   qtm(borders = "red", fill = "red")
 ```
 
-### Final map using median index
+Final map using median index - bubbles scaled to number of 'nhoods.
 
-Bubbles scaled to number of 'nhoods.
+```{r include=FALSE}
+tmap_mode("view")
+```
 
-```{r, layout="l-body-outset"}
-ssep3_gem_21_neigh_geo %>% 
-  tm_shape() +
-  tm_dots(size = "n", col = "ssep3_median", palette = "RdYlGn",
+```{r eval=FALSE, include=FALSE}
+frq(ssep3_gem_21_neigh_geo$median_ssep3_d)
+```
+
+```{r echo=FALSE}
+# tm_shape(kt21) +
+#   tm_borders() + 
+tm_shape(ssep3_gem_21_neigh_geo) +
+  tm_dots(size = "n", col = "median_ssep3_d", palette = "RdYlGn",
           scale = .5,  shape = 19)
 ```
 
-### Deciles using sample of PLZs vs 'original' deciles
+## Population based averages for communities
 
-```{r}
-frq(ssep3_gem_21_neigh_geo$median_ssep3_samp_d)
-frq(ssep3_gem_21_neigh_geo$median_ssep3_full_d)
-```
-
-```{r, layout="l-page"}
-ssep3_gem_21_neigh_geo %>% 
-  tm_shape() +
-  tm_fill(col = c("median_ssep3_samp_d", "median_ssep3_full_d"), 
-          border.col = "white",
-          palette = "RdYlGn")
-```
-
-## Population based
-
-```{r eval=FALSE, include=FALSE}
+```{r eval=FALSE}
 # join to sep3
-r18_bu_sep <- st_join(r18_bu, sep3, join = st_nearest_feature)
+r19_bu_sep <- st_join(r19_bu, sep3, join = st_nearest_feature)
 
-nearest <- st_nearest_feature(r18_bu, sep3)
-r18_bu_sep$dist3 <- st_distance(r18_bu_sep, sep3[nearest, ], by_element = TRUE)
-rm(nearest, r18_bu); gc()
-
-summary(r18_bu_sep$dist3)
-
-r18_bu_sep_gem21 <- 
-  st_join(r18_bu_sep, st_gg21, join = st_intersects)
-
-# r18_bu_sep_gem21 %>%
-#   filter(is.na(GMDNR))
+# fails for unknown and unsolved reasons
+# nearest <- st_nearest_feature(r19_bu, sep3)
+# r19_bu_sep$dist3 <- st_distance(r19_bu_sep, sep3[nearest, ], by_element = TRUE)
+# rm(nearest, r19_bu); gc()
 # 
-# tm_shape(gg21) +
-#   tm_polygons() +
-#   tm_shape(r18_bu_sep_gem21 %>% filter(is.na(GMDNR)) %>% select(-r18_gdename)) +
-#   tm_dots()
+# summary(r19_bu_sep$dist3)
 
-r18_bu_sep_gem21 <- r18_bu_sep_gem21 %>% 
-  st_drop_geometry() %>% 
-  relocate(GMDNR, .after = r18_egid) %>% 
-  # covering 6 points outside of the map > lakes issues
-  mutate(GMDNR = ifelse(r18_egid == 899324592, 4806, GMDNR)) %>% 
-  mutate(GMDNR = ifelse(r18_egid == 899324589, 4806, GMDNR)) %>% 
-  mutate(GMDNR = ifelse(r18_egid == 899324588, 4806, GMDNR)) %>% 
-  mutate(GMDNR = ifelse(r18_egid == 898609635,  756, GMDNR)) %>% 
-  mutate(GMDNR = ifelse(r18_egid == 898533015, 6417, GMDNR)) %>% 
-  mutate(GMDNR = ifelse(r18_egid == 898563492,  942, GMDNR))  
+r19_bu_sep_gem21 <- 
+  st_join(r19_bu_sep, st_gg21, join = st_intersects) %>%  
+  relocate(r19_egid_snc, gisid, r19_nrpers_main,
+           ssep3, ssep3_d,
+           GMDNR, r19_comm, r19_gdename) 
 
-# View(r18_bu_sep_gem21)
+# View(r19_bu_sep_gem21)
 
-write_rds(r18_bu_sep_gem21, "data/sep/r18_bu_sep_gem21.rds")
+write_rds(r19_bu_sep_gem21, "data/sep/r19_bu_sep_gem21.rds")
+```
+
+```{r include=FALSE}
+rm(r19_bu); gc()
+
+r19_bu_sep_gem21 <- read_rds("data/sep/r19_bu_sep_gem21.rds") %>% 
+  st_drop_geometry()
 ```
 
 ```{r}
-r18_bu_sep_gem21 <- read_rds("data/sep/r18_bu_sep_gem21.rds") 
-```
-
-```{r}
-ssep3_gem_21_pop <- r18_bu_sep_gem21 %>% 
-  select(GMDNR, ssep3, r18_nrpers_main) %>% 
-  uncount(r18_nrpers_main) %>% 
+ssep3_gem_21_pop <- r19_bu_sep_gem21 %>% 
+  select(GMDNR, ssep3, r19_nrpers_main) %>% 
+  uncount(r19_nrpers_main) %>% 
   group_by(GMDNR) %>% 
   summarise(pop = n(),
             # ssep3_mean = mean(ssep3),
             ssep3_median = median(ssep3)) %>% 
   ungroup() 
 
-ssep3_gem_21_pop_geo <- left_join(gg21, ssep3_gem_21_pop) %>% 
+# left_join(gg21, ssep3_gem_21_pop) %>% 
+#   filter(is.na(ssep3_median))
+
+ssep3_gem_21_pop_geo <- left_join(st_gg21, ssep3_gem_21_pop) %>% 
   filter(!is.na(ssep3_median)) %>% 
-  mutate(median_ssep3_samp_d = ntile(ssep3_median, 10)) %>% 
-  mutate(median_ssep3_samp_d = factor(median_ssep3_samp_d,
-                                      levels = 1:10,
-                                      labels = c("1st - lowest", 
-                                                 "2", "3", "4", 
-                                                 "5th decile", 
-                                                 "6", "7", "8", "9", 
-                                                 "10th - highest")))
+  mutate(median_ssep3_d = ntile(ssep3_median, 10)) %>% 
+  mutate(median_ssep3_d = factor(median_ssep3_d,
+                                 levels = 1:10,
+                                 labels = c("1st - lowest", 
+                                            "2", "3", "4", 
+                                            "5th decile", 
+                                            "6", "7", "8", "9", 
+                                            "10th - highest")))
 
-ssep3_gem_21_pop_geo$median_ssep3_full_d <- cut(ssep3_gem_21_pop_geo$ssep3_median, 
-                                                breaks = c(breaks1$min, 100),
-                                                include.lowest = TRUE,
-                                                labels = c("1st - lowest", 
-                                                           "2", "3", "4", 
-                                                           "5th decile", 
-                                                           "6", "7", "8", "9", 
-                                                           "10th - highest"))
-
-# write_rds(ssep3_gem_21_pop_geo, "data/sep/ssep3_gem_21_pop_geo.rds")
+write_rds(ssep3_gem_21_pop_geo, "data/sep/ssep3_gem_21_pop_geo.rds")
 ```
 
-### Final map using median index
+Final map using median index - bubbles scaled to number of people (2019)  
+```{r eval=FALSE, include=FALSE}
+frq(ssep3_gem_21_pop_geo$median_ssep3_d)
+```
 
-Bubbles scaled to number of people (2018)
-
-```{r, layout="l-body-outset"}
+```{r echo=FALSE}
 ssep3_gem_21_pop_geo %>% 
   tm_shape() +
-  tm_dots(size = "pop", col = "ssep3_median", palette = "RdYlGn",
+  tm_dots(size = "pop", col = "median_ssep3_d", palette = "RdYlGn",
           scale = .5,  shape = 19)
 ```
 
-### Deciles using sample of communities vs 'original' deciles
+## Population based averages for labour market regions
 
-```{r}
-frq(ssep3_gem_21_pop_geo$median_ssep3_samp_d)
-frq(ssep3_gem_21_pop_geo$median_ssep3_full_d)
+```{r include=FALSE}
+ar_21 <- st_read("data/geo/st_ar_21_cor.shp") %>% 
+  select(-ARNAME)
 ```
 
-```{r, layout="l-page"}
-ssep3_gem_21_pop_geo %>% 
+```{r}
+ssep3_ar_21_pop <- r19_bu_sep_gem21 %>% 
+  select(GMDNR, ssep3, r19_nrpers_main) %>% 
+  left_join(raum) %>% 
+  select(-GMDNR) %>% 
+  uncount(r19_nrpers_main) %>% 
+  group_by(ARNR, ARNAME) %>% 
+  summarise(pop = n(),
+            # ssep3_mean = mean(ssep3),
+            ssep3_median = median(ssep3)) %>% 
+  ungroup() 
+
+# left_join(ar_21, ssep3_ar_21_pop) %>%
+#   filter(is.na(ssep3_median))
+
+ssep3_ar_21_pop_geo <- left_join(ar_21, ssep3_ar_21_pop) %>% 
+  filter(!is.na(ssep3_median)) %>% 
+  mutate(median_ssep3_d = ntile(ssep3_median, 10)) %>% 
+  mutate(median_ssep3_d = factor(median_ssep3_d,
+                                 levels = 1:10,
+                                 labels = c("1st - lowest", 
+                                            "2", "3", "4", 
+                                            "5th decile", 
+                                            "6", "7", "8", "9", 
+                                            "10th - highest")))
+
+write_rds(ssep3_ar_21_pop_geo, "data/sep/ssep3_ar_21_pop_geo.rds")
+```
+
+```{r include=FALSE}
+rm(r19_bu_sep_gem21); gc()
+```
+
+Final map using median index - bubbles scaled to number of people (2019)  
+```{r eval=FALSE, include=FALSE}
+frq(ssep3_ar_21_pop_geo$median_ssep3_d)
+```
+
+```{r echo=FALSE}
+ssep3_ar_21_pop_geo %>% 
   tm_shape() +
-  tm_fill(col = c("median_ssep3_samp_d", "median_ssep3_full_d"), 
-          palette = "RdYlGn")
+  tm_dots(size = "pop", col = "median_ssep3_d", palette = "RdYlGn",
+          scale = .5,  shape = 19)
 ```
-
-## Maps 
-### All CH gem
-
-```{r}
-logo <- magick::image_read("carto/snc.png")
-magick::image_info(logo)
-
-st_bbox(canton)$xmax
-st_bbox(lake)
-```
-
-```{r}
-ggplot() + 
-  geom_sf(data = lake, color = NA,  fill = rgb(176, 229, 255, max = 255)) + 
-  geom_sf(data = ssep3_gem_21_pop_geo,
-          aes(fill = median_ssep3_samp_d),
-          color = "white", size = 0.2, alpha = 0.85) +
-  geom_sf(data = canton, fill = NA, color = gray(.5), size = 0.5) +
-  scale_fill_brewer(palette = "RdYlGn") +
-  theme_void() + 
-  theme(legend.position = c(.05, .95), 
-        legend.justification = c("left", "top"),
-        legend.direction = 'vertical') +
-  guides(colour = guide_legend(title = "Swiss-SEP",
-                               override.aes = list(alpha = 1, shape = 16, size = 3))) +
-  labs(fill = "Index decile") +
-  annotation_custom(grid::rasterGrob(logo), 
-                    xmin = st_bbox(canton)$xmax - 23400*2, 
-                    xmax = st_bbox(canton)$xmax, 
-                    ymin = st_bbox(lake)$ymin, 
-                    ymax = st_bbox(lake)$ymin + 11000*2) 
-
-ggsave("docs/sep-gem21.png", width = 297, height = 210, 
-       units = "mm", dpi = 300)
-```
-
-### All CH point
-
-```{r}
-# for experiments
-sep3_samp <- sep3 %>% 
-  sample_frac(0.01)
-
-# display.brewer.pal(n = 10, name = "RdYlGn") 
-
-# # sf plotting
-plot(st_geometry(canton),
-     col = NA, border = "gray50", lwd = 0.1,
-     reset = FALSE)
-plot(st_geometry(lake),
-     # col = rgb(0, 135, 208, max = 255), border = NA,
-     # col = rgb(156, 213, 248, max = 255), border = NA,
-     col = rgb(176, 229, 255, max = 255), border = NA,
-     add = TRUE)
-plot(ssep3_samp["ssep3_d"],
-     pal = RColorBrewer::brewer.pal(n = 10, name = "RdYlGn"),
-     cex = 0.1, pch = 16,
-     add = TRUE)
-```
-
-
-```{r}
-ggplot() + 
-  geom_sf(data = lake, color = NA, fill = rgb(176, 229, 255, max = 255)) + 
-  geom_sf(data = canton, fill = NA, color = gray(.5), size = 0.25) +
-  # geom_sf(data = sep3_samp, aes(colour = ssep3_d), 
-  #         alpha = 0.66, shape = ".", size = 0.1) +
-  geom_sf(data = sep3, aes(colour = ssep3_d),
-          alpha = 0.66, shape = ".", size = 0.1) +
-  scale_colour_brewer(palette = "RdYlGn") +
-  theme_void() + 
-  theme(legend.position = c(.05, .95), 
-        legend.justification = c("left", "top"),
-        legend.direction = 'vertical') +
-  guides(colour = guide_legend(title = "Swiss-SEP",
-                               override.aes = list(alpha = 1, shape = 16, size = 3))) +
-  annotation_custom(grid::rasterGrob(logo), 
-                    xmin = st_bbox(canton)$xmax - 23400*2, 
-                    xmax = st_bbox(canton)$xmax, 
-                    ymin = st_bbox(lake)$ymin, 
-                    ymax = st_bbox(lake)$ymin + 11000*2) 
-
-ggsave("docs/sep-dots.png", width = 297, height = 210, 
-       units = "mm", dpi = 300)
-```
-
-```{r}
-ssep3_gem_21_pop_geo %>% 
-  select(GMDNR, GMDNAME, ssep3_median, median_ssep3_samp_d) %>% 
-  st_write("docs/ssep3_gem_21_pop_geo.shp", delete_dsn = TRUE)
-
-ssep3_gem_21_pop_geo %>% 
-  st_drop_geometry() %>% 
-  select(GMDNR, GMDNAME, ssep3_median, median_ssep3_samp_d) %>% 
-  write_csv("docs/ssep3_gem_21_pop_geo.csv")
-```
-
 
 <!-- ----------------------------------------------------- -->
 
 # Raumgliederungen 
 
-From the [app](https://www.agvchapp.bfs.admin.ch/de/typologies/query). State as of `2021-07-01` to match spatial data nicely.  
+Data from the [app](https://www.agvchapp.bfs.admin.ch/de/typologies/query). State as of `2021-07-01` to match spatial data nicely.  
 
 ```{r}
 raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx", 
@@ -830,7 +757,9 @@ stopifnot(nrow(anti_join(raum, gg21)) == 0)
 
 gg21_merged <- gg21 %>% 
   left_join(raum) %>% 
-  relocate(KTNAME, .after = KTNR)
+  relocate(geometry, .after = last_col())
+
+tmap_mode("plot")
 ```
 
 ## Urbanization 1 
@@ -852,13 +781,14 @@ tm_shape(se21, is.master = FALSE) +
 ## Urbanization 2 
 
 Using [DEGURBA](https://ec.europa.eu/eurostat/web/degree-of-urbanisation/background).  
+
 ```{r echo=FALSE}
 frq(raum, r_urban2)
 
 tm_shape(se21, is.master = FALSE) +
   tm_fill(col = "#a7cdf2")  +
   tm_shape(gg21_merged) +
-  tm_fill(col = "r_urban2")  +
+  tm_fill(col = "r_urban2", palette = "-Set3")  +
   tm_shape(kt21) +
   tm_borders()  +
   tm_layout(
@@ -881,3 +811,18 @@ tm_shape(se21, is.master = FALSE) +
     title = "Language region 2021"
   )
 ```
+
+```{r include=FALSE}
+# final link
+w_deaths_2015_2021_pop %<>% 
+  left_join(ssep3_gem_21_pop_geo %>% 
+              st_drop_geometry() %>% 
+              select(-pop)) %>% 
+  left_join(gg21_merged %>% 
+              st_drop_geometry() %>% 
+              select(-GMDNAME, -KTNAME, -BZNR, -BZNAME)
+  )
+
+write_rds(w_deaths_2015_2021_pop, "data/BfS-closed/w_deaths_2015_2021_pop.Rds")
+```
+

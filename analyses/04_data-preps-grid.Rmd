@@ -54,5 +54,24 @@ mu <- Hmisc::markupSpecs$html
 <!-- ----------------------------------------------------- -->
 <!-- ----------------------------------------------------- -->
 
+# Grid
 
+```{r}
+create_grid <- function(shf, rsl){
+  
+  # shf          the shapefile on which the grid will be created
+  # rsl          the resolution of the grid cell in m
+  shf <- st_as_sf(shf)
+  
+  grid <- shf %>% 
+    st_make_grid(cellsize = rsl, square = TRUE) %>% 
+    st_intersection(shf)  %>%
+    st_sf %>%
+    st_cast
+  
+  return(grid)
+  
+}
+
+```
 

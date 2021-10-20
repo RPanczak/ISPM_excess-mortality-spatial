@@ -52,26 +52,37 @@ mu <- Hmisc::markupSpecs$html
 ```
 
 <!-- ----------------------------------------------------- -->
+
+# STATPOP
+
+Could be used to define `offset` for `st_make_grid`
+
+```{r}
+statpop_20 <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip", 
+                         delim = ";", escape_double = FALSE, trim_ws = TRUE)[] %>% 
+  mutate_all(as.integer)
+
+offset <- statpop_20 %>% 
+  summarise(minX = min(E_KOORD),
+            minY = min(N_KOORD))
+
+# statpop_20 %>% slice(1:10) %>% View()
+```
+
 <!-- ----------------------------------------------------- -->
 
 # Grid
 
 ```{r}
-create_grid <- function(shf, rsl){
-  
-  # shf          the shapefile on which the grid will be created
-  # rsl          the resolution of the grid cell in m
-  shf <- st_as_sf(shf)
-  
-  grid <- shf %>% 
-    st_make_grid(cellsize = rsl, square = TRUE) %>% 
+grid_100m <- shf %>% 
+    st_make_grid(cellsize = 1000, square = TRUE, offset = c()) %>% 
     st_intersection(shf)  %>%
-    st_sf %>%
-    st_cast
-  
-  return(grid)
-  
-}
+    st_sf() %>%
+    st_cast()
 
+grid_1km <- shf %>% 
+    st_make_grid(cellsize = 1000, square = TRUE, offset = c()) %>% 
+    st_intersection(shf)  %>%
+    st_sf() %>%
+    st_cast()
 ```
-

@@ -63,7 +63,7 @@ Contains three versions of data:
 
 > "Generalisierte Gemeindegrenzen, Stand 01.01.2021 & 18.04.2021 & 01.07.2021"	
 
-Currently using `01.07` edition.  
+**Using `01.07` release.**  
 
 ```{r eval=FALSE}
 download.file(url = "https://www.bfs.admin.ch/bfsstatic/dam/assets/17964056/master",
@@ -95,7 +95,8 @@ kt21 <-
 
 se21 <- 
   st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1s21.shp",
-          as_tibble = TRUE) 
+          as_tibble = TRUE) %>% 
+  filter(GMDNAME != "Lago di Como")
 
 write_rds(bz21, "data/BfS/bz21.Rds")
 write_rds(kt21, "data/BfS/kt21.Rds")
@@ -120,7 +121,7 @@ tm_shape(se21, is.master = FALSE) +
   tm_borders()
 ```
 
-### Community 
+### Municipality 
 
 ```{r echo=FALSE}
 tm_shape(se21, is.master = FALSE) +
@@ -131,7 +132,7 @@ tm_shape(se21, is.master = FALSE) +
 
 ## swisstopo data 2021
 
-`swissBOUNDARIES3D` data available from [here](https://www.swisstopo.admin.ch/de/geodata/landscape/boundaries3d.html). Also exist for XX July versions.  
+`swissBOUNDARIES3D` data available from [here](https://www.swisstopo.admin.ch/de/geodata/landscape/boundaries3d.html). Also exist in July versions.  
 
 ```{r eval=FALSE}
 download.file(url = "https://data.geo.admin.ch/ch.swisstopo.swissboundaries3d/swissboundaries3d_2021-07/swissboundaries3d_2021-07_2056_5728.shp.zip",
@@ -168,7 +169,7 @@ write_rds(st_kt21, "data/swisstopo/st_kt21.Rds")
 
 ### Resolution
 
-swisstopo borders (in blue below) offer better resolution and will be used for certain spatial operations (like linking to SEP) whereas BfS data are smaller in size and easier to plot. Example of Bern:  
+swisstopo borders (in blue below) are larger in size (and slower to plot) but offer better resolution and will be used for certain spatial operations (like linking to SEP) whereas BfS data are smaller in size and easier to plot. Example of municipality Bern:  
 
 ```{r echo=FALSE}
 tm_shape(st_gg21 %>% filter(BFS_NUMMER == 351)) +
@@ -182,7 +183,7 @@ tm_shape(st_gg21 %>% filter(BFS_NUMMER == 351)) +
 
 ### Water bodies
 
-Additionally datasets differ in terms of conceptualization of the boundaries of water bodies. BfS data reach the shore of the lake, whereas swisstopo extends them over lakes.  
+Additionally datasets differ in terms of conceptualization of the boundaries of water bodies. BfS data reach the shore of the lake, whereas swisstopo extends them over lakes. Example of municipality Delley-Portalban by the Lake Neuchâtel:  
 
 ```{r echo=FALSE}
 tm_shape(se21 %>% filter(GMDNR == 9151), is.master = FALSE) +
@@ -198,16 +199,17 @@ tm_shape(se21 %>% filter(GMDNR == 9151), is.master = FALSE) +
 
 ### Multipart features
 
-BfS stores data as `MULTIPOLYGON` 
+BfS stores data as `MULTIPOLYGON`. In such case municipality split over several disconetcted areas is stored as *single record*. Example of municipality Monthey which consists of four separate areas:  
 
 ```{r echo=FALSE}
 gg21 %>% 
   filter(GMDNR == 6153) %>% 
-  select(GMDNR) %>% 
+  mutate(GEM_TEIL = "1") %>% 
+  select(GEM_TEIL) %>% 
   plot()
 ```
 
-whereas swisstopo as `POLYGON`.  In such case community Monthey will be represented as four rows of data (individual polygons) instead of one.  
+The same municipality in swisstopo data is stored as `POLYGON` type. In such case it will be represented as *four separate records* (four individual polygons) instead of one.  
 
 ```{r echo=FALSE}
 st_gg21 %>% 
@@ -230,7 +232,7 @@ st_gg21 %>%
 
 # Preparations
 
-## Non-residential communities
+## Non-residential municipalities
 
 Excluding `Staatswald Galm`, `Comunanza Cadenazzo/Monteceneri` & `Comunanza Capriasca/Lugano`.  
 
@@ -243,12 +245,12 @@ gg21 %>%
 
 ```{r include=FALSE}
 gg21 %<>% 
-  filter(!GMDNR %in% c(2391, 5391, 5394)) %>% 
+  filter(! GMDNR %in% c(2391, 5391, 5394)) %>% 
   select(GMDNR, GMDNAME, BZNR, KTNR) %>% 
   arrange(GMDNR)
 
 st_gg21 %<>% 
-  filter(!BFS_NUMMER %in% c(2391, 5391, 5394)) %>% 
+  filter(! BFS_NUMMER %in% c(2391, 5391, 5394)) %>% 
   # exclude lakes
   filter(OBJEKTART != "Kantonsgebiet") %>% 
   # exclude FL & enclaves
@@ -270,11 +272,6 @@ gg21 %>%
 st_gg21 %>%
   filter(! GMDNR %in% gg21$GMDNR) %>% 
   nrow()
-```
-
-```{r}
-write_rds(gg21, "data/BfS/gg21.Rds")
-write_rds(st_gg21, "data/swisstopo/st_gg21.Rds")
 ```
 
 ## Labour market areas 2018
@@ -322,9 +319,9 @@ write_rds(raum, "data/BfS/AR.Rds")
 
 ### Preps
 
-List of regions was merged on the basis of community number and then these communities were aggregated.  
+List of regions was merged on the basis of municipality number and then these municipalities were aggregated.  
 
-```{r}
+```{r eval=FALSE}
 argr_21 <- gg21 %>% 
   left_join(raum) %>% 
   group_by(ARGRNR) %>% 
@@ -342,10 +339,28 @@ ar_21 <- gg21 %>%
 
 st_write(argr_21, "data/geo/argr_21.shp", delete_dsn = TRUE)
 st_write(ar_21, "data/geo/ar_21.shp", delete_dsn = TRUE)
+```
 
-# manual corrections in QGIS needed
+Dissolving of BfS data via R was not perfect and manual corrections were implemented in QGIS software.  
+
+```{r}
 # st_write(argr_21, "data/geo/argr_21_cor.shp", delete_dsn = TRUE)
 # st_write(ar_21, "data/geo/ar_21_cor.shp", delete_dsn = TRUE)
+
+argr_21_cor <- st_read("data/geo/argr_21_cor.shp") %>% 
+  select(-ARGRNAME) %>% 
+  left_join(raum %>% select(ARGRNR, ARGRNAME))
+
+ar_21_cor <- st_read("data/geo/ar_21_cor.shp") %>% 
+  select(-ARNAME) %>% 
+  left_join(raum %>% select(ARNR, ARNAME, border))
+```
+
+```{r eval=FALSE}
+unlink("data/geo/argr_21.*")
+unlink("data/geo/ar_21.*")
+
+rm(argr_21, ar_21); gc()
 ```
 
 ```{r include=FALSE}
@@ -374,25 +389,25 @@ st_write(st_ar_21, "data/geo/st_ar_21.shp", delete_dsn = TRUE)
 
 ```{r echo=FALSE}
 tm_shape(se21, is.master = FALSE) +
-  tm_fill(col = "gray", alpha = 0.5) +
-  tm_shape(ar_21, is.master = TRUE) +
-  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
-  tm_shape(argr_21) +
-  tm_borders(col = "red", lwd = 2, alpha = 0.5) +
+  tm_fill(col = "lightskyblue", alpha = 0.5) +
+  tm_shape(ar_21_cor, is.master = TRUE) +
+  tm_borders(col = "darkgray", lwd = 1, alpha = 0.5) +
+  tm_shape(argr_21_cor) +
+  tm_borders(col = "darkorchid", lwd = 2, alpha = 0.5) +
   tm_layout(
-    title = "Regions & grosregions 2021"
+    title = "Labour market regions 2021"
   )
 ```
 
 ```{r eval=FALSE, include=FALSE}
 tm_shape(se21, is.master = FALSE) +
-  tm_fill(col = "gray", alpha = 0.5) +
+  tm_fill(col = "lightskyblue", alpha = 0.5) +
   tm_shape(st_ar_21, is.master = TRUE) +
-  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
+  tm_borders(col = "darkgray", lwd = 1, alpha = 0.5) +
   tm_shape(st_argr_21) +
-  tm_borders(col = "red", lwd = 2, alpha = 0.5) +
+  tm_borders(col = "darkorchid", lwd = 2, alpha = 0.5) +
   tm_layout(
-    title = "Regions & grosregions 2021"
+    title = "Labour market regions 2021"
   )
 ```
 
@@ -402,11 +417,11 @@ Defined on the basis of [this map](https://www.bfs.admin.ch/bfs/de/home/aktuell/
 
 ```{r echo=FALSE}
 tm_shape(se21, is.master = FALSE) +
-  tm_fill(col = "gray", alpha = 0.5) +
-  tm_shape(ar_21) +
-  tm_fill(col = "border", lwd = 2, alpha = 0.5, palette = "cat", n = 2,
+  tm_fill(col = "lightskyblue", alpha = 0.5) +
+  tm_shape(ar_21_cor %>% mutate(border = factor(border))) +
+  tm_fill(col = "border", lwd = 2, alpha = 0.66, palette = "Set2", n = 2,
           legend.show = FALSE) +
-  tm_shape(ar_21) +
+  tm_shape(ar_21_cor) +
   tm_borders(col = "white") +
   tm_layout(
     title = "Border regions 2021"
@@ -414,23 +429,25 @@ tm_shape(se21, is.master = FALSE) +
 ```
 
 ```{r echo=FALSE}
-ar_21 %>% 
+ar_21_cor %>% 
   st_drop_geometry() %>% 
   filter(border == 1) %>%  
   select(-border) %>% 
   datatable() 
 ```
 
+The same typology can be applied to municipalities:  
+
 ```{r echo=FALSE}
 tm_shape(se21, is.master = FALSE) +
-  tm_fill(col = "gray", alpha = 0.5) +
-  tm_shape(gg21 %>% left_join(raum)) +
-  tm_fill(col = "border", lwd = 2, alpha = 0.5, palette = "cat", n = 2,
+  tm_fill(col = "lightskyblue", alpha = 0.5) +
+  tm_shape(gg21 %>% left_join(raum) %>% mutate(border = factor(border))) +
+  tm_fill(col = "border", lwd = 2, alpha = 0.66, palette = "Set2", n = 2,
           legend.show = FALSE) +
   tm_shape(gg21) +
   tm_borders(col = "white") +
   tm_layout(
-    title = "Border communities 2021"
+    title = "Border municipalities 2021"
   )
 ```
 
@@ -443,11 +460,23 @@ gg21 %>%
   datatable() 
 ```
 
+```{r}
+gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, BZNAME, 
+                                   ARGRNR, ARGRNAME, ARNR, ARNAME,
+                                   border)) %>% 
+  write_rds("data/BfS/gg21.Rds")
+
+st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, BZNAME, 
+                                      ARGRNR, ARGRNAME, ARNR, ARNAME,
+                                      border)) %>% 
+  write_rds("data/swisstopo/st_gg21.Rds")
+```
+
 <!-- ----------------------------------------------------- -->
 
-# Community boundaries mutations
+# Municipality boundaries mutations
 
-Using `Gemeindestand - Stand vom 01.07.2021.xlsx` from [here](https://www.agvchapp.bfs.admin.ch/de/home) we can identify communities with changes during the study period.  
+Using `Gemeindestand - Stand vom 01.07.2021.xlsx` from [here](https://www.agvchapp.bfs.admin.ch/de/home) we can identify municipalities with changes during the study period.  
 
 ```{r}
 histcomm <- read_xlsx("data-raw/BfS/Mutierte_Gemeinden_20150101_bis_20210701.xlsx", 
@@ -470,7 +499,7 @@ histcomm <- read_xlsx("data-raw/BfS/Mutierte_Gemeinden_20150101_bis_20210701.xls
 write_rds(histcomm, "data/BfS/histcomm.Rds")
 ```
 
-There were `r length(unique(histcomm$bezirks_num_old))` communities with changes recorded in `2015-01-01` - `2021-07-01` period.  
+There were `r length(unique(histcomm$bezirks_num_old))` municipalities with changes recorded in `2015-01-01` - `2021-07-01` period.  
 
 Here is list of changes from `2020-01-01` onwards that could affect other data that date for instance refer to  `2020-12-31`:  
 

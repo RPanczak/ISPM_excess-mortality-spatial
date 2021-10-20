@@ -1,0 +1,58 @@
+---
+title: "Spatial analyses of 2020-21 excess mortality in CH"
+subtitle: "Grid & grided data preparation"
+author: "Radek Panczak & Garyfallos Konstantinoudis"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::robobook:
+    code_folding: show
+    self_contained: true
+    highlight: pygments
+editor_options: 
+  chunk_output_type: console
+knit: (function(inputFile, encoding) {
+  rmarkdown::render(inputFile, encoding = encoding, output_dir = "../docs") })
+---
+
+<!-- ----------------------------------------------------- -->
+
+```{r setup, include = FALSE}
+set.seed(12345)
+options(scipen = 999)
+options(max.print = "75")
+
+library(pacman)
+p_load(tidyverse, magrittr, scales,  
+       DT, 
+       sf, tmap)
+
+import::from("sjmisc", "frq")
+```
+
+
+```{r conflicts, include = FALSE}
+tidyverse::tidyverse_conflicts()
+
+conflicted::conflict_scout()
+```
+
+```{r knit-setup, include = FALSE}
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_chunk$set(cache = FALSE,
+                      prompt = FALSE,
+                      tidy = FALSE,
+                      comment = NA,
+                      message = FALSE,
+                      warning = FALSE)
+
+knitr::opts_knit$set(width = 75)
+
+mu <- Hmisc::markupSpecs$html
+```
+
+<!-- ----------------------------------------------------- -->
+<!-- ----------------------------------------------------- -->
+
+
+

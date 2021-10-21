@@ -146,10 +146,11 @@ population <- read_xlsx("data-raw/BfS/px-x-0103010000_201.xlsx",
   select(-bfs_gde_num_new, -gemeindename_new) %>% 
   group_by(year, GMDNR, GMDNAME, sex, nationality, age) %>% 
   summarise(population = sum(population)) %>% 
-  ungroup()
+  ungroup() %>% 
+  arrange(year, GMDNR, sex, nationality, age)
 ```
 
-Yearly totals (`31st Dec`!):  
+Yearly totals (**on 31st Dec**!):  
 
 ```{r echo=FALSE}
 population %>% 
@@ -160,7 +161,7 @@ population %>%
 
 Age distributions over years  
 
-```{r}
+```{r echo=FALSE}
 population %>% 
   filter(age != "<40") %>% 
   group_by(year, age, sex) %>% 
@@ -171,21 +172,147 @@ population %>%
   scale_fill_viridis_d()
 ```
 
-## 2021
+```{r include=FALSE}
+write_rds(population, "data/BfS/population.Rds")
+```
 
-Chances of any reliable data for 2021 are pretty slim. One solution is to simply carry over 2020 data.  
+## Predicting mid-year (and 2021) pops
+
+```{r eval=FALSE, include=FALSE}
+# smallest pops
+population %>% 
+  filter(year == 2020) %>% 
+  group_by(GMDNR) %>% 
+  summarize(population = sum(population),
+            GMDNAME = first(GMDNAME)) %>% 
+  ungroup() %>% 
+  arrange(population)
+# arrange(desc(population))
+```
+
+For each GMDNR, age, sex, nationality stratum linear model is fit, then prediction is made for mid year.  
 
 ```{r}
-population <- 
-  bind_rows(population, 
-            population %>% 
-              filter(year == 2020) %>% 
-              mutate(year = 2021)
-  )
+population_mid <- population %>% 
+  # filter(GMDNR == 261 | GMDNR == 6172) %>%
+  group_by(GMDNR, age, sex, nationality) %>% 
+  # do(broom::tidy(lm(population ~ year, data = .))) %>% 
+  # do(broom::augment(lm(population ~ year, data = .))) %>% 
+  do(lm(population ~ year, data = .) %>% 
+       predict(., tibble(year = seq(2014.5, 2020.5, 1))) %>%
+       tibble(year = seq(2014.5, 2020.5, 1), 
+              population_mid = .)
+  ) %>% 
+  ungroup() %>% 
+  mutate(year = as.integer(year + 0.5),
+         population_mid = round(population_mid)) %>% 
+  arrange(year, GMDNR, sex, nationality, age)
 ```
 
 ```{r include=FALSE}
-write_rds(population, "data/BfS/population.Rds")
+write_rds(population_mid, "data/BfS/population_mid.Rds")
+```
+
+Predictions can be made also excluding data from year 2020 that was already affected by pandemic:  
+
+```{r}
+population_mid_no20 <- population %>% 
+  # filter(GMDNR == 261 | GMDNR == 6172) %>%
+  filter(year < 2020) %>%
+  group_by(GMDNR, age, sex, nationality) %>% 
+  do(lm(population ~ year, data = .) %>% 
+       predict(., tibble(year = seq(2014.5, 2020.5, 1))) %>%
+       tibble(year = seq(2014.5, 2020.5, 1), 
+              population_mid_no20 = .)
+  ) %>% 
+  ungroup() %>% 
+  mutate(year = as.integer(year + 0.5),
+         population_mid_no20 = round(population_mid_no20)) %>% 
+  arrange(year, GMDNR, sex, nationality, age)
+```
+
+```{r include=FALSE}
+write_rds(population_mid_no20, "data/BfS/population_mid_no20.Rds")
+```
+
+Results for large municipality are fine:  
+
+```{r echo=FALSE, warning=FALSE}
+population %>% 
+  filter(year < 2021) %>% 
+  filter(GMDNR == 261 & age == "80+") %>% 
+  bind_rows(population_mid %>% 
+              filter(GMDNR == 261 & age == "80+") %>% 
+              mutate(year = year - 0.5)) %>% 
+  ggplot(aes(x = year)) + 
+  geom_point(aes(y = population)) +
+  geom_point(aes(y = population_mid), color = "red") +
+  facet_wrap(nationality~sex, scales = "free")
+```
+
+For small municipality we might end up with sth funny, including data below 0?    
+
+```{r echo=FALSE, warning=FALSE}
+population %>% 
+  filter(year < 2021) %>% 
+  filter(GMDNR == 782 & age == "40-49") %>% 
+  bind_rows(population_mid %>% 
+              filter(GMDNR == 782 & age == "40-49") %>% 
+              mutate(year = year - 0.5)) %>% 
+  ggplot(aes(x = year)) + 
+  geom_point(aes(y = population)) +
+  geom_point(aes(y = population_mid), color = "red") +
+  facet_wrap(nationality~sex, scales = "free") +
+  geom_hline(yintercept = 0)
+```
+
+Predicting without 2020, a bit more wiggly:  
+
+```{r echo=FALSE, warning=FALSE}
+population %>% 
+  filter(year < 2021) %>% 
+  filter(GMDNR == 261 & age == "80+") %>% 
+  bind_rows(population_mid_no20 %>% 
+              filter(GMDNR == 261 & age == "80+") %>% 
+              mutate(year = year - 0.5)) %>% 
+  ggplot(aes(x = year)) + 
+  geom_point(aes(y = population)) +
+  geom_point(aes(y = population_mid_no20), color = "red") +
+  facet_wrap(nationality~sex, scales = "free")
+```
+
+Differences of two approaches (lowest / highest 100 stratatata):  
+
+```{r echo=FALSE}
+population_mid %>% 
+  left_join(population_mid_no20) %>% 
+  mutate(diff = (population_mid_no20 - population_mid) / population_mid) %>% 
+  arrange(diff) %>% 
+  slice(1:100) %>% 
+  datatable()
+```
+
+```{r echo=FALSE}
+population_mid %>% 
+  left_join(population_mid_no20) %>% 
+  mutate(diff = (population_mid_no20 - population_mid) / population_mid) %>% 
+  arrange(desc(diff)) %>% 
+  slice(1:100) %>% 
+  datatable()
+```
+
+```{r echo=FALSE}
+diff <- population_mid %>% 
+  left_join(population_mid_no20) %>% 
+  mutate(diff = (population_mid_no20 - population_mid) / population_mid) %>% 
+  group_by(GMDNR, year) %>% 
+  summarise(diff = sum(diff)) %>% 
+  ungroup()
+
+ggplot(diff) + 
+  geom_histogram(aes(diff)) + 
+  scale_x_continuous(labels = percent) +
+  facet_wrap(~year)
 ```
 
 ## Deaths <> population link
@@ -198,9 +325,15 @@ Non-existent population count `communityXyearXageXsexXnationality` strata are as
 w_deaths_2015_2021_exp <- read_rds("data/BfS-closed/w_deaths_2015_2021_exp.Rds")
 
 w_deaths_2015_2021_pop <- w_deaths_2015_2021_exp %>% 
-  left_join(population) %>% 
-  replace_na(list(population = 0)) %>% 
-  relocate(GMDNR)
+  left_join(
+    bind_rows(population, 
+              population %>% 
+                filter(year == 2020) %>% 
+                mutate(year = 2021))
+  ) %>% 
+  # left_join(population_mid) %>% 
+  # left_join(population_mid_no20) %>%
+  replace_na(list(population = 0)) 
 ```
 
 ## Deaths > population problem
@@ -216,7 +349,7 @@ There are `r number(nrow(w_deaths_2015_2021_surplus))` strata from `r number(len
 
 ```{r echo=FALSE}
 w_deaths_2015_2021_surplus %>% 
-  select(-GMDNR, -date) %>% 
+  select(-GMDNR, -date, -border, -starts_with("AR")) %>% 
   datatable()
 ```
 
@@ -233,7 +366,7 @@ missing2 <- population %>%
   select(GMDNAME) %>% 
   distinct()
 
-rm(missing1, missing2)
+rm(missing1, missing2); gc()
 ```
 
 ```{r include=FALSE}
@@ -858,8 +991,7 @@ write_rds(w_deaths_2015_2021_pop, "data/BfS-closed/w_deaths_2015_2021_pop.Rds")
 
 w_deaths_2015_2021_ar_pop %>% 
   left_join(
-    st_read("data/geo/ar_21.shp") %>% 
-      st_drop_geometry() %>% 
+    read_rds("data/BfS/raum.Rds") %>% 
       select(ARNR, border)
   ) %>% 
   left_join(ssep3_ar_21_pop_geo %>% 

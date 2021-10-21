@@ -286,11 +286,13 @@ raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx",
   remove_empty(c("rows", "cols")) %>% clean_names() %>% 
   filter(! is.na(bfs_gde_nummer)) %>% 
   rename(GMDNR = bfs_gde_nummer,
+         GMDNAME = gemeindename,
          KTNAME = kanton,
          BZNAME = bezirksname,
          ARGRNR = arbeitsmarktgrossregionen_2018,
          ARNR = arbeitsmarktregionen_2018) %>% 
-  select(GMDNR, KTNAME, BZNAME, 
+  select(GMDNR, GMDNAME,
+         KTNAME, BZNAME, 
          ARGRNR, ARNR) %>% 
   left_join(
     read_xlsx("data-raw/BfS/Raumgliederungen.xlsx", 
@@ -314,7 +316,7 @@ raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx",
                                         "Locarno", "Lugano"), 
                           1, 0))
 
-write_rds(raum, "data/BfS/AR.Rds")
+write_rds(raum, "data/BfS/raum.Rds")
 ```
 
 ### Preps

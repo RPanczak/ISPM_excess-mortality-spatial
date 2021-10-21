@@ -22,7 +22,9 @@ options(scipen = 999)
 options(max.print = "75")
 
 library(pacman)
-p_load(sf, tidyverse, magrittr, janitor, scales, lubridate, DT)
+p_load(tidyverse, magrittr, 
+       janitor, scales, lubridate, 
+       DT, skimr)
 
 import::from("sjmisc", "frq")
 ```
@@ -56,7 +58,7 @@ mu <- Hmisc::markupSpecs$html
 
 Custom file delivered by BfS covering 2021 period and standardizing communities to Jul 2021.  
 
-Using **Wohnort** (the community where the person died) as unit of anlysis.   
+Using **Wohnort** (the community where the person died) as unit of analysis.   
 
 ```{r}
 w_deaths_2015_2021 <- read_csv("data-raw/BfS-closed/13OCT21_Lieferung_Panczak_Wohnort.csv", 
@@ -84,6 +86,10 @@ Description of data:
 report::report(w_deaths_2015_2021)
 ```
 
+```{r echo=FALSE}
+skim(w_deaths_2015_2021)
+```
+
 ```{r eval=FALSE, include=FALSE}
 # Deaths across variables:  
 w_deaths_2015_2021 %>%
@@ -101,33 +107,38 @@ w_deaths_2015_2021 %>%
   gtsummary::tbl_summary(by = year)
 ```
 
+`r number(sum(w_deaths_2015_2021$COUNT), big.mark = ",")` deaths by year:  
+
+```{r echo=FALSE}
+w_deaths_2015_2021 %>%
+  group_by(year) %>% 
+  summarise(Deaths = sum(COUNT)) %>% 
+  datatable(options = list(dom = "t"))
+```
+
 ## Codes of geographical areas
 
 ```{r include=FALSE}
-gg21 <- read_rds("data/BfS/gg21.Rds") %>% 
-  st_drop_geometry() %>% 
-  # prepared in 01.Rmd
-  left_join(read_rds("data/BfS/AR.Rds"))
+raum <- read_rds("data/BfS/raum.Rds")
 ```
 
 ```{r include=FALSE}
-# Codes with no link
-# has to be empty 
+# Codes with no link - has to be empty 
 
 no_link <- w_deaths_2015_2021 %>% 
   select(GMDNAME) %>% 
   distinct()  %>% 
-  anti_join(gg21)
+  anti_join(raum)
 
 stopifnot(nrow(no_link) == 0)
 
 rm(no_link)
 ```
 
-There were `r number(nrow(gg21), big.mark = ",")` communities in Jul 2021 in CH.  
+There were `r number(nrow(raum), big.mark = ",")` communities in Jul 2021 in CH.  
 
 ```{r echo=FALSE}
-no_cases <- gg21 %>% 
+no_cases <- raum %>% 
   anti_join(
     w_deaths_2015_2021 %>% 
       select(GMDNAME) %>% 
@@ -140,7 +151,7 @@ no_cases <- gg21 %>%
 ```{r echo=FALSE}
 no_cases %>% 
   select(GMDNAME, KTNAME) %>% 
-  datatable(options = list(paging = FALSE)) 
+  datatable(options = list(dom = "t")) 
 
 rm(no_cases)
 ```
@@ -196,13 +207,13 @@ w_deaths_2015_2021 %>%
 
 ## Filling with zeroes
 
-All possible combinations of `year, month, canton, community, age, sex, nationality` are used and then empty strata are filled with zeroes.  
+All possible combinations of `year, month, canton, community, age, sex & nationality` are used and then empty strata are filled with zeroes.  
 
 This expansion also includes communities with zero deaths described above.  
 
 ```{r}
 w_deaths_2015_2021_exp <- 
-  gg21 %>% 
+  raum %>% 
   select(GMDNAME) %>% 
   distinct() %>% 
   left_join(w_deaths_2015_2021) %>% 
@@ -220,22 +231,27 @@ w_deaths_2015_2021_exp <-
   replace_na(list(deaths = 0)) %>% 
   mutate(date = ymd(paste(year, month, "1", sep = " "))) %>% 
   relocate(date, .after = month) %>% 
-  relocate(canton, .after = GMDNAME) %>% 
-  group_by(GMDNAME) %>% 
-  fill(canton, .direction = "downup") %>% 
-  ungroup() %>% 
-  left_join(gg21 %>% 
-              select(GMDNAME, GMDNR)) %>% 
-  relocate(GMDNR) %>% 
+  left_join(raum) %>% 
+  select(-canton, -BZNAME) %>% 
+  relocate(GMDNR, .before = GMDNAME) %>% 
+  relocate(KTNAME, .after = GMDNAME) %>% 
   arrange(GMDNR, year, month, age, sex, nationality)
 ```
 
-That obviously increases the size of the dataset from `r number(nrow(w_deaths_2015_2021), big.mark = ",")` to `r number(nrow(w_deaths_2015_2021_exp), big.mark = ",")` (*ie.* 2,163 communities each with 2,016 data points).  
+That obviously increases the size of the dataset from `r number(nrow(w_deaths_2015_2021), big.mark = ",")` to `r number(nrow(w_deaths_2015_2021_exp), big.mark = ",")` (*ie.* 2,163 communities each with 2,016 data points * 7 years * 12 months * 6 age groups * 2 sexes * 2 nationality cats).  
 
 Needless to say that creates large amount of zero cells:
 
 ```{r echo=FALSE}
 frq(w_deaths_2015_2021_exp, deaths == 0)
+```
+
+Situation only marginally improves with exclusion of `<40` age group stratum:  
+
+```{r echo=FALSE}
+w_deaths_2015_2021_exp %>% 
+  filter(age != "<40") %>% 
+  frq(deaths == 0)
 ```
 
 ## Examples of time series
@@ -277,10 +293,9 @@ write_rds(w_deaths_2015_2021_exp, "data/BfS-closed/w_deaths_2015_2021_exp.Rds")
 
 ```{r}
 w_deaths_2015_2021_ar <- w_deaths_2015_2021_exp %>% 
-  left_join(gg21 %>% select(GMDNAME, ARGRNR, ARGRNAME, ARNR, ARNAME)) %>% 
-  select(-GMDNAME) %>% 
+  select(-GMDNR, -GMDNAME) %>% 
   group_by(ARGRNR, ARGRNAME, ARNR, ARNAME, 
-           canton, year, month, date, age, sex, nationality) %>% 
+           KTNAME, year, month, date, age, sex, nationality) %>% 
   summarise(deaths = as.integer(sum(deaths))) %>% 
   ungroup()
 ```
@@ -291,6 +306,14 @@ Proportion of zero cells:
 
 ```{r echo=FALSE}
 frq(w_deaths_2015_2021_ar, deaths == 0)
+```
+
+And with exclusion of `<40` age group stratum:  
+
+```{r echo=FALSE}
+w_deaths_2015_2021_ar %>% 
+  filter(age != "<40") %>% 
+  frq(deaths == 0)
 ```
 
 ## Examples of time series

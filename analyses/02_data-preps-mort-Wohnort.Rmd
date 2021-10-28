@@ -56,9 +56,9 @@ mu <- Hmisc::markupSpecs$html
 
 ## Source 
 
-Custom file delivered by BfS covering 2021 period and standardizing communities to Jul 2021.  
+Custom file delivered by BfS covering 2021 period and standardizing municipalities to Jul 2021.  
 
-Using **Wohnort** (the community where the person died) as unit of analysis.   
+Using **Wohnort** (the municipality where the person died) as unit of analysis.   
 
 ```{r}
 w_deaths_2015_2021 <- read_csv("data-raw/BfS-closed/13OCT21_Lieferung_Panczak_Wohnort.csv", 
@@ -135,7 +135,7 @@ stopifnot(nrow(no_link) == 0)
 rm(no_link)
 ```
 
-There were `r number(nrow(raum), big.mark = ",")` communities in Jul 2021 in CH.  
+There were `r number(nrow(raum), big.mark = ",")` municipalities in Jul 2021 in CH.  
 
 ```{r echo=FALSE}
 no_cases <- raum %>% 
@@ -207,9 +207,9 @@ w_deaths_2015_2021 %>%
 
 ## Filling with zeroes
 
-All possible combinations of `year, month, canton, community, age, sex & nationality` are used and then empty strata are filled with zeroes.  
+All possible combinations of `year, month, canton, municipality, age, sex & nationality` are used and then empty strata are filled with zeroes.  
 
-This expansion also includes communities with zero deaths described above.  
+This expansion also includes municipalities with zero deaths described above.  
 
 ```{r}
 w_deaths_2015_2021_exp <- 
@@ -238,7 +238,7 @@ w_deaths_2015_2021_exp <-
   arrange(GMDNR, year, month, age, sex, nationality)
 ```
 
-That obviously increases the size of the dataset from `r number(nrow(w_deaths_2015_2021), big.mark = ",")` to `r number(nrow(w_deaths_2015_2021_exp), big.mark = ",")` (*ie.* 2,163 communities each with 2,016 data points * 7 years * 12 months * 6 age groups * 2 sexes * 2 nationality cats).  
+That obviously increases the size of the dataset from `r number(nrow(w_deaths_2015_2021), big.mark = ",")` to `r number(nrow(w_deaths_2015_2021_exp), big.mark = ",")` (*ie.* 2,163 municipalities each with 2,016 data points * 7 years * 12 months * 6 age groups * 2 sexes * 2 nationality cats).  
 
 Needless to say that creates large amount of zero cells:
 
@@ -256,7 +256,7 @@ w_deaths_2015_2021_exp %>%
 
 ## Examples of time series
 
-### Communities Bern & Meienried:  
+### Municipalities Bern & Meienried:  
 
 ```{r echo=FALSE}
 w_deaths_2015_2021_exp %>% 

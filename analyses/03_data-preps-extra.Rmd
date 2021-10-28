@@ -156,6 +156,7 @@ Yearly totals (**on 31st Dec**!):
 population %>% 
   group_by(year) %>% 
   summarise(population = sum(population)) %>% 
+  mutate(population = as.character(number(population, big.mark = ","))) %>% 
   datatable(rownames = FALSE, options = list(dom = 't'))
 ```
 
@@ -176,7 +177,7 @@ population %>%
 write_rds(population, "data/BfS/population.Rds")
 ```
 
-## Predicting mid-year (and 2021) pops
+## Predicting 2020 & 2021 pops
 
 ```{r eval=FALSE, include=FALSE}
 # smallest pops
@@ -190,129 +191,68 @@ population %>%
 # arrange(desc(population))
 ```
 
-For each GMDNR, age, sex, nationality stratum linear model is fit, then prediction is made for mid year.  
+For each age, sex, nationality stratum, for each municipality separately, poisson model is fit using the 2014-2019 data; then prediction is made for 2020 & 2021 years. The gist of this operation is to exclude the effect of pandemic from the population counts in years affected.   
 
-```{r}
-population_mid <- population %>% 
-  # filter(GMDNR == 261 | GMDNR == 6172) %>%
+```{r eval=FALSE, include=FALSE}
+population_ext_lm <- population %>% 
+  filter(year != 2020) %>% 
+  filter(GMDNR == 261 | GMDNR == 782) %>%
   group_by(GMDNR, age, sex, nationality) %>% 
   # do(broom::tidy(lm(population ~ year, data = .))) %>% 
   # do(broom::augment(lm(population ~ year, data = .))) %>% 
-  do(lm(population ~ year, data = .) %>% 
-       predict(., tibble(year = seq(2014.5, 2020.5, 1))) %>%
-       tibble(year = seq(2014.5, 2020.5, 1), 
-              population_mid = .)
+  do(lm(population ~ year, data = .) %>%
+       predict(., newdata = tibble(year = c(2020, 2021))) %>%
+       tibble(year = c(2020, 2021), 
+              population_ext_lm = .)
   ) %>% 
   ungroup() %>% 
-  mutate(year = as.integer(year + 0.5),
-         population_mid = round(population_mid)) %>% 
+  mutate(population_ext_lm = round(population_ext_lm)) %>% 
   arrange(year, GMDNR, sex, nationality, age)
 ```
-
-```{r include=FALSE}
-write_rds(population_mid, "data/BfS/population_mid.Rds")
-```
-
-Predictions can be made also excluding data from year 2020 that was already affected by pandemic:  
 
 ```{r}
-population_mid_no20 <- population %>% 
-  # filter(GMDNR == 261 | GMDNR == 6172) %>%
-  filter(year < 2020) %>%
+population_ext_poi <- population %>% 
+  filter(year != 2020) %>% 
+  # filter(GMDNR == 261 | GMDNR == 782) %>%
   group_by(GMDNR, age, sex, nationality) %>% 
-  do(lm(population ~ year, data = .) %>% 
-       predict(., tibble(year = seq(2014.5, 2020.5, 1))) %>%
-       tibble(year = seq(2014.5, 2020.5, 1), 
-              population_mid_no20 = .)
+  do(glm(population ~ year, data = ., family = "poisson") %>%
+       predict(., newdata = tibble(year = c(2020, 2021)), type = "response") %>%
+       tibble(year = c(2020, 2021), 
+              population_ext_poi = .)
   ) %>% 
   ungroup() %>% 
-  mutate(year = as.integer(year + 0.5),
-         population_mid_no20 = round(population_mid_no20)) %>% 
+  mutate(population_ext_poi = round(population_ext_poi)) %>% 
   arrange(year, GMDNR, sex, nationality, age)
 ```
 
 ```{r include=FALSE}
-write_rds(population_mid_no20, "data/BfS/population_mid_no20.Rds")
+write_rds(population_ext_poi, "data/BfS/population_ext_poi.Rds")
 ```
 
 Results for large municipality are fine:  
 
 ```{r echo=FALSE, warning=FALSE}
 population %>% 
-  filter(year < 2021) %>% 
   filter(GMDNR == 261 & age == "80+") %>% 
-  bind_rows(population_mid %>% 
-              filter(GMDNR == 261 & age == "80+") %>% 
-              mutate(year = year - 0.5)) %>% 
+  bind_rows(population_ext_poi %>% 
+              filter(GMDNR == 261 & age == "80+")) %>% 
   ggplot(aes(x = year)) + 
   geom_point(aes(y = population)) +
-  geom_point(aes(y = population_mid), color = "red") +
+  geom_point(aes(y = population_ext_poi), color = "red") +
   facet_wrap(nationality~sex, scales = "free")
 ```
 
-For small municipality we might end up with sth funny, including data below 0?    
+For small municipality we might end up with sth more wiggly.  
 
 ```{r echo=FALSE, warning=FALSE}
 population %>% 
-  filter(year < 2021) %>% 
-  filter(GMDNR == 782 & age == "40-49") %>% 
-  bind_rows(population_mid %>% 
-              filter(GMDNR == 782 & age == "40-49") %>% 
-              mutate(year = year - 0.5)) %>% 
+  filter(GMDNR == 782 & age == "80+") %>% 
+  bind_rows(population_ext_poi %>% 
+              filter(GMDNR == 782 & age == "80+")) %>% 
   ggplot(aes(x = year)) + 
   geom_point(aes(y = population)) +
-  geom_point(aes(y = population_mid), color = "red") +
-  facet_wrap(nationality~sex, scales = "free") +
-  geom_hline(yintercept = 0)
-```
-
-Predicting without 2020, a bit more wiggly:  
-
-```{r echo=FALSE, warning=FALSE}
-population %>% 
-  filter(year < 2021) %>% 
-  filter(GMDNR == 261 & age == "80+") %>% 
-  bind_rows(population_mid_no20 %>% 
-              filter(GMDNR == 261 & age == "80+") %>% 
-              mutate(year = year - 0.5)) %>% 
-  ggplot(aes(x = year)) + 
-  geom_point(aes(y = population)) +
-  geom_point(aes(y = population_mid_no20), color = "red") +
+  geom_point(aes(y = population_ext_poi), color = "red") +
   facet_wrap(nationality~sex, scales = "free")
-```
-
-Differences of two approaches (lowest / highest 100 stratatata):  
-
-```{r echo=FALSE}
-population_mid %>% 
-  left_join(population_mid_no20) %>% 
-  mutate(diff = (population_mid_no20 - population_mid) / population_mid) %>% 
-  arrange(diff) %>% 
-  slice(1:100) %>% 
-  datatable()
-```
-
-```{r echo=FALSE}
-population_mid %>% 
-  left_join(population_mid_no20) %>% 
-  mutate(diff = (population_mid_no20 - population_mid) / population_mid) %>% 
-  arrange(desc(diff)) %>% 
-  slice(1:100) %>% 
-  datatable()
-```
-
-```{r echo=FALSE}
-diff <- population_mid %>% 
-  left_join(population_mid_no20) %>% 
-  mutate(diff = (population_mid_no20 - population_mid) / population_mid) %>% 
-  group_by(GMDNR, year) %>% 
-  summarise(diff = sum(diff)) %>% 
-  ungroup()
-
-ggplot(diff) + 
-  geom_histogram(aes(diff)) + 
-  scale_x_continuous(labels = percent) +
-  facet_wrap(~year)
 ```
 
 ## Deaths <> population link
@@ -331,8 +271,8 @@ w_deaths_2015_2021_pop <- w_deaths_2015_2021_exp %>%
                 filter(year == 2020) %>% 
                 mutate(year = 2021))
   ) %>% 
-  # left_join(population_mid) %>% 
-  # left_join(population_mid_no20) %>%
+  # left_join(population_ext_poi) %>% 
+  # left_join(population_ext_no20) %>%
   replace_na(list(population = 0)) 
 ```
 

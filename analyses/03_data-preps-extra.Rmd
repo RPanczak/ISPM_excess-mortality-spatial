@@ -160,7 +160,7 @@ population %>%
   datatable(rownames = FALSE, options = list(dom = 't'))
 ```
 
-Age distributions over years  
+Age (40 plus!) distributions over years  
 
 ```{r echo=FALSE}
 population %>% 
@@ -207,7 +207,8 @@ population_ext_lm <- population %>%
   ) %>% 
   ungroup() %>% 
   mutate(population_ext_lm = round(population_ext_lm)) %>% 
-  arrange(year, GMDNR, sex, nationality, age)
+  arrange(year, GMDNR, sex, nationality, age) %>% 
+  relocate(year)
 
 write_rds(population_ext_lm, "data/BfS/population_ext_lm.Rds")
 ```
@@ -224,7 +225,8 @@ population_ext_poi <- population %>%
   ) %>% 
   ungroup() %>% 
   mutate(population_ext_poi = round(population_ext_poi)) %>% 
-  arrange(year, GMDNR, sex, nationality, age)
+  arrange(year, GMDNR, sex, nationality, age) %>% 
+  relocate(year)
 
 write_rds(population_ext_poi, "data/BfS/population_ext_poi.Rds")
 ```
@@ -242,6 +244,17 @@ population %>%
   facet_wrap(nationality~sex, scales = "free")
 ```
 
+```{r eval=FALSE,echo=FALSE, warning=FALSE}
+population %>% 
+  filter(GMDNR == 261 & age == "80+") %>% 
+  bind_rows(population_ext_poi %>% 
+              filter(GMDNR == 261 & age == "80+")) %>% 
+  ggplot(aes(x = year)) + 
+  geom_point(aes(y = population)) +
+  geom_point(aes(y = population_ext_poi), color = "red") +
+  facet_wrap(nationality~sex, scales = "free")
+```
+
 For small municipality we might end up with sth more wiggly.  
 
 ```{r echo=FALSE, warning=FALSE}
@@ -252,6 +265,17 @@ population %>%
   ggplot(aes(x = year)) + 
   geom_point(aes(y = population)) +
   geom_point(aes(y = population_ext_lm), color = "red") +
+  facet_wrap(nationality~sex, scales = "free")
+```
+
+```{r eval=FALSE,echo=FALSE, warning=FALSE}
+population %>% 
+  filter(GMDNR == 782 & age == "80+") %>% 
+  bind_rows(population_ext_poi %>% 
+              filter(GMDNR == 782 & age == "80+")) %>% 
+  ggplot(aes(x = year)) + 
+  geom_point(aes(y = population)) +
+  geom_point(aes(y = population_ext_poi), color = "red") +
   facet_wrap(nationality~sex, scales = "free")
 ```
 
@@ -286,14 +310,14 @@ for (i in 2014:2020){
   }
   
 }
-rm(i, pred_year, data, result)
+rm(i, data, result)
 ```
 
 ```{r include=FALSE}
 write_rds(population_mid, "data/BfS/population_mid.Rds")
 ```
 
-Results for large municipality are fine:  
+Again, results for large municipality are fine:  
 
 ```{r echo=FALSE, warning=FALSE}
 population %>% 
@@ -391,8 +415,7 @@ gc()
 
 ## Labour market aggregates
 
-Prepared population was also aggregated to labour market regions and joined to deaths.  
-
+Prepared population was also aggregated to labour market regions and joined to deaths.    
 ```{r}
 raum <- read_rds("data/BfS/AR.Rds") %>% 
   select(GMDNR, ARNR, ARNAME)
@@ -538,7 +561,6 @@ tm_shape(carto_dorling) +
   tm_layout(frame = FALSE)
 ```
 
-
 ```{r include=FALSE}
 rm(carto, carto_dorling, carto_ncont, carto_se); gc()
 ```
@@ -664,8 +686,6 @@ r19_bu_orig <- read_dta("../SNC_core/data-raw/statpop/r19_bu_orig.dta") %>%
   zap_label() %>% zap_formats()
 
 r19_bu <- r19_bu_orig %>% 
-  # filter(between(r19_gklas, 1110, 1122)) %>% 
-  # filter(!is.na(r19_gklas)) %>% 
   select(r19_egid_snc, r19_comm, r19_gdename,
          r19_ecoord, r19_ncoord,
          r19_nrpers_main) %>% 
@@ -825,6 +845,7 @@ write_rds(ssep3_gem_21_pop_geo, "data/sep/ssep3_gem_21_pop_geo.rds")
 ```
 
 Final map using median index - bubbles scaled to number of people (2019)  
+
 ```{r eval=FALSE, include=FALSE}
 frq(ssep3_gem_21_pop_geo$median_ssep3_d)
 ```
@@ -878,6 +899,7 @@ rm(r19_bu_sep_gem21); gc()
 ```
 
 Final map using median index - bubbles scaled to number of people (2019)  
+
 ```{r eval=FALSE, include=FALSE}
 frq(ssep3_ar_21_pop_geo$median_ssep3_d)
 ```

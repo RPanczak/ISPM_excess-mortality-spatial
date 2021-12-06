@@ -58,7 +58,7 @@ mu <- Hmisc::markupSpecs$html
 
 Custom file delivered by BfS covering 2021 period and standardizing municipalities to Jul 2021.  
 
-Using **Wohnort** (the municipality where the person died) as unit of analysis.   
+Using **Wohnort** (*the municipality where the person died*) as unit of analysis.   
 
 ```{r}
 w_deaths_2015_2021 <- read_csv("data-raw/BfS-closed/13OCT21_Lieferung_Panczak_Wohnort.csv", 
@@ -76,7 +76,7 @@ w_deaths_2015_2021 <- read_csv("data-raw/BfS-closed/13OCT21_Lieferung_Panczak_Wo
   # name change? >> resolved with Cordula
   mutate(GMDNAME = if_else(GMDNAME == "Klosters-Serneus", "Klosters", GMDNAME)) %>% 
   group_by(year, month, canton, GMDNAME, agegroup, sex, nationality) %>% 
-  summarise(COUNT = sum(COUNT)) %>% 
+  summarise(deaths = sum(COUNT)) %>% 
   ungroup()
 ```
 
@@ -94,7 +94,7 @@ skim(w_deaths_2015_2021)
 # Deaths across variables:  
 w_deaths_2015_2021 %>%
   mutate(month = factor(month)) %>% 
-  uncount(COUNT) %>% 
+  uncount(deaths) %>% 
   select(-GMDNAME, -canton) %>% 
   gtsummary::tbl_summary(by = year)
 ```
@@ -102,17 +102,17 @@ w_deaths_2015_2021 %>%
 ```{r eval=FALSE, include=FALSE}
 # Canton x year distribution:  
 w_deaths_2015_2021 %>%
-  uncount(COUNT) %>% 
+  uncount(deaths) %>% 
   select(year, canton) %>% 
   gtsummary::tbl_summary(by = year)
 ```
 
-`r number(sum(w_deaths_2015_2021$COUNT), big.mark = ",")` deaths by year:  
+`r number(sum(w_deaths_2015_2021$deaths), big.mark = ",")` deaths by year:  
 
 ```{r echo=FALSE}
 w_deaths_2015_2021 %>%
   group_by(year) %>% 
-  summarise(Deaths = sum(COUNT)) %>% 
+  summarise(Deaths = sum(deaths)) %>% 
   datatable(options = list(dom = "t"))
 ```
 
@@ -186,7 +186,7 @@ w_deaths_2015_2021 %<>%
   ) %>% 
   select(-agegroup) %>% 
   group_by(GMDNAME, year, month, canton, sex, age, nationality) %>% 
-  summarise(deaths = sum(COUNT)) %>% 
+  summarise(deaths = sum(deaths)) %>% 
   ungroup()
 ```
 
@@ -199,7 +199,7 @@ frq(w_deaths_2015_2021, age)
 Obviously highly skewed.  
 Note:  No zeroes here yet! No pop denominator either!  
 
-```{r}
+```{r echo=FALSE}
 w_deaths_2015_2021 %>% 
   ggplot(aes(deaths)) + 
   geom_histogram(binwidth = 1)
@@ -235,7 +235,8 @@ w_deaths_2015_2021_exp <-
   select(-canton, -BZNAME) %>% 
   relocate(GMDNR, .before = GMDNAME) %>% 
   relocate(KTNAME, .after = GMDNAME) %>% 
-  arrange(GMDNR, year, month, age, sex, nationality)
+  arrange(GMDNR, year, month, age, sex, nationality) %>% 
+  filter( !(year == 2021 & month > 6))
 ```
 
 That obviously increases the size of the dataset from `r number(nrow(w_deaths_2015_2021), big.mark = ",")` to `r number(nrow(w_deaths_2015_2021_exp), big.mark = ",")` (*ie.* 2,163 municipalities each with 2,016 data points * 7 years * 12 months * 6 age groups * 2 sexes * 2 nationality cats).  

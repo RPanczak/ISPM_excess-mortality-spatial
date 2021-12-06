@@ -1,0 +1,81 @@
+---
+title: "Spatial analyses of 2020-21 excess mortality in CH"
+subtitle: "EDA"
+author: "Radek Panczak"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::robobook:
+    code_folding: show
+    self_contained: true
+    highlight: pygments
+editor_options: 
+  chunk_output_type: console
+knit: (function(inputFile, encoding) {
+  rmarkdown::render(inputFile, encoding = encoding, output_dir = "../docs") })
+---
+
+<!-- ----------------------------------------------------- -->
+
+```{r setup, include = FALSE}
+set.seed(12345)
+options(scipen = 999)
+options(max.print = "75")
+
+library(pacman)
+p_load(sf, tidyverse, magrittr, scales, lubridate, kableExtra)
+
+import::from("sjmisc", "frq")
+```
+
+```{r conflicts, include = FALSE}
+tidyverse::tidyverse_conflicts()
+
+conflicted::conflict_scout()
+```
+
+```{r knit-setup, include = FALSE}
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_chunk$set(cache = FALSE,
+                      prompt = FALSE,
+                      tidy = FALSE,
+                      comment = NA,
+                      message = FALSE,
+                      warning = FALSE)
+
+knitr::opts_knit$set(width = 75)
+
+mu <- Hmisc::markupSpecs$html
+```
+
+<!-- ----------------------------------------------------- -->
+
+```{r}
+w_deaths_2015_2021_ar_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_ar_pop.Rds")
+
+w_deaths_2015_2021_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_pop.Rds")
+
+w_deaths_2015_2021_ar_pop %>% 
+  group_by(year) %>% 
+  summarise(deaths = sum(deaths))
+```
+
+```{r}
+frq(w_deaths_2015_2021_ar_pop, deaths > population) 
+
+w_deaths_2015_2021_ar_pop %>% 
+  filter(deaths > population)
+
+w_deaths_2015_2021_ar_pop %<>% 
+  mutate(population = if_else(deaths > population, deaths, population))
+```
+
+```{r}
+frq(w_deaths_2015_2021_pop, deaths > population) 
+
+w_deaths_2015_2021_pop %>% 
+  filter(deaths > population)
+
+w_deaths_2015_2021_pop %<>% 
+  mutate(population = if_else(deaths > population, deaths, population))
+```

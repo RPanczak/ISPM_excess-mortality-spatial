@@ -29,7 +29,6 @@ p_load(tidyverse, readxl, magrittr,
 import::from("sjmisc", "frq")
 ```
 
-
 ```{r conflicts, include = FALSE}
 tidyverse::tidyverse_conflicts()
 
@@ -85,9 +84,9 @@ gg21 <-
           as_tibble = TRUE) %>% 
   st_set_crs(2056)
 
-bz21 <- 
-  st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1b21.shp",
-          as_tibble = TRUE) 
+# bz21 <- 
+#   st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1b21.shp",
+#           as_tibble = TRUE) 
 
 kt21 <- 
   st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1k21.shp",
@@ -97,8 +96,11 @@ se21 <-
   st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1s21.shp",
           as_tibble = TRUE) %>% 
   filter(GMDNAME != "Lago di Como")
+```
 
-write_rds(bz21, "data/BfS/bz21.Rds")
+```{r}
+# gg written alter after processing
+# write_rds(bz21, "data/BfS/bz21.Rds")
 write_rds(kt21, "data/BfS/kt21.Rds")
 write_rds(se21, "data/BfS/se21.Rds")
 ```
@@ -109,15 +111,6 @@ write_rds(se21, "data/BfS/se21.Rds")
 tm_shape(se21, is.master = FALSE) +
   tm_fill(col = "#a7cdf2")  +
   tm_shape(kt21) +
-  tm_borders()
-```
-
-### District 
-
-```{r echo=FALSE}
-tm_shape(se21, is.master = FALSE) +
-  tm_fill(col = "#a7cdf2")  +
-  tm_shape(bz21) +
   tm_borders()
 ```
 
@@ -160,7 +153,10 @@ st_kt21 <-
   st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp",
           as_tibble = TRUE) %>% 
   st_zm(drop = TRUE, what = "ZM")
+```
 
+```{r}
+# st_gg written alter after processing
 # write_rds(st_bz21, "data/swisstopo/st_bz21.Rds")
 write_rds(st_kt21, "data/swisstopo/st_kt21.Rds")
 ```
@@ -183,7 +179,7 @@ tm_shape(st_gg21 %>% filter(BFS_NUMMER == 351)) +
 
 ### Water bodies
 
-Additionally datasets differ in terms of conceptualization of the boundaries of water bodies. BfS data reach the shore of the lake, whereas swisstopo extends them over lakes. Example of municipality Delley-Portalban by the Lake Neuchâtel:  
+Additionally datasets differ in terms of conceptualization of the boundaries of water bodies. BfS data reach the shore of the lake, whereas swisstopo extends them over lakes. Example of municipality *Delley-Portalban* by the *Lac de Neuchâtel*:  
 
 ```{r echo=FALSE}
 tm_shape(se21 %>% filter(GMDNR == 9151), is.master = FALSE) +
@@ -199,7 +195,7 @@ tm_shape(se21 %>% filter(GMDNR == 9151), is.master = FALSE) +
 
 ### Multipart features
 
-BfS stores data as `MULTIPOLYGON`. In such case municipality split over several disconetcted areas is stored as *single record*. Example of municipality Monthey which consists of four separate areas:  
+BfS stores data as `MULTIPOLYGON`. In such case municipality split over several disconnected areas is stored as *single record*. Example of municipality Monthey which consists of four separate areas:  
 
 ```{r echo=FALSE}
 gg21 %>% 
@@ -222,7 +218,7 @@ That might have some implications in terms of spatial operations (maybe contigui
 
 ```{r eval=FALSE, include=FALSE}
 # if conversion is needed
-st_gg21 %>% 
+st_gg21 %<>% 
   group_by(BFS_NUMMER) %>% 
   summarise(BFS_NUMMER = first(BFS_NUMMER)) %>%
   st_cast("MULTIPOLYGON") 
@@ -234,7 +230,10 @@ st_gg21 %>%
 
 ## Non-residential municipalities
 
-Excluding `Staatswald Galm`, `Comunanza Cadenazzo/Monteceneri` & `Comunanza Capriasca/Lugano`.  
+Excluding: 
+- `Staatswald Galm`, 
+- `Comunanza Cadenazzo/Monteceneri` 
+- `Comunanza Capriasca/Lugano`.  
 
 ```{r}
 gg21 %>% 
@@ -263,7 +262,7 @@ st_gg21 %<>%
   arrange(GMDNR)
 ```
 
-```{r eval=FALSE}
+```{r eval=FALSE, include=FALSE}
 # should be exact overlap
 gg21 %>%
   filter(! GMDNR %in% st_gg21$GMDNR) %>% 
@@ -319,6 +318,10 @@ raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx",
 write_rds(raum, "data/BfS/raum.Rds")
 ```
 
+```{r eval=FALSE, include=FALSE}
+frq(raum, border)
+```
+
 ### Preps
 
 List of regions was merged on the basis of municipality number and then these municipalities were aggregated.  
@@ -351,18 +354,25 @@ Dissolving of BfS data via R was not perfect and manual corrections were impleme
 
 argr_21_cor <- st_read("data/geo/argr_21_cor.shp") %>% 
   select(-ARGRNAME) %>% 
-  left_join(raum %>% select(ARGRNR, ARGRNAME))
+  left_join(raum %>% select(ARGRNR, ARGRNAME)) %>% 
+  group_by(ARGRNR) %>% 
+  summarise(ARGRNR = first(ARGRNR),
+            ARGRNAME = first(ARGRNAME)) %>%
+  st_cast("MULTIPOLYGON") 
 
 ar_21_cor <- st_read("data/geo/ar_21_cor.shp") %>% 
   select(-ARNAME) %>% 
-  left_join(raum %>% select(ARNR, ARNAME, border))
+  left_join(raum %>% select(ARNR, ARNAME, border)) %>% 
+  group_by(ARNR) %>% 
+  summarise(ARNR = first(ARNR),
+            ARNAME = first(ARNAME),
+            border = first(border)) %>%
+  st_cast("MULTIPOLYGON") 
 ```
 
-```{r eval=FALSE}
+```{r eval=FALSE, include=FALSE}
 unlink("data/geo/argr_21.*")
 unlink("data/geo/ar_21.*")
-
-rm(argr_21, ar_21); gc()
 ```
 
 ```{r include=FALSE}
@@ -413,15 +423,20 @@ tm_shape(se21, is.master = FALSE) +
   )
 ```
 
+```{r include=FALSE}
+rm(argr_21, ar_21); gc()
+```
+
 ### Border regions
 
-Defined on the basis of [this map](https://www.bfs.admin.ch/bfs/de/home/aktuell/neue-veroeffentlichungen.assetdetail.8706500.html).  Linked by name of the region since some codes seemed to be out of date? (ie. Basel).  
+Defined on the basis of [this map](https://www.bfs.admin.ch/bfs/de/home/aktuell/neue-veroeffentlichungen.assetdetail.8706500.html). Linked by name of the region since some codes seemed to be out of date? (ie. Basel).  
 
 ```{r echo=FALSE}
 tm_shape(se21, is.master = FALSE) +
   tm_fill(col = "lightskyblue", alpha = 0.5) +
   tm_shape(ar_21_cor %>% mutate(border = factor(border))) +
-  tm_fill(col = "border", lwd = 2, alpha = 0.66, palette = "Set2", n = 2,
+  tm_fill(col = "border", lwd = 2, alpha = 0.66, 
+          palette = "Set2", n = 2,
           legend.show = FALSE) +
   tm_shape(ar_21_cor) +
   tm_borders(col = "white") +
@@ -466,11 +481,13 @@ gg21 %>%
 gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, BZNAME, 
                                    ARGRNR, ARGRNAME, ARNR, ARNAME,
                                    border)) %>% 
+  relocate(geometry, .after = last_col()) %>% 
   write_rds("data/BfS/gg21.Rds")
 
 st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, BZNAME, 
                                       ARGRNR, ARGRNAME, ARNR, ARNAME,
                                       border)) %>% 
+  relocate(geometry, .after = last_col()) %>% 
   write_rds("data/swisstopo/st_gg21.Rds")
 ```
 

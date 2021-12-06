@@ -53,6 +53,16 @@ mu <- Hmisc::markupSpecs$html
 
 <!-- ----------------------------------------------------- -->
 
+# Geo 
+
+```{r}
+gg21 <- read_rds("data/BfS/gg21.Rds")
+
+st_gg21 <- read_rds("data/swisstopo/st_gg21.Rds")
+```
+
+<!-- ----------------------------------------------------- -->
+
 # STATPOP
 
 Could be used to define `offset` for `st_make_grid`
@@ -73,16 +83,29 @@ offset <- statpop_20 %>%
 
 # Grid
 
-```{r}
-grid_100m <- shf %>% 
-    st_make_grid(cellsize = 1000, square = TRUE, offset = c()) %>% 
-    st_intersection(shf)  %>%
-    st_sf() %>%
-    st_cast()
+```{r eval=FALSE, include=FALSE}
+grid_100m <- st_gg21 %>% 
+  st_make_grid(cellsize = 100, square = TRUE, 
+               offset = c(offset$minX, offset$minY)) %>% 
+  st_intersection(st_gg21)  %>%
+  st_sf() %>%
+  st_cast() %>% 
+  mutate(ID = row_number(),
+         area = st_area(.)) %>% 
+  relocate(ID, area)
+```
 
-grid_1km <- shf %>% 
-    st_make_grid(cellsize = 1000, square = TRUE, offset = c()) %>% 
-    st_intersection(shf)  %>%
-    st_sf() %>%
-    st_cast()
+1-km grid, with lower left corner defined using `STATPOP` cells and clippet using swisstopo municipality data. 
+
+```{r}
+grid_1km <- st_gg21 %>% 
+  st_make_grid(cellsize = 1000, square = TRUE, 
+               offset = c(offset$minX, offset$minY)) %>% 
+  st_intersection(st_gg21)  %>%
+  st_sf() %>%
+  st_cast() %>% 
+  mutate(ID = row_number(),
+         area = st_area(.)) %>% 
+  relocate(ID, area)
+
 ```

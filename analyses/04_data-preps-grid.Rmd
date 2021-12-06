@@ -95,17 +95,28 @@ grid_100m <- st_gg21 %>%
   relocate(ID, area)
 ```
 
-1-km grid, with lower left corner defined using `STATPOP` cells and clippet using swisstopo municipality data. 
+1-km grid, with lower left corner defined using `STATPOP` cells and clippet using swisstopo municipality data.  
+
+Adding ID for each cell (based on row number).  
 
 ```{r}
 grid_1km <- st_gg21 %>% 
   st_make_grid(cellsize = 1000, square = TRUE, 
                offset = c(offset$minX, offset$minY)) %>% 
-  st_intersection(st_gg21)  %>%
   st_sf() %>%
-  st_cast() %>% 
+  st_cast()
+```
+
+
+```{r}
+grid_1km_crop <- grid_1km %>% 
+  st_intersection(st_gg21)  %>%
   mutate(ID = row_number(),
          area = st_area(.)) %>% 
   relocate(ID, area)
-
 ```
+
+```{r}
+plot(st_geometry(grid_1km_crop))
+```
+

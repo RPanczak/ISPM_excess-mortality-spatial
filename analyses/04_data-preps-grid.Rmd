@@ -26,9 +26,10 @@ p_load(tidyverse, magrittr, scales,
        DT, 
        sf, tmap)
 
+tmap_mode("view")
+
 import::from("sjmisc", "frq")
 ```
-
 
 ```{r conflicts, include = FALSE}
 tidyverse::tidyverse_conflicts()
@@ -95,9 +96,9 @@ grid_100m <- st_gg21 %>%
   relocate(ID, area)
 ```
 
-1-km grid, with lower left corner defined using `STATPOP` cells and clippet using swisstopo municipality data.  
+1-km grid, with lower left corner defined using `STATPOP` cells and clipped using swisstopo municipality data.  
 
-Adding ID for each cell (based on row number).  
+Also, adding ID for each cell (based on row number) and area.  
 
 ```{r}
 grid_1km <- st_gg21 %>% 
@@ -105,10 +106,7 @@ grid_1km <- st_gg21 %>%
                offset = c(offset$minX, offset$minY)) %>% 
   st_sf() %>%
   st_cast()
-```
 
-
-```{r}
 grid_1km_crop <- grid_1km %>% 
   st_intersection(st_gg21)  %>%
   mutate(ID = row_number(),
@@ -116,7 +114,29 @@ grid_1km_crop <- grid_1km %>%
   relocate(ID, area)
 ```
 
+```{r include=FALSE}
+st_write(grid_1km_crop, "data/grid/grid_1km_crop.gpkg")
+```
+
+Example of municipality Bern coverage:  
+
 ```{r}
-plot(st_geometry(grid_1km_crop))
+st_join(grid_1km_crop,
+        st_gg21 %>% filter(GMDNR == 351),
+        left = FALSE) %>% 
+  st_geometry() %>% 
+  plot()
+```
+
+There are few examples of grid cells with very small area. These could be excluded if no population was found there?
+
+```{r}
+grid_1km_crop %>% 
+  st_join(grid_1km_crop %>% 
+            arrange(area) %>% 
+            slice(2),
+          join = st_touches, left = FALSE) %>% 
+  st_geometry() %>% 
+  qtm()
 ```
 

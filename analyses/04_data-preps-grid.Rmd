@@ -90,7 +90,7 @@ grid_100m <- st_gg21 %>%
                offset = c(offset$minX, offset$minY)) %>% 
   st_intersection(st_gg21)  %>%
   st_sf() %>%
-  st_cast() %>% 
+  st_cast("POLYGON") %>% 
   mutate(ID = row_number(),
          area = st_area(.)) %>% 
   relocate(ID, area)
@@ -105,13 +105,15 @@ grid_1km <- st_gg21 %>%
   st_make_grid(cellsize = 1000, square = TRUE, 
                offset = c(offset$minX, offset$minY)) %>% 
   st_sf() %>%
-  st_cast()
+  st_cast("POLYGON") %>% 
+  mutate(ID1 = row_number()) %>% 
+  relocate(ID1)
 
 grid_1km_crop <- grid_1km %>% 
   st_intersection(st_gg21)  %>%
-  mutate(ID = row_number(),
+  mutate(ID2 = row_number(),
          area = st_area(.)) %>% 
-  relocate(ID, area)
+  relocate(ID1, ID2, area)
 ```
 
 ```{r include=FALSE}

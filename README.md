@@ -1,4 +1,4 @@
-## Spatial analyses of 2020-21 excess mortality in Switzerland 
+## Spatial analyses of 2020-21 excess mortality in Switzerland :switzerland:
 
 [![CC BY-NC-SA 4.0][cc-by-nc-sa-image]][cc-by-nc-sa]
 

@@ -84,10 +84,6 @@ gg21 <-
           as_tibble = TRUE) %>% 
   st_set_crs(2056)
 
-# bz21 <- 
-#   st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1b21.shp",
-#           as_tibble = TRUE) 
-
 kt21 <- 
   st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1k21.shp",
           as_tibble = TRUE) 

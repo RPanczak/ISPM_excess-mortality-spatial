@@ -25,6 +25,9 @@
 # R Environment Variables
 .Renviron
 
+# project specific
+admin/
+
 # dramas with large files; lfs doesnt want to work
 data/BfS/deaths_1969_2020.fst
 data-raw/BfS/deaths_1969_2020_raw.fst

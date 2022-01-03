@@ -94,7 +94,7 @@ se21 <-
   filter(GMDNAME != "Lago di Como")
 ```
 
-```{r}
+```{r include=FALSE}
 # gg written alter after processing
 # write_rds(bz21, "data/BfS/bz21.Rds")
 write_rds(kt21, "data/BfS/kt21.Rds")
@@ -151,7 +151,7 @@ st_kt21 <-
   st_zm(drop = TRUE, what = "ZM")
 ```
 
-```{r}
+```{r include=FALSE}
 # st_gg written alter after processing
 # write_rds(st_bz21, "data/swisstopo/st_bz21.Rds")
 write_rds(st_kt21, "data/swisstopo/st_kt21.Rds")
@@ -210,7 +210,7 @@ st_gg21 %>%
   plot()
 ```
 
-That might have some implications in terms of spatial operations (maybe contiguity too?).  Data could be converted between types if needed. 
+That might have some implications in terms of spatial operations (maybe contiguity too?). Data can easily be converted between types if needed. 
 
 ```{r eval=FALSE, include=FALSE}
 # if conversion is needed
@@ -226,10 +226,11 @@ st_gg21 %<>%
 
 ## Non-residential municipalities
 
-Excluding: 
+Excluding municipalities without residents:  
+
 - `Staatswald Galm`, 
 - `Comunanza Cadenazzo/Monteceneri` 
-- `Comunanza Capriasca/Lugano`.  
+- `Comunanza Capriasca/Lugano`  
 
 ```{r}
 gg21 %>% 
@@ -310,7 +311,9 @@ raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx",
                                         "Le Chenit", "Genève",
                                         "Locarno", "Lugano"), 
                           1, 0))
+```
 
+```{r include=FALSE}
 write_rds(raum, "data/BfS/raum.Rds")
 ```
 
@@ -336,8 +339,10 @@ ar_21 <- gg21 %>%
   summarise(ARNR = first(ARNR),
             ARNAME = first(ARNAME),
             border = first(border)) %>%
-  st_cast("MULTIPOLYGON") 
+  st_cast("MULTIPOLYGON")
+```
 
+```{r eval=FALSE, include=FALSE}
 st_write(argr_21, "data/geo/argr_21.shp", delete_dsn = TRUE)
 st_write(ar_21, "data/geo/ar_21.shp", delete_dsn = TRUE)
 ```

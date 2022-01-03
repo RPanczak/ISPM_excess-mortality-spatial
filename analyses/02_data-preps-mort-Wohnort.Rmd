@@ -224,7 +224,7 @@ w_deaths_2015_2021_exp <-
     month = if_else(is.na(month), as.integer(1), month),
     sex = if_else(is.na(sex), "Male", sex),
     age = if_else(is.na(age), "<40", age),
-    nationality = if_else(is.na(nationality), "Swiss", nationality),
+    nationality = if_else(is.na(nationality), "Swiss", nationality)
   ) %>% 
   expand(GMDNAME, year, month, age, sex, nationality) %>% 
   left_join(w_deaths_2015_2021) %>% 
@@ -301,7 +301,7 @@ w_deaths_2015_2021_ar <- w_deaths_2015_2021_exp %>%
   ungroup()
 ```
 
-That reduces the size of the dataset to `r number(nrow(w_deaths_2015_2021_ar), big.mark = ",")`.  
+That reduces the size of the dataset to `r number(nrow(w_deaths_2015_2021_ar), big.mark = ",")` rows.  
 
 Proportion of zero cells:
 

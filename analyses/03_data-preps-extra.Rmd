@@ -30,7 +30,6 @@ p_load(haven, readxl,
 import::from("sjmisc", "frq")
 ```
 
-
 ```{r conflicts, include = FALSE}
 tidyverse::tidyverse_conflicts()
 
@@ -118,7 +117,8 @@ population <- read_xlsx("data-raw/BfS/px-x-0103010000_201.xlsx",
          GMDNR = x2,
          GMDNAME = x3) %>% 
   mutate(sex = if_else(x5 == "Frau", "Female", "Male"),
-         nationality = if_else(x4 == "Schweiz", "Swiss", "Foreigner")) %>% 
+         nationality = if_else(x4 == "Schweiz", "Swiss", "Foreigner"),
+         year = as.integer(year)) %>% 
   select(-x4, -x5) %>% 
   relocate(sex, .after = GMDNAME) %>% 
   relocate(nationality, .after = sex) %>% 
@@ -145,9 +145,13 @@ population <- read_xlsx("data-raw/BfS/px-x-0103010000_201.xlsx",
          GMDNAME = if_else(!is.na(gemeindename_new), gemeindename_new, GMDNAME)) %>% 
   select(-bfs_gde_num_new, -gemeindename_new) %>% 
   group_by(year, GMDNR, GMDNAME, sex, nationality, age) %>% 
-  summarise(population = sum(population)) %>% 
+  summarise(population = as.integer(sum(population))) %>% 
   ungroup() %>% 
   arrange(year, GMDNR, sex, nationality, age)
+```
+
+```{r include=FALSE}
+rm(histcomm); gc()
 ```
 
 Yearly totals (**on 31st Dec**!):  
@@ -171,10 +175,6 @@ population %>%
   ggplot(aes(x = age, y = population, fill = as.factor(year))) + 
   geom_col(position = "dodge") + 
   scale_fill_viridis_d()
-```
-
-```{r include=FALSE}
-write_rds(population, "data/BfS/population.Rds")
 ```
 
 ## Predicting 2020 & 2021 pops
@@ -201,18 +201,14 @@ population_ext_lm <- population %>%
   # do(broom::tidy(lm(population ~ year, data = .))) %>% 
   # do(broom::augment(lm(population ~ year, data = .))) %>% 
   do(lm(population ~ year, data = .) %>%
-       predict(., newdata = tibble(year = c(2020, 2021))) %>%
-       tibble(year = c(2020, 2021), 
-              population_ext_lm = .)
+       predict(., newdata = tibble(year = c(as.integer(2020), as.integer(2021)))) %>%
+       tibble(year = c(as.integer(2020), as.integer(2021)), 
+              population_ext_lm = .) 
   ) %>% 
   ungroup() %>% 
-  mutate(population_ext_lm = round(population_ext_lm)) %>% 
+  mutate(population_ext_lm = as.integer(round(population_ext_lm))) %>% 
   arrange(year, GMDNR, sex, nationality, age) %>% 
   relocate(year)
-```
-
-```{r include=FALSE}
-write_rds(population_ext_lm, "data/BfS/population_ext_lm.Rds")
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -221,18 +217,14 @@ population_ext_poi <- population %>%
   # filter(GMDNR == 261 | GMDNR == 782) %>%
   group_by(GMDNR, age, sex, nationality) %>% 
   do(glm(population ~ year, data = ., family = "poisson") %>%
-       predict(., newdata = tibble(year = c(2020, 2021)), type = "response") %>%
-       tibble(year = c(2020, 2021), 
+       predict(., newdata = tibble(year = c(as.integer(2020), as.integer(2021))),                type = "response") %>%
+       tibble(year = c(as.integer(2020), as.integer(2021)), 
               population_ext_poi = .)
   ) %>% 
   ungroup() %>% 
-  mutate(population_ext_poi = round(population_ext_poi)) %>% 
+  mutate(population_ext_poi = as.integer(round(population_ext_poi))) %>% 
   arrange(year, GMDNR, sex, nationality, age) %>% 
   relocate(year)
-```
-
-```{r eval=FALSE, include=FALSE}
-write_rds(population_ext_poi, "data/BfS/population_ext_poi.Rds")
 ```
 
 Results for large municipality are fine:  
@@ -296,15 +288,15 @@ data <- population %>%
 
 for (i in 2014:2020){
   
-
+  
   result <- data %>% 
     filter(year >= i & year <= i + 1) %>% 
-    filter(GMDNR == 261 | GMDNR == 782) %>%
+    # filter(GMDNR == 261 | GMDNR == 782) %>%
     group_by(GMDNR, age, sex, nationality) %>% 
     summarise(population_mid = mean(population)) %>% 
     ungroup() %>% 
     mutate(year = as.integer(i + 1),
-           population_mid = round(population_mid)) %>% 
+           population_mid = as.integer(round(population_mid))) %>% 
     arrange(year, GMDNR, sex, nationality, age)
   
   if (i == 2014) {
@@ -318,7 +310,10 @@ for (i in 2014:2020){
 
 ```{r include=FALSE}
 rm(i, data, result)
-write_rds(population_mid, "data/BfS/population_mid.Rds")
+
+population_mid %<>% 
+  arrange(year, GMDNR, sex, nationality, age) %>% 
+  relocate(year)
 ```
 
 Again, results for large municipality are fine:  
@@ -371,9 +366,9 @@ w_deaths_2015_2021_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_exp.Rds")
                 filter(year == 2020) %>% 
                 mutate(year = 2021))
   ) %>% 
-  # left_join(population_ext_poi) %>% 
-  # left_join(population_ext_no20) %>%
-  replace_na(list(population = 0)) 
+  replace_na(list(population = 0)) %>% 
+  left_join(population_mid) %>% 
+  replace_na(list(population_mid = 0))
 ```
 
 ## Deaths > population problem
@@ -1037,5 +1032,8 @@ w_deaths_2015_2021_ar_pop %>%
   )
 
 write_rds(w_deaths_2015_2021_ar_pop, "data/BfS-closed/w_deaths_2015_2021_ar_pop.Rds")
+
+unlink("data/BfS-closed/w_deaths_2015_2021_exp.Rds")
+unlink("data/BfS-closed/w_deaths_2015_2021_ar.Rds")
 ```
 

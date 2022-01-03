@@ -117,7 +117,11 @@ grid_1km_crop <- grid_1km %>%
 ```
 
 ```{r include=FALSE}
+# st_write(grid_1km, "data/grid/grid_1km.gpkg")
 st_write(grid_1km_crop, "data/grid/grid_1km_crop.gpkg")
+
+# write_rds(grid_1km, "data/grid/grid_1km.Rds")
+write_rds(grid_1km_crop, "data/grid/grid_1km_crop.Rds")
 ```
 
 Example of municipality Bern coverage:  

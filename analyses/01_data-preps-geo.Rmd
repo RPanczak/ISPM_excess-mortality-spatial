@@ -217,6 +217,26 @@ st_gg21 %<>%
 
 # Preparations
 
+## Disconnected boundaries
+
+Two communities in TI Bissone & Melide are disconnected by Lake Lugano in BfS municipality data:
+
+![No connectivity](../docs/conn1.png)
+In reality communities are rather connected:
+
+![IRL](../docs/conn3.png)
+That has been manually corrected in GIS and now looks like:
+
+![Connected](../docs/conn2.png)
+Importance of this issue is covered [here](https://doi.org/10.1016/j.sste.2018.04.002).  
+
+```{r include=FALSE}
+gg21 <- 
+  st_read("data/geo/g1g21_01072021_cor.shp",
+          as_tibble = TRUE) %>% 
+  st_set_crs(2056)
+```
+
 ## Non-residential municipalities
 
 Excluding municipalities without residents:  
@@ -310,7 +330,7 @@ raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx",
 write_rds(raum, "data/BfS/raum.Rds")
 ```
 
-Number of municipalities that are located within border labor market areas:  
+Number of municipalities that are located within border labour market areas:  
 
 ```{r eval=FALSE, include=FALSE}
 frq(raum, border)

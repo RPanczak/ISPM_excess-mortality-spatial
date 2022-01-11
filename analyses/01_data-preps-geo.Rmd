@@ -54,7 +54,7 @@ mu <- Hmisc::markupSpecs$html
 
 # Data sources 
 
-## BfS data 2021 {.tabset}
+## BfS geodata 2021 {.tabset}
 
 [Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/administrative-grenzen/generalisierte-gemeindegrenzen.assetdetail.17964056.html).  
 
@@ -96,7 +96,6 @@ se21 <-
 
 ```{r include=FALSE}
 # gg written alter after processing
-# write_rds(bz21, "data/BfS/bz21.Rds")
 write_rds(kt21, "data/BfS/kt21.Rds")
 write_rds(se21, "data/BfS/se21.Rds")
 ```
@@ -119,7 +118,7 @@ tm_shape(se21, is.master = FALSE) +
   tm_borders()
 ```
 
-## swisstopo data 2021
+## swisstopo geodata 2021
 
 `swissBOUNDARIES3D` data available from [here](https://www.swisstopo.admin.ch/de/geodata/landscape/boundaries3d.html). Also exist in July versions.  
 
@@ -140,11 +139,6 @@ st_gg21 <-
           as_tibble = TRUE) %>% 
   st_zm(drop = TRUE, what = "ZM")
 
-# st_bz21 <- 
-#   st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_BEZIRKSGEBIET.shp",
-# as_tibble = TRUE) %>% 
-# st_zm(drop = TRUE, what = "ZM")
-
 st_kt21 <- 
   st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp",
           as_tibble = TRUE) %>% 
@@ -153,7 +147,6 @@ st_kt21 <-
 
 ```{r include=FALSE}
 # st_gg written alter after processing
-# write_rds(st_bz21, "data/swisstopo/st_bz21.Rds")
 write_rds(st_kt21, "data/swisstopo/st_kt21.Rds")
 ```
 
@@ -317,6 +310,8 @@ raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx",
 write_rds(raum, "data/BfS/raum.Rds")
 ```
 
+Number of municipalities that are located within border labor market areas:  
+
 ```{r eval=FALSE, include=FALSE}
 frq(raum, border)
 ```
@@ -369,6 +364,9 @@ ar_21_cor <- st_read("data/geo/ar_21_cor.shp") %>%
             ARNAME = first(ARNAME),
             border = first(border)) %>%
   st_cast("MULTIPOLYGON") 
+
+write_rds(argr_21_cor, "data/geo/argr_21_cor.Rds")
+write_rds(ar_21_cor, "data/geo/ar_21_cor.Rds")
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -376,14 +374,18 @@ unlink("data/geo/argr_21.*")
 unlink("data/geo/ar_21.*")
 ```
 
-```{r include=FALSE}
+Dissolve in R using swisstopo data was all fine.  
+
+```{r}
 # same for swisstopo
+# removing '-' from names which causes problems with writing shp
 st_argr_21 <- st_gg21 %>% 
   left_join(raum) %>% 
   group_by(ARGRNR) %>% 
   summarise(ARGRNR = first(ARGRNR),
             ARGRNAME = first(ARGRNAME)) %>%
-  st_cast("MULTIPOLYGON") 
+  st_cast("MULTIPOLYGON") %>% 
+  mutate(ARGRNAME = str_replace_all(ARGRNAME, "–", " "))
 
 st_ar_21 <- st_gg21 %>% 
   left_join(raum) %>% 
@@ -391,13 +393,16 @@ st_ar_21 <- st_gg21 %>%
   summarise(ARNR = first(ARNR),
             ARNAME = first(ARNAME),
             border = first(border)) %>%
-  st_cast("MULTIPOLYGON") 
+  st_cast("MULTIPOLYGON") %>% 
+  mutate(ARNAME = str_replace_all(ARNAME, "–", " "))
+```
 
+```{r include=FALSE}
 st_write(st_argr_21, "data/geo/st_argr_21.shp", delete_dsn = TRUE)
 st_write(st_ar_21, "data/geo/st_ar_21.shp", delete_dsn = TRUE)
 
-# st_write(st_argr_21, "data/geo/st_argr_21_cor.shp", delete_dsn = TRUE)
-# st_write(st_ar_21, "data/geo/st_ar_21_cor.shp", delete_dsn = TRUE)
+write_rds(st_argr_21, "data/geo/st_argr_21.Rds")
+write_rds(st_ar_21, "data/geo/st_ar_21.Rds")
 ```
 
 ```{r echo=FALSE}
@@ -422,10 +427,6 @@ tm_shape(se21, is.master = FALSE) +
   tm_layout(
     title = "Labour market regions 2021"
   )
-```
-
-```{r include=FALSE}
-rm(argr_21, ar_21); gc()
 ```
 
 ### Border regions
@@ -515,7 +516,9 @@ histcomm <- read_xlsx("data-raw/BfS/Mutierte_Gemeinden_20150101_bis_20210701.xls
          bezirks_num_new = bezirks_nummer_7,
          bfs_gde_num_new = bfs_gde_nummer_8,
          gemeindename_new = gemeindename_9)
+```
 
+```{r include=FALSE}
 write_rds(histcomm, "data/BfS/histcomm.Rds")
 ```
 

@@ -86,12 +86,14 @@ gg21 <-
 
 kt21 <- 
   st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1k21.shp",
-          as_tibble = TRUE) 
+          as_tibble = TRUE) %>% 
+  st_set_crs(2056)
 
 se21 <- 
   st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1s21.shp",
           as_tibble = TRUE) %>% 
-  filter(GMDNAME != "Lago di Como")
+  filter(GMDNAME != "Lago di Como") %>% 
+  st_set_crs(2056)
 ```
 
 ```{r include=FALSE}
@@ -190,9 +192,6 @@ st_se21 <-
   st_difference(st_se21, st_union(islands))
 
 frq(st_is_valid(st_se21))
-
-# st_se21 %<>% 
-#   st_difference(islands)
 
 summary(st_se21$area)
 
@@ -307,7 +306,7 @@ gg21 <-
 
 This doesn't cause problem in swisstopo data. 
 
-```{r eval=FALSE, include=FALSE}
+```{r echo=FALSE}
 tm_shape(st_se21 %>% 
            filter(NAME == "Ceresio | Lago di Lugano | Lac de Lugano | Lai da Lugano | Luganersee")) +
   tm_fill(col = "gray", alpha = 0.5) +

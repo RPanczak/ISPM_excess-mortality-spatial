@@ -266,7 +266,8 @@ w_deaths_2015_2021_exp %>%
   summarise(deaths = sum(deaths)) %>% 
   ungroup() %>% 
   ggplot(aes(x = date, y = deaths, group = GMDNAME, color = GMDNAME)) + 
-  geom_line() + geom_point()
+  geom_line() + geom_point() +
+  theme_minimal()
 ```
 
 ## All time series
@@ -328,7 +329,8 @@ w_deaths_2015_2021_ar %>%
   summarise(deaths = sum(deaths)) %>% 
   ungroup() %>% 
   ggplot(aes(x = date, y = deaths, group = factor(ARNAME), color = factor(ARNAME))) + 
-  geom_line() + geom_point()
+  geom_line() + geom_point() +
+  theme_minimal()
 ```
 
 ## All time series

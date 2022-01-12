@@ -150,6 +150,75 @@ st_kt21 <-
 write_rds(st_kt21, "data/swisstopo/st_kt21.Rds")
 ```
 
+Additional dataset of lakes was derived from `swissTLM3D_TLM_STEHENDES_GEWAESSER.shp` layer from `swissTLM3D` [dataset](https://www.swisstopo.admin.ch/de/geodata/landscape/tlm3d.html).    
+
+```{r eval=FALSE}
+# convert lines to polygons, calculate area
+
+# testing is good here:
+# "NAME" = 'Bodensee | Lac de Constance | Lago di Costanza | Lai da Constanza'
+
+st_se21 <- 
+  st_read("data-raw/swisstopo/swisstlm3d_2021-04_2056_5728.shp/swissTLM3D_TLM_STEHENDES_GEWAESSER.shp",
+          as_tibble = TRUE) %>% 
+  st_zm(drop = TRUE, what = "ZM") %>% 
+  filter(OBJEKTART == "See") %>% 
+  group_by(GEW_LAUF_U) %>% 
+  summarise(geometry = st_combine(geometry),
+            NAME = first(NAME),
+            OBJEKTART = first(OBJEKTART)) %>%
+  st_cast("MULTILINESTRING") %>% 
+  st_polygonize() %>% 
+  mutate(area = st_area(.)) %>% 
+  relocate(geometry, .after = last_col())
+
+islands <- 
+  st_read("data-raw/swisstopo/swisstlm3d_2021-04_2056_5728.shp/swissTLM3D_TLM_STEHENDES_GEWAESSER.shp",
+          as_tibble = TRUE) %>% 
+  st_zm(drop = TRUE, what = "ZM") %>% 
+  filter(OBJEKTART == "Seeinsel") %>% 
+  group_by(GEW_LAUF_U) %>% 
+  summarise(geometry = st_combine(geometry),
+            NAME = first(NAME),
+            OBJEKTART = first(OBJEKTART)) %>%
+  st_cast("MULTILINESTRING") %>% 
+  st_polygonize() %>% 
+  mutate(area = st_area(.)) %>% 
+  relocate(geometry, .after = last_col())
+
+st_se21 <- 
+  st_difference(st_se21, st_union(islands))
+
+frq(st_is_valid(st_se21))
+
+# st_se21 %<>% 
+#   st_difference(islands)
+
+summary(st_se21$area)
+
+plot(st_se21[, 2])
+```
+
+```{r eval=FALSE, include=FALSE}
+# st_write(st_se21, "data/swisstopo/st_se21.gpkg", layer = "lakes", delete_dsn = TRUE)
+# st_write(islands, "data/swisstopo/st_se21.gpkg", layer = "islands", append = TRUE)
+
+write_rds(st_se21, "data/swisstopo/st_se21.Rds")
+```
+
+```{r include=FALSE}
+st_se21 <- read_rds("data/swisstopo/st_se21.Rds") #%>% filter(as.numeric(area) > 10000)
+```
+
+Lakes dataset ~~(selecting features more than 10km^2 in size)~~ was then used to erase area of municipalities that extends over lakes. Issue is described in [#48](https://github.com/RPanczak/ISPM_geo-mortality/issues/48).  
+
+```{r}
+st_gg21 <- 
+  st_difference(st_gg21, st_union(st_se21)) %>% 
+  # small slivers of lakes left
+  filter(OBJEKTART != "Kantonsgebiet")
+```
+
 ## Important differences
 
 ### Resolution
@@ -166,11 +235,11 @@ tm_shape(st_gg21 %>% filter(BFS_NUMMER == 351)) +
   )
 ```
 
-### Water bodies
+<!-- ### Water bodies -->
 
-Additionally datasets differ in terms of conceptualization of the boundaries of water bodies. BfS data reach the shore of the lake, whereas swisstopo extends them over lakes. Example of municipality *Delley-Portalban* by the *Lac de Neuchâtel*:  
+<!-- Additionally datasets differ in terms of conceptualization of the boundaries of water bodies. BfS data reach the shore of the lake, whereas swisstopo extends them over lakes. Example of municipality *Delley-Portalban* by the *Lac de Neuchâtel*:   -->
 
-```{r echo=FALSE}
+```{r eval=FALSE, include=FALSE}
 tm_shape(se21 %>% filter(GMDNR == 9151), is.master = FALSE) +
   tm_fill(col = "gray", alpha = 0.5) +
   tm_shape(st_gg21 %>% filter(BFS_NUMMER == 2051), is.master = TRUE) +
@@ -229,12 +298,25 @@ That has been manually corrected in GIS and now looks like:
 
 ![Connected](../docs/conn2.png)
 Importance of this issue is covered [here](https://doi.org/10.1016/j.sste.2018.04.002).  
-
 ```{r include=FALSE}
 gg21 <- 
   st_read("data/geo/g1g21_01072021_cor.shp",
           as_tibble = TRUE) %>% 
   st_set_crs(2056)
+```
+
+This doesn't cause problem in swisstopo data. 
+
+```{r eval=FALSE, include=FALSE}
+tm_shape(st_se21 %>% 
+           filter(NAME == "Ceresio | Lago di Lugano | Lac de Lugano | Lai da Lugano | Luganersee")) +
+  tm_fill(col = "gray", alpha = 0.5) +
+  tm_shape(st_gg21 %>% filter(BFS_NUMMER %in% c(5154, 5198)), 
+           is.master = TRUE) +
+  tm_polygons("NAME", lwd = 1, alpha = 0.5) +
+  tm_layout(
+    # title = "Connectivity issue Lago di Lugano"
+  )
 ```
 
 ## Non-residential municipalities

@@ -59,7 +59,8 @@ mu <- Hmisc::markupSpecs$html
 ```{r}
 gg21 <- read_rds("data/BfS/gg21.Rds")
 
-st_gg21 <- read_rds("data/swisstopo/st_gg21.Rds")
+st_gg21 <- read_rds("data/swisstopo/st_gg21.Rds") %>% 
+  st_transform(2056)
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -97,7 +98,8 @@ st_grid_1km <- st_gg21 %>%
   st_sf() %>%
   st_cast("POLYGON") %>% 
   mutate(ID1 = row_number()) %>% 
-  relocate(ID1)
+  relocate(ID1) %>% 
+  st_transform(2056)
 
 st_grid_1km_crop <- st_grid_1km %>% 
   st_intersection(st_gg21)  %>%
@@ -168,14 +170,18 @@ st_write(grid_1km_crop, "data/grid/grid_1km.gpkg",
 write_rds(grid_1km_crop, "data/grid/grid_1km_crop.Rds",)
 ```
 
-Example of 
+Example of different precision of boundaries:  
 
 ```{r}
-grid_1km_crop %>% 
-  st_join(grid_1km_crop %>% 
-            arrange(area) %>% 
-            slice(2),
-          join = st_touches, left = FALSE) %>% 
-  st_geometry() %>% 
-  qtm()
+map_centre <- st_sfc(st_point(c(2570200, 1203500)), crs = 2056) %>% 
+  st_buffer(1000) %>% 
+  st_as_sf()
+
+grid <- st_filter(grid_1km_crop, map_centre)
+st_grid <- st_filter(st_grid_1km_crop, map_centre)
+
+tm_shape(grid) +
+  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
+  tm_shape(st_grid) +
+  tm_borders(col = "red", lwd = 2, alpha = 0.5) 
 ```

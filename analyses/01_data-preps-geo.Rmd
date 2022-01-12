@@ -591,6 +591,7 @@ st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, BZNAME,
                                       ARGRNR, ARGRNAME, ARNR, ARNAME,
                                       border)) %>% 
   relocate(geometry, .after = last_col()) %>% 
+  st_transform(2056) %>% 
   write_rds("data/swisstopo/st_gg21.Rds")
 ```
 

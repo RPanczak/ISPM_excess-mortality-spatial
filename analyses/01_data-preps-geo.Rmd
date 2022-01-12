@@ -471,6 +471,35 @@ write_rds(ar_21_cor, "data/geo/ar_21_cor.Rds")
 ```
 
 ```{r eval=FALSE, include=FALSE}
+sp <- maptools::readShapePoly("data/geo/ar_21_cor.shp")
+
+sp.report <- clgeo_CollectionReport(sp)
+sp.summary <- clgeo_SummaryReport(sp.report)
+sp.fixed <- clgeo_Clean(sp, verbose = TRUE)
+
+map_centre <- st_sfc(st_point(c(2717542, 1090036)), crs = 2056) %>% 
+  st_as_sf()
+
+map_centre_b <- map_centre %>% 
+  st_buffer(10000) %>% 
+  st_as_sf()
+
+tmap_mode("plot")
+tm_shape(map_centre_b) +
+  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
+  tm_shape(map_centre) +
+  tm_symbols() +
+  tm_shape(ar_21_cor) +
+  tm_borders(col = "red", lwd = 2, alpha = 0.5) 
+
+tmap_mode("plot")
+tm_shape(map_centre) +
+  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
+  tm_shape(ar_21_cor) +
+  tm_borders(col = "red", lwd = 2, alpha = 0.5) 
+```
+
+```{r eval=FALSE, include=FALSE}
 unlink("data/geo/argr_21.*")
 unlink("data/geo/ar_21.*")
 ```
@@ -504,6 +533,35 @@ st_write(st_ar_21, "data/geo/st_ar_21.shp", delete_dsn = TRUE)
 
 write_rds(st_argr_21, "data/geo/st_argr_21.Rds")
 write_rds(st_ar_21, "data/geo/st_ar_21.Rds")
+```
+
+```{r eval=FALSE, include=FALSE}
+sp <- maptools::readShapePoly("data/geo/st_ar_21.shp")
+
+sp.report <- clgeo_CollectionReport(sp)
+sp.summary <- clgeo_SummaryReport(sp.report)
+sp.fixed <- clgeo_Clean(sp, verbose = TRUE)
+
+map_centre <- st_sfc(st_point(c(2717542, 1090036)), crs = 2056) %>% 
+  st_as_sf()
+
+map_centre_b <- map_centre %>% 
+  st_buffer(10000) %>% 
+  st_as_sf()
+
+tmap_mode("plot")
+tm_shape(map_centre_b) +
+  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
+  tm_shape(map_centre) +
+  tm_symbols() +
+  tm_shape(ar_21_cor) +
+  tm_borders(col = "red", lwd = 2, alpha = 0.5) 
+
+tmap_mode("plot")
+tm_shape(map_centre) +
+  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
+  tm_shape(ar_21_cor) +
+  tm_borders(col = "red", lwd = 2, alpha = 0.5) 
 ```
 
 ```{r echo=FALSE}

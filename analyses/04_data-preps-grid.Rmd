@@ -61,7 +61,7 @@ mu <- Hmisc::markupSpecs$html
 Used to 'clip' the data to the country outline and introduce the boundaries within grid cells belonging to two different municipalities.  
 
 ```{r}
-gg21 <- read_rds("data/BfS/gg21.Rds")
+# gg21 <- read_rds("data/BfS/gg21.Rds")
 
 st_gg21 <- read_rds("data/swisstopo/st_gg21.Rds") %>% 
   st_transform(2056)
@@ -81,13 +81,18 @@ offset <- statpop_20 %>%
             minY = min(N_KOORD))
 
 # statpop_20 %>% slice(1:10) %>% View()
+rm(statpop_20); gc()
 ```
 
-## swisstopo coverage
+## Grid 
 
-1-km grid, with lower left corner defined using `STATPOP` cells and **clipped using swisstopo municipality data**.  
+1-km grid, with lower left corner defined using `STATPOP` cells.
 
-Also, adding ID for each cell (based on row number) and area.  
+Grid is then overlaid with **swisstopo municipality data** to select only cells that overlay it.  
+
+Lastly, **experimental** grid integrating municipality boundaries is also created.  
+
+Also, adding ID for each cell (based on row number) and area for each of the iterations.  
 
 ```{r}
 st_grid_1km <- st_gg21 %>% 
@@ -99,74 +104,66 @@ st_grid_1km <- st_gg21 %>%
   relocate(ID1) %>% 
   st_transform(2056)
 
-st_grid_1km_crop <- st_grid_1km %>% 
+st_grid_1km_over <- st_grid_1km %>% 
+  st_filter(st_gg21, join = st_covers)  %>%
+  mutate(ID2 = row_number()) %>% 
+  relocate(ID1, ID2)
+
+st_grid_1km_crop <- st_grid_1km_over %>% 
   st_intersection(st_gg21)  %>%
-  mutate(ID2 = row_number(),
+  mutate(ID3 = row_number(),
          area = st_area(.)) %>% 
-  relocate(ID1, ID2, area)
+  relocate(ID1, ID2, ID3, area)
 ```
 
 ```{r include=FALSE}
-# st_write(st_grid_1km, "data/grid/st_grid_1km.gpkg")
+st_write(st_grid_1km, "data/grid/grid_1km.gpkg", 
+         layer = "st_grid_1km", delete_dsn = TRUE)
+st_write(st_grid_1km_over, "data/grid/grid_1km.gpkg", 
+         layer = "st_grid_1km_over", append = TRUE)
 st_write(st_grid_1km_crop, "data/grid/grid_1km.gpkg", 
-         layer = "st_grid_1km_crop", delete_dsn = TRUE)
+         layer = "st_grid_1km_crop", append = TRUE)
 
 # write_rds(st_grid_1km, "data/grid/st_grid_1km.Rds")
-write_rds(st_grid_1km_crop, "data/grid/st_grid_1km_crop.Rds")
+write_rds(st_grid_1km_over, "data/grid/st_grid_1km_over.Rds")
+# write_rds(st_grid_1km_crop, "data/grid/st_grid_1km_crop.Rds")
 ```
 
-Example of municipality Bern coverage:  
+Example of municipalities
+
+### Bern   
 
 ```{r echo=FALSE}
-st_join(st_grid_1km_crop,
+st_join(st_grid_1km_over,
         st_gg21 %>% filter(GMDNR == 351),
         left = FALSE) %>% 
   st_geometry() %>% 
-  plot()
+  qtm(fill = NULL)
 ```
 
-There are few examples of grid cells with very small area. These could be excluded if no population was found there?
+### Scuol 
 
 ```{r echo=FALSE}
-st_grid_1km_crop %>% 
-  st_join(st_grid_1km_crop %>% 
-            arrange(area) %>% 
-            slice(2),
-          join = st_touches, left = FALSE) %>% 
+st_join(st_grid_1km_over,
+        st_gg21 %>% filter(GMDNR == 3762),
+        left = FALSE) %>% 
   st_geometry() %>% 
-  qtm()
+  qtm(fill = NULL)
 ```
 
-## BfS coverage
+Largest in terms of area.  
 
-1-km grid, with lower left corner defined using `STATPOP` cells and this time **clipped using BfS municipality data**.  
+### Gottlieben
 
-Also, adding ID for each cell (based on row number) and area.  
-
-```{r}
-grid_1km <- gg21 %>% 
-  st_make_grid(cellsize = 1000, square = TRUE, 
-               offset = c(offset$minX, offset$minY)) %>% 
-  st_sf() %>%
-  st_cast("POLYGON") %>% 
-  mutate(ID1 = row_number()) %>% 
-  relocate(ID1)
-
-grid_1km_crop <- grid_1km %>% 
-  st_intersection(gg21)  %>%
-  mutate(ID2 = row_number(),
-         area = st_area(.)) %>% 
-  relocate(ID1, ID2, area)
+```{r echo=FALSE}
+st_join(st_grid_1km_over,
+        st_gg21 %>% filter(GMDNR == 4651),
+        left = FALSE) %>% 
+  st_geometry() %>% 
+  qtm(fill = NULL)
 ```
 
-```{r include=FALSE}
-# st_write(grid_1km, "data/grid/grid_1km.gpkg")
-st_write(grid_1km_crop, "data/grid/grid_1km.gpkg", 
-         layer = "grid_1km_crop", append = TRUE)
-
-# write_rds(grid_1km, "data/grid/grid_1km.Rds")
-write_rds(grid_1km_crop, "data/grid/grid_1km_crop.Rds",)
-```
+Smallest in terms of area.  
 
 ## Grid comparison
 
@@ -186,6 +183,19 @@ tm_shape(grid) +
   tm_borders(col = "red", lwd = 2, alpha = 0.5) 
 ```
 
+## Small area cells
+
+There are few examples of grid cells with very small area. These could be excluded if no population was found there?
+
+```{r echo=FALSE}
+st_grid_1km_crop %>% 
+  st_join(st_grid_1km_crop %>% 
+            arrange(area) %>% 
+            slice(2),
+          join = st_touches, left = FALSE) %>% 
+  st_geometry() %>% 
+  qtm()
+```
 <!-- ----------------------------------------------------- -->
 
 # Gridded data

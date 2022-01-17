@@ -54,7 +54,11 @@ mu <- Hmisc::markupSpecs$html
 
 <!-- ----------------------------------------------------- -->
 
-# Geo 
+# Grid
+
+## Municipality boundaries
+
+Used to 'clip' the data to the country outline and introduce the boundaries within grid cells belonging to two different municipalities.  
 
 ```{r}
 gg21 <- read_rds("data/BfS/gg21.Rds")
@@ -63,11 +67,9 @@ st_gg21 <- read_rds("data/swisstopo/st_gg21.Rds") %>%
   st_transform(2056)
 ```
 
-<!-- ----------------------------------------------------- -->
+## Offset
 
-# STATPOP
-
-Used to define `offset` for `st_make_grid`
+Open STATPOP dataset is used to define `offset` (ie. starting point; lowest left corner) for `st_make_grid`.  
 
 ```{r}
 statpop_20 <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip", 
@@ -80,10 +82,6 @@ offset <- statpop_20 %>%
 
 # statpop_20 %>% slice(1:10) %>% View()
 ```
-
-<!-- ----------------------------------------------------- -->
-
-# Grid
 
 ## swisstopo coverage
 
@@ -170,6 +168,8 @@ st_write(grid_1km_crop, "data/grid/grid_1km.gpkg",
 write_rds(grid_1km_crop, "data/grid/grid_1km_crop.Rds",)
 ```
 
+## Grid comparison
+
 Example of different precision of boundaries:  
 
 ```{r echo=FALSE}
@@ -185,3 +185,11 @@ tm_shape(grid) +
   tm_shape(st_grid) +
   tm_borders(col = "red", lwd = 2, alpha = 0.5) 
 ```
+
+<!-- ----------------------------------------------------- -->
+
+# Gridded data
+
+## Deaths
+
+## Population

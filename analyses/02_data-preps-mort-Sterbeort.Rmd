@@ -73,7 +73,8 @@ s_deaths_2015_2021 <- read_csv("data-raw/BfS-closed/05OCT21_Lieferung_Panczak.cs
   mutate(GMDNAME = if_else(GMDNAME == "La Grande-Béroche", "La Grande Béroche", GMDNAME)) %>% 
   # name change? >> resolved with Cordula
   mutate(GMDNAME = if_else(GMDNAME == "Klosters-Serneus", "Klosters", GMDNAME)) %>% 
-  group_by(year, month, canton, GMDNAME, agegroup, sex, nationality) %>% 
+  # group_by(year, month, canton, GMDNAME, agegroup, sex, nationality) %>% 
+  group_by(year, month, canton, GMDNAME, agegroup, sex) %>% 
   summarise(deaths = sum(COUNT)) %>% 
   ungroup()
 ```
@@ -135,7 +136,6 @@ rm(no_link)
 ```
 
 There were `r number(nrow(raum), big.mark = ",")` municipalities in Jul 2021 in CH.  
-
 ```{r echo=FALSE}
 no_cases <- raum %>% 
   anti_join(
@@ -184,7 +184,8 @@ s_deaths_2015_2021 %<>%
       TRUE ~                    agegroup)
   ) %>% 
   select(-agegroup) %>% 
-  group_by(GMDNAME, year, month, canton, sex, age, nationality) %>% 
+  # group_by(GMDNAME, year, month, canton, sex, age, nationality) %>% 
+  group_by(GMDNAME, year, month, canton, sex, age) %>% 
   summarise(deaths = sum(deaths)) %>% 
   ungroup()
 ```
@@ -222,10 +223,11 @@ s_deaths_2015_2021_exp <-
     year = if_else(is.na(year), as.integer(2015), year),
     month = if_else(is.na(month), as.integer(1), month),
     sex = if_else(is.na(sex), "Male", sex),
-    age = if_else(is.na(age), "<40", age),
-    nationality = if_else(is.na(nationality), "Swiss", nationality)
+    age = if_else(is.na(age), "<40", age)#,
+    # nationality = if_else(is.na(nationality), "Swiss", nationality)
   ) %>% 
-  expand(GMDNAME, year, month, age, sex, nationality) %>% 
+  # expand(GMDNAME, year, month, age, sex, nationality) %>% 
+  expand(GMDNAME, year, month, age, sex) %>% 
   left_join(s_deaths_2015_2021) %>% 
   replace_na(list(deaths = 0)) %>% 
   mutate(date = ymd(paste(year, month, "1", sep = " "))) %>% 
@@ -234,7 +236,8 @@ s_deaths_2015_2021_exp <-
   select(-canton, -BZNAME) %>% 
   relocate(GMDNR, .before = GMDNAME) %>% 
   relocate(KTNAME, .after = GMDNAME) %>% 
-  arrange(GMDNR, year, month, age, sex, nationality) %>% 
+  # arrange(GMDNR, year, month, age, sex, nationality) %>% 
+  arrange(GMDNR, year, month, age, sex) %>% 
   filter( !(year == 2021 & month > 6))
 ```
 
@@ -294,8 +297,10 @@ write_rds(s_deaths_2015_2021_exp, "data/BfS-closed/s_deaths_2015_2021_exp.Rds")
 ```{r}
 s_deaths_2015_2021_ar <- s_deaths_2015_2021_exp %>% 
   select(-GMDNR, -GMDNAME) %>% 
+  # group_by(ARGRNR, ARGRNAME, ARNR, ARNAME, 
+  #          KTNAME, year, month, date, age, sex, nationality) %>% 
   group_by(ARGRNR, ARGRNAME, ARNR, ARNAME, 
-           KTNAME, year, month, date, age, sex, nationality) %>% 
+           KTNAME, year, month, date, age, sex) %>% 
   summarise(deaths = as.integer(sum(deaths))) %>% 
   ungroup()
 ```

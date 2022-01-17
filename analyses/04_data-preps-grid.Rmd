@@ -65,6 +65,9 @@ Used to 'clip' the data to the country outline and introduce the boundaries with
 
 st_gg21 <- read_rds("data/swisstopo/st_gg21.Rds") %>% 
   st_transform(2056)
+
+st_se21 <- read_rds("data/swisstopo/st_se21.Rds") %>% 
+  st_transform(2056)
 ```
 
 ## Offset
@@ -88,45 +91,50 @@ rm(statpop_20); gc()
 
 1-km grid, with lower left corner defined using `STATPOP` cells.
 
-Grid is then overlaid with **swisstopo municipality data** to select only cells that overlay it.  
+Grid is then overlaid with *swisstopo municipality data* to select only cells that overlay it.  
 
-Lastly, **experimental** grid integrating municipality boundaries is also created.  
+At next step the areas of lakes are 'clipped' from the grid.  
+
+Lastly, **experimental** grid integrating municipality boundaries is also created.
 
 Also, adding ID for each cell (based on row number) and area for each of the iterations.  
 
 ```{r}
-st_grid_1km <- st_gg21 %>% 
+grid_1km <- st_gg21 %>% 
   st_make_grid(cellsize = 1000, square = TRUE, 
                offset = c(offset$minX, offset$minY)) %>% 
   st_sf() %>%
   st_cast("POLYGON") %>% 
+  st_filter(st_gg21, join = st_covers)  %>%
   mutate(ID1 = row_number()) %>% 
   relocate(ID1) %>% 
   st_transform(2056)
 
-st_grid_1km_over <- st_grid_1km %>% 
-  st_filter(st_gg21, join = st_covers)  %>%
+grid_1km_over <- grid_1km %>% 
   mutate(ID2 = row_number()) %>% 
-  relocate(ID1, ID2)
+  relocate(ID1, ID2) %>% 
+  st_difference(st_union(st_se21))
 
-st_grid_1km_crop <- st_grid_1km_over %>% 
+grid_1km_crop <- grid_1km_over %>%
   st_intersection(st_gg21)  %>%
   mutate(ID3 = row_number(),
-         area = st_area(.)) %>% 
+         area = st_area(.)) %>%
   relocate(ID1, ID2, ID3, area)
 ```
 
 ```{r include=FALSE}
-st_write(st_grid_1km, "data/grid/grid_1km.gpkg", 
-         layer = "st_grid_1km", delete_dsn = TRUE)
-st_write(st_grid_1km_over, "data/grid/grid_1km.gpkg", 
-         layer = "st_grid_1km_over", append = TRUE)
-st_write(st_grid_1km_crop, "data/grid/grid_1km.gpkg", 
-         layer = "st_grid_1km_crop", append = TRUE)
+st_write(grid_1km, "data/grid/grid_1km.gpkg", 
+         layer = "grid_1km", delete_dsn = TRUE)
+st_write(grid_1km_over, "data/grid/grid_1km.gpkg", 
+         layer = "grid_1km_over", append = TRUE)
+st_write(grid_1km_crop, "data/grid/grid_1km.gpkg",
+         layer = "grid_1km_crop", append = TRUE)
+st_write(st_se21, "data/grid/grid_1km.gpkg", 
+         layer = "st_se21", append = TRUE)
 
-# write_rds(st_grid_1km, "data/grid/st_grid_1km.Rds")
-write_rds(st_grid_1km_over, "data/grid/st_grid_1km_over.Rds")
-# write_rds(st_grid_1km_crop, "data/grid/st_grid_1km_crop.Rds")
+write_rds(grid_1km, "data/grid/grid_1km.Rds")
+write_rds(grid_1km_over, "data/grid/grid_1km_over.Rds")
+write_rds(grid_1km_crop, "data/grid/grid_1km_crop.Rds")
 ```
 
 Example of municipalities
@@ -134,7 +142,7 @@ Example of municipalities
 ### Bern   
 
 ```{r echo=FALSE}
-st_join(st_grid_1km_over,
+st_join(grid_1km_over,
         st_gg21 %>% filter(GMDNR == 351),
         left = FALSE) %>% 
   st_geometry() %>% 
@@ -144,7 +152,7 @@ st_join(st_grid_1km_over,
 ### Scuol 
 
 ```{r echo=FALSE}
-st_join(st_grid_1km_over,
+st_join(grid_1km_over,
         st_gg21 %>% filter(GMDNR == 3762),
         left = FALSE) %>% 
   st_geometry() %>% 
@@ -156,7 +164,7 @@ Largest in terms of area.
 ### Gottlieben
 
 ```{r echo=FALSE}
-st_join(st_grid_1km_over,
+st_join(grid_1km_over,
         st_gg21 %>% filter(GMDNR == 4651),
         left = FALSE) %>% 
   st_geometry() %>% 
@@ -175,11 +183,11 @@ map_centre <- st_sfc(st_point(c(2570200, 1203500)), crs = 2056) %>%
   st_as_sf()
 
 grid <- st_filter(grid_1km_crop, map_centre)
-st_grid <- st_filter(st_grid_1km_crop, map_centre)
+grid <- st_filter(grid_1km_crop, map_centre)
 
 tm_shape(grid) +
   tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
-  tm_shape(st_grid) +
+  tm_shape(grid) +
   tm_borders(col = "red", lwd = 2, alpha = 0.5) 
 ```
 
@@ -188,8 +196,8 @@ tm_shape(grid) +
 There are few examples of grid cells with very small area. These could be excluded if no population was found there?
 
 ```{r echo=FALSE}
-st_grid_1km_crop %>% 
-  st_join(st_grid_1km_crop %>% 
+grid_1km_crop %>% 
+  st_join(grid_1km_crop %>% 
             arrange(area) %>% 
             slice(2),
           join = st_touches, left = FALSE) %>% 

@@ -58,7 +58,7 @@ mu <- Hmisc::markupSpecs$html
 
 ## Municipality boundaries
 
-Used to 'clip' the data to the country outline and introduce the boundaries within grid cells belonging to two different municipalities.  
+Used to 'clip' the data to the country outline, 'remove' the area of lakes and introduce the boundaries within grid cells belonging to two different municipalities.  
 
 ```{r}
 # gg21 <- read_rds("data/BfS/gg21.Rds")
@@ -74,17 +74,28 @@ st_se21 <- read_rds("data/swisstopo/st_se21.Rds") %>%
 
 Open STATPOP dataset is used to define `offset` (ie. starting point; lowest left corner) for `st_make_grid`.  
 
-```{r}
-statpop_20 <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip", 
-                         delim = ";", escape_double = FALSE, trim_ws = TRUE)[] %>% 
-  mutate_all(as.integer)
+```{r eval=FALSE, include=FALSE}
+density <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip", 
+                         delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
+  mutate_all(as.integer) %>% 
+  arrange(desc(B20BTOT)) %>% 
+  # arrange(B20BTOT) %>% 
+  slice(1) %>% 
+  st_as_sf(coords = c("E_KOORD", "N_KOORD"), 
+           crs = 2056,
+           remove = FALSE)
 
-offset <- statpop_20 %>% 
+qtm(density)
+```
+
+```{r eval=FALSE}
+offset <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip", 
+                         delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
+  mutate_all(as.integer) %>% 
   summarise(minX = min(E_KOORD),
             minY = min(N_KOORD))
 
 # statpop_20 %>% slice(1:10) %>% View()
-rm(statpop_20); gc()
 ```
 
 ## Grid 
@@ -99,36 +110,48 @@ Lastly, **experimental** grid integrating municipality boundaries is also create
 
 Also, adding ID for each cell (based on row number) and area for each of the iterations.  
 
-```{r}
+```{r eval=FALSE}
 grid_1km <- st_gg21 %>% 
   st_make_grid(cellsize = 1000, square = TRUE, 
                offset = c(offset$minX, offset$minY)) %>% 
   st_sf() %>%
   st_cast("POLYGON") %>% 
   st_filter(st_gg21, join = st_covers)  %>%
-  mutate(ID1 = row_number()) %>% 
-  relocate(ID1) %>% 
+  mutate(ID = row_number()) %>% 
+  relocate(ID) %>% 
   st_transform(2056)
 
+# this one takes some time
 grid_1km_over <- grid_1km %>% 
-  mutate(ID2 = row_number()) %>% 
-  relocate(ID1, ID2) %>% 
-  st_difference(st_union(st_se21))
+  mutate(area2 = st_area(.)) %>% 
+  relocate(ID, area) %>% 
+  st_difference(st_union(st_se21)) %>% 
+  st_transform(2056)
+
+# View(st_drop_geometry(grid_1km_over))
 
 grid_1km_crop <- grid_1km_over %>%
   st_intersection(st_gg21)  %>%
-  mutate(ID3 = row_number(),
-         area = st_area(.)) %>%
-  relocate(ID1, ID2, ID3, area)
+  mutate(ID2 = row_number(),
+         area2 = st_area(.)) %>%
+  relocate(ID, ID2, area, area2) %>% 
+  st_transform(2056)
+
+# View(st_drop_geometry(grid_1km_crop))
 ```
 
-```{r include=FALSE}
+```{r eval=FALSE, include=FALSE}
+# grids
 st_write(grid_1km, "data/grid/grid_1km.gpkg", 
          layer = "grid_1km", delete_dsn = TRUE)
 st_write(grid_1km_over, "data/grid/grid_1km.gpkg", 
          layer = "grid_1km_over", append = TRUE)
 st_write(grid_1km_crop, "data/grid/grid_1km.gpkg",
          layer = "grid_1km_crop", append = TRUE)
+
+# admin bound
+st_write(st_gg21, "data/grid/grid_1km.gpkg", 
+         layer = "st_gg21", append = TRUE)
 st_write(st_se21, "data/grid/grid_1km.gpkg", 
          layer = "st_se21", append = TRUE)
 
@@ -137,77 +160,86 @@ write_rds(grid_1km_over, "data/grid/grid_1km_over.Rds")
 write_rds(grid_1km_crop, "data/grid/grid_1km_crop.Rds")
 ```
 
-Example of municipalities
-
-### Bern   
-
-```{r echo=FALSE}
-st_join(grid_1km_over,
-        st_gg21 %>% filter(GMDNR == 351),
-        left = FALSE) %>% 
-  st_geometry() %>% 
-  qtm(fill = NULL)
+```{r include=FALSE}
+grid_1km <- read_rds("data/grid/grid_1km.Rds")
+grid_1km_over <- read_rds("data/grid/grid_1km_over.Rds")
+grid_1km_crop <- read_rds("data/grid/grid_1km_crop.Rds")
 ```
 
-### Scuol 
+Example of Bern  
 
 ```{r echo=FALSE}
-st_join(grid_1km_over,
-        st_gg21 %>% filter(GMDNR == 3762),
-        left = FALSE) %>% 
-  st_geometry() %>% 
-  qtm(fill = NULL)
+tm_shape(st_gg21 %>% filter(GMDNR == 351)) + 
+  tm_borders(col = "darkorchid") +
+  tm_shape(st_join(grid_1km_over,
+                   st_gg21 %>% filter(GMDNR == 351),
+                   left = FALSE)) + 
+  tm_borders(col = "red")
 ```
-
-Largest in terms of area.  
-
-### Gottlieben
-
-```{r echo=FALSE}
-st_join(grid_1km_over,
-        st_gg21 %>% filter(GMDNR == 4651),
-        left = FALSE) %>% 
-  st_geometry() %>% 
-  qtm(fill = NULL)
-```
-
-Smallest in terms of area.  
 
 ## Grid comparison
 
-Example of different precision of boundaries:  
+Example of different integration of boundaries of `Gottlieben` municipality.  
+
+Comparing grid of 'regular' cells (green) and cells 'cropped' by outlines of the lakes (red). Only grid cells that overlay area of municipality are shown (purple):  
 
 ```{r echo=FALSE}
-map_centre <- st_sfc(st_point(c(2570200, 1203500)), crs = 2056) %>% 
-  st_buffer(1000) %>% 
-  st_as_sf()
-
-grid <- st_filter(grid_1km_crop, map_centre)
-grid <- st_filter(grid_1km_crop, map_centre)
-
-tm_shape(grid) +
-  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
-  tm_shape(grid) +
-  tm_borders(col = "red", lwd = 2, alpha = 0.5) 
+tm_shape(st_gg21 %>% filter(GMDNR == 4651)) + 
+  tm_borders(col = "darkorchid") +
+  tm_shape(st_join(grid_1km,
+                   st_gg21 %>% filter(GMDNR == 4651),
+                   left = FALSE)) + 
+  tm_borders(col = "forestgreen") +
+  tm_shape(st_join(grid_1km_over,
+                   st_gg21 %>% filter(GMDNR == 4651),
+                   left = FALSE)) + 
+  tm_borders(col = "red")
 ```
 
-## Small area cells
-
-There are few examples of grid cells with very small area. These could be excluded if no population was found there?
+Comparing grid of 'cropped' cells (red again) with grid integrating community boundaries (yellow). Note subdivision of regular cells into smaller ([sometimes very small!](https://github.com/RPanczak/ISPM_geo-mortality/issues/49)) units:   
 
 ```{r echo=FALSE}
-grid_1km_crop %>% 
-  st_join(grid_1km_crop %>% 
-            arrange(area) %>% 
-            slice(2),
-          join = st_touches, left = FALSE) %>% 
-  st_geometry() %>% 
-  qtm()
+tm_shape(st_join(grid_1km_over,
+                   st_gg21 %>% filter(GMDNR == 4651),
+                   left = FALSE)) + 
+  tm_borders(col = "red") +
+  tm_shape(st_join(grid_1km_crop,
+                   st_gg21 %>% filter(GMDNR == 4651),
+                   left = FALSE)) + 
+  tm_borders(col = "yellow")
 ```
+
 <!-- ----------------------------------------------------- -->
 
 # Gridded data
 
+## Test areas
+
+```{r}
+bern <- st_join(grid_1km,
+                   st_gg21 %>% filter(GMDNR == 351),
+                   left = FALSE)
+
+scuol <- st_join(grid_1km,
+                   st_gg21 %>% filter(GMDNR == 3762),
+                   left = FALSE)
+```
+
+Using *Bern* (map above) with `r number(nrow(bern))` cells as example of densely populated urban area. And *Scuol* (largest gemeinde in CH) with `r number(nrow(scuol))` cells - good example of where we expect many zeroes?  
+
+```{r echo=FALSE}
+tm_shape(st_gg21 %>% filter(GMDNR == 3762)) + 
+  tm_borders(col = "darkorchid") +
+  tm_shape(scuol) + 
+  tm_borders(col = "red")
+```
+
+```{r message=FALSE, include=FALSE}
+area <- bind_rows(bern, scuol)
+rm(bern, scuol); gc()
+```
+
 ## Deaths
+
 
 ## Population

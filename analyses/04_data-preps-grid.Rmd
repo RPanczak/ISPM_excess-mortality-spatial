@@ -22,7 +22,7 @@ options(scipen = 999)
 options(max.print = "75")
 
 library(pacman)
-p_load(tidyverse, magrittr, scales,  
+p_load(tidyverse, magrittr, scales, haven,  
        DT, 
        sf, tmap)
 
@@ -75,8 +75,9 @@ st_se21 <- read_rds("data/swisstopo/st_se21.Rds") %>%
 Open STATPOP dataset is used to define `offset` (ie. starting point; lowest left corner) for `st_make_grid`.  
 
 ```{r eval=FALSE, include=FALSE}
+# checking the most/least populated hectars
 density <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip", 
-                         delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
+                      delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
   mutate_all(as.integer) %>% 
   arrange(desc(B20BTOT)) %>% 
   # arrange(B20BTOT) %>% 
@@ -90,7 +91,7 @@ qtm(density)
 
 ```{r eval=FALSE}
 offset <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip", 
-                         delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
+                     delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
   mutate_all(as.integer) %>% 
   summarise(minX = min(E_KOORD),
             minY = min(N_KOORD))
@@ -200,8 +201,8 @@ Comparing grid of 'cropped' cells (red again) with grid integrating community bo
 
 ```{r echo=FALSE}
 tm_shape(st_join(grid_1km_over,
-                   st_gg21 %>% filter(GMDNR == 4651),
-                   left = FALSE)) + 
+                 st_gg21 %>% filter(GMDNR == 4651),
+                 left = FALSE)) + 
   tm_borders(col = "red") +
   tm_shape(st_join(grid_1km_crop,
                    st_gg21 %>% filter(GMDNR == 4651),
@@ -217,15 +218,15 @@ tm_shape(st_join(grid_1km_over,
 
 ```{r}
 bern <- st_join(grid_1km,
-                   st_gg21 %>% filter(GMDNR == 351),
-                   left = FALSE)
+                st_gg21 %>% filter(GMDNR == 351),
+                left = FALSE)
 
 scuol <- st_join(grid_1km,
-                   st_gg21 %>% filter(GMDNR == 3762),
-                   left = FALSE)
+                 st_gg21 %>% filter(GMDNR == 3762),
+                 left = FALSE)
 ```
 
-Using *Bern* (map above) with `r number(nrow(bern))` cells as example of densely populated urban area. And *Scuol* (largest gemeinde in CH) with `r number(nrow(scuol))` cells - good example of where we expect many zeroes?  
+Using *Bern* (map above) with `r number(nrow(bern))` cells as example of densely populated urban area. And *Scuol* (largest municipality in CH) with `r number(nrow(scuol))` cells - good example of where we expect many zeroes?  
 
 ```{r echo=FALSE}
 tm_shape(st_gg21 %>% filter(GMDNR == 3762)) + 
@@ -236,10 +237,11 @@ tm_shape(st_gg21 %>% filter(GMDNR == 3762)) +
 
 ```{r message=FALSE, include=FALSE}
 area <- bind_rows(bern, scuol)
+
+write_rds(area, "data/grid/area.Rds")
+# write_rds(bern, "data/grid/bern.Rds")
+# write_rds(scuol, "data/grid/scuol.Rds")
+
 rm(bern, scuol); gc()
 ```
 
-## Deaths
-
-
-## Population

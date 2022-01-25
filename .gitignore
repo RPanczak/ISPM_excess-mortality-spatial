@@ -28,8 +28,9 @@
 # project specific
 admin/
 
-# dramas with large files; lfs doesnt want to work
+# large files; lfs doesnt want to work
 data/grid/grid_1km.gpkg
+data-raw/swisstopo/SMR1000_2019/
 
 # TBC if possible to share custom data
 data-raw/BfS-closed/

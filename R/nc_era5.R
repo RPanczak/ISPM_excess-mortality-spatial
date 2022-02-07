@@ -1,3 +1,6 @@
+# more info here
+# https://pjbartlein.github.io/REarthSysSci/netCDF.html
+
 library(sf)
 library(ncdf4)
 library(raster)
@@ -34,19 +37,25 @@ r <- raster::raster(data_slice,
 
 values(r) <- values(r) - 273.15
 
-plot(r, main = "ERA-5 (2m Temperature)")
+plot(r, main = "ERA-5 (2m Temperature)",
+     col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
+
 maps::map("world", add = TRUE)
 
 
-
-
-
-
-
-# create all the combinations of lon-lat
+# moving to df
 lonlat <- expand.grid(lon = lon, lat = lat)
 
 coord <- st_as_sf(lonlat, coords = c("lon","lat")) %>%
   st_set_crs(4326)
 
 plot(st_geometry(coord))
+
+t2m <- as.vector(data_slice)
+length(t2m)
+
+t2m_df <- data.frame(cbind(lonlat, t2m))
+
+
+
+

@@ -1,6 +1,7 @@
 ---
 title: "Spatial analyses of 2020-21 excess mortality in CH"
 subtitle: "Geodata preparation"
+pagetitle: "Spatial Excess: geodata"
 author: "Radek Panczak"
 date: "`r Sys.Date()`"
 output:
@@ -607,6 +608,9 @@ tm_shape(se21, is.master = FALSE) +
 ### Border regions
 
 Defined on the basis of [this map](https://www.bfs.admin.ch/bfs/de/home/aktuell/neue-veroeffentlichungen.assetdetail.8706500.html). Linked by name of the region since some codes seemed to be out of date? (ie. Basel).  
+
+![Border regions](../docs/border.png)
+
 
 ```{r echo=FALSE}
 tm_shape(se21, is.master = FALSE) +

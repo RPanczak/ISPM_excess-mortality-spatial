@@ -129,6 +129,26 @@ tm_shape(se21, is.master = FALSE) +
   tm_borders()
 ```
 
+## Alternative lakes dataset
+
+Coming from Kartengeometrien ThemaKart - Set «PRO» 2019 available [here](https://www.bfs.admin.ch/bfs/de/home/statistiken/kataloge-datenbanken/karten.assetdetail.7546178.html).  
+
+```{r}
+se21_alt <- 
+  st_read("data-raw/BfS/2019_THK_PRO/00_TOPO/K4_seenyyyymmdd/k4seenyyyymmdd_ch2007Poly.shp",
+          as_tibble = TRUE) %>% 
+  st_transform(2056)
+```
+
+That adds few smaller lakes (in red, without fill):  
+
+```{r echo=FALSE}
+tm_shape(se21, is.master = FALSE) +
+  tm_fill(col = "#a7cdf2")  +
+  tm_shape(se21_alt) +
+  tm_borders(col = "red")
+```
+
 ## swisstopo geodata 2021
 
 ### Boundaries

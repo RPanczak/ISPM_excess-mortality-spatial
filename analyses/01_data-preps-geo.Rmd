@@ -85,21 +85,27 @@ unlink("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/ggg_2021-LV95.gdb", recur
 gg21 <- 
   st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01072021.shp",
           as_tibble = TRUE) %>% 
-  st_set_crs(2056)
+  st_set_crs(2056) %>% 
+  st_zm(drop = TRUE, what = "ZM")
+
 
 kt21 <- 
   st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1k21.shp",
           as_tibble = TRUE) %>% 
-  st_set_crs(2056)
+  st_zm(drop = TRUE, what = "ZM") %>% 
+  st_transform(2056)
 
 se21 <- 
   st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1s21.shp",
           as_tibble = TRUE) %>% 
   filter(GMDNAME != "Lago di Como") %>% 
-  st_set_crs(2056)
+  st_zm(drop = TRUE, what = "ZM") %>% 
+  st_transform(2056)
 ```
 
 ```{r include=FALSE}
+unique(st_geometry_type(gg21))
+
 # gg written alter after processing
 write_rds(kt21, "data/BfS/kt21.Rds")
 write_rds(se21, "data/BfS/se21.Rds")
@@ -153,13 +159,16 @@ st_kt21 <-
 ```
 
 ```{r include=FALSE}
-# st_gg written alter after processing
+unique(st_geometry_type(st_gg21))
+
+# st_gg written after processing
 write_rds(st_kt21, "data/swisstopo/st_kt21.Rds")
 ```
 
 ### Lakes 
 
-Additional dataset of lakes was derived from `swissTLM3D_TLM_STEHENDES_GEWAESSER.shp` layer from `swissTLM3D` [dataset](https://www.swisstopo.admin.ch/de/geodata/landscape/tlm3d.html).    
+Additional dataset of lakes was derived from `swissTLM3D_TLM_STEHENDES_GEWAESSER.shp` layer from `swissTLM3D` [dataset](https://www.swisstopo.admin.ch/de/geodata/landscape/tlm3d.html).  
+
 ```{r eval=FALSE}
 # convert lines to polygons, calculate area
 
@@ -176,11 +185,12 @@ st_se21 <-
             NAME = first(NAME),
             OBJEKTART = first(OBJEKTART)) %>%
   st_cast("MULTILINESTRING") %>% 
-  st_polygonize() %>% 
+  st_polygonize() %>%
   mutate(area = st_area(.)) %>% 
+  ungroup() %>% 
   relocate(geometry, .after = last_col())
 
-islands <- 
+st_see21_insel <- 
   st_read("data-raw/swisstopo/swisstlm3d_2021-04_2056_5728.shp/swissTLM3D_TLM_STEHENDES_GEWAESSER.shp",
           as_tibble = TRUE) %>% 
   st_zm(drop = TRUE, what = "ZM") %>% 
@@ -192,46 +202,80 @@ islands <-
   st_cast("MULTILINESTRING") %>% 
   st_polygonize() %>% 
   mutate(area = st_area(.)) %>% 
+  ungroup() %>% 
   relocate(geometry, .after = last_col())
 
 st_se21 <- 
-  st_difference(st_se21, st_union(islands))
+  st_difference(st_se21, st_union(st_see21_insel)) %>% 
+  st_cast("MULTIPOLYGON") 
 
 frq(st_is_valid(st_se21))
 
 summary(st_se21$area)
 
 plot(st_se21[, 2])
+
+rm(st_see21_insel); gc()
+
+unique(st_geometry_type(st_se21))
 ```
 
 ```{r eval=FALSE, include=FALSE}
 # st_write(st_se21, "data/swisstopo/st_se21.gpkg", layer = "lakes", delete_dsn = TRUE)
-# st_write(islands, "data/swisstopo/st_se21.gpkg", layer = "islands", append = TRUE)
+# st_write(st_see21_insel, "data/swisstopo/st_se21.gpkg", layer = "st_see21_insel", append = TRUE)
 
-write_rds(st_se21, "data/swisstopo/st_se21.Rds")
-```
-
-```{r include=FALSE}
-st_se21 <- read_rds("data/swisstopo/st_se21.Rds") #%>% filter(as.numeric(area) > 10000)
+write_rds(st_se21, "data/swisstopo/st_se21.Rds") 
 ```
 
 ### Combined 
 
-Lakes dataset ~~(selecting features more than 10km^2 in size)~~ was then used to erase area of municipalities that extends over lakes. Issue is described in [#48](https://github.com/RPanczak/ISPM_geo-mortality/issues/48).  
+```{r include=FALSE}
+st_se21 <- read_rds("data/swisstopo/st_se21.Rds") %>% 
+  filter(as.numeric(area) > 1000)
+```
 
-```{r}
+Lakes dataset (selecting features more than 1km^2 in size) was then used to erase area of municipalities that extends over lakes. Issue is described in [#48](https://github.com/RPanczak/ISPM_geo-mortality/issues/48).  
+
+```{r warning=FALSE}
 st_gg21 <- 
   st_difference(st_gg21, st_union(st_se21)) %>% 
   # small slivers of lakes left
   filter(OBJEKTART != "Kantonsgebiet") %>% 
-  st_transform(2056)
+  st_collection_extract("POLYGON") %>% 
+  st_zm(drop = TRUE, what = "ZM") %>% 
+  st_transform(2056) 
+```
+
+```{r eval=FALSE, include=FALSE}
+# if needed as POLYGON
+# remove st_collection_extract() above
+unique(st_geometry_type(st_gg21))
+
+temp <- rbind(
+  st_gg21 %>%
+    filter(st_is(geometry, "POLYGON")),
+  
+  st_gg21 %>%
+    filter(st_is(geometry, "MULTIPOLYGON")) %>% 
+    st_cast("POLYGON")
+)
+
+unique(st_geometry_type(temp))
+
+# another way to convert mixed types
+st_gg21 %<>% 
+  group_by(BFS_NUMMER) %<>% 
+  summarise(BFS_NUMMER = first(BFS_NUMMER),
+            NAME = first(NAME),
+            GEM_TEIL = max(GEM_TEIL)) %>%
+  st_cast("MULTIPOLYGON") 
 ```
 
 ## Important differences
 
 ### Resolution
 
-swisstopo borders (in blue below) are larger in size (and slower to plot) but offer better resolution and will be used for certain spatial operations (like linking to SEP) whereas BfS data are smaller in size and easier to plot. Example of municipality Bern:  
+swisstopo files (in blue below) are larger in size (and slower to plot) but offer better resolution and will be used for certain spatial operations (like linking to SEP) whereas BfS data (in red) are smaller in size and faster to plot. Example of municipality Bern:  
 
 ```{r echo=FALSE}
 tm_shape(st_gg21 %>% filter(BFS_NUMMER == 351)) +
@@ -243,25 +287,9 @@ tm_shape(st_gg21 %>% filter(BFS_NUMMER == 351)) +
   )
 ```
 
-<!-- ### Water bodies -->
-
-<!-- Additionally datasets differ in terms of conceptualization of the boundaries of water bodies. BfS data reach the shore of the lake, whereas swisstopo extends them over lakes. Example of municipality *Delley-Portalban* by the *Lac de Neuchâtel*:   -->
-
-```{r eval=FALSE, include=FALSE}
-tm_shape(se21 %>% filter(GMDNR == 9151), is.master = FALSE) +
-  tm_fill(col = "gray", alpha = 0.5) +
-  tm_shape(st_gg21 %>% filter(BFS_NUMMER == 2051), is.master = TRUE) +
-  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
-  tm_shape(gg21 %>% filter(GMDNR == 2051)) +
-  tm_borders(col = "red", lwd = 2, alpha = 0.5) +
-  tm_layout(
-    title = "Different lake boundaries"
-  )
-```
-
 ### Multipart features
 
-BfS stores data as `MULTIPOLYGON`. In such case municipality split over several disconnected areas is stored as *single record*. Example of municipality Monthey which consists of four separate areas:  
+BfS originally stores data as `MULTIPOLYGON`. In such case municipality split over several disconnected areas is stored as *single record*. Example of municipality Monthey which consists of four separate areas:  
 
 ```{r echo=FALSE}
 gg21 %>% 
@@ -271,24 +299,23 @@ gg21 %>%
   plot()
 ```
 
-The same municipality in swisstopo data is stored as `POLYGON` type. In such case it will be represented as *four separate records* (four individual polygons) instead of one.  
+```{r eval=FALSE, include=FALSE}
+# if polygons are needed
+gg21 %<>% 
+  filter(GMDNR == 6153) %>% 
+  st_cast("POLYGON")
+```
+
+The same municipality in swisstopo data is stored as **set of** `MULTIPOLYGON` types and is represented by *four separate records* instead of one.  
 
 ```{r echo=FALSE}
 st_gg21 %>% 
   filter(BFS_NUMMER == 6153) %>%
-  select(GEM_TEIL) %>% 
+  select(GEM_TEIL, geometry) %>% 
   plot()
 ```
 
 That might have some implications in terms of spatial operations (maybe contiguity too?). Data can easily be converted between types if needed. 
-
-```{r eval=FALSE, include=FALSE}
-# if conversion is needed
-st_gg21 %<>% 
-  group_by(BFS_NUMMER) %>% 
-  summarise(BFS_NUMMER = first(BFS_NUMMER)) %>%
-  st_cast("MULTIPOLYGON") 
-```
 
 <!-- ----------------------------------------------------- -->
 
@@ -296,7 +323,7 @@ st_gg21 %<>%
 
 ## Disconnected boundaries
 
-Two communities in TI Bissone & Melide are disconnected by Lake Lugano in BfS municipality data:
+Two communities in TI *Bissone* & *Melide* are disconnected by Lake Lugano in BfS municipality data:
 
 ![No connectivity](../docs/conn1.png)
 In reality communities are rather connected:
@@ -312,6 +339,8 @@ gg21 <-
   st_read("data/geo/g1g21_01072021_cor.shp",
           as_tibble = TRUE) %>% 
   st_set_crs(2056)
+
+# table(st_is_valid(gg21))
 ```
 
 This doesn't cause problem in swisstopo data. 
@@ -332,8 +361,8 @@ tm_shape(st_se21 %>%
 
 Excluding municipalities without residents:  
 
-- `Staatswald Galm`, 
-- `Comunanza Cadenazzo/Monteceneri` 
+- `Staatswald Galm`  
+- `Comunanza Cadenazzo/Monteceneri`  
 - `Comunanza Capriasca/Lugano`  
 
 ```{r}
@@ -423,7 +452,7 @@ write_rds(raum, "data/BfS/raum.Rds")
 
 Number of municipalities that are located within border labour market areas:  
 
-```{r eval=FALSE, include=FALSE}
+```{r echo=FALSE}
 frq(raum, border)
 ```
 
@@ -676,10 +705,8 @@ st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, BZNAME,
 
 ```{r}
 tg3o <- 
-  st_read("data-raw/BfS/tg3o/K5tg3ovf_ch2001Poly.shp",
+  st_read("data-raw/BfS/2019_THK_PRO/01_INST/Vegetationsfläche_vf/K4_suis18480101_vf/K4suis18480101vf_ch2007Poly.shp",
           as_tibble = TRUE) %>% 
-  st_set_crs(21781) %>% 
-  st_union() %>% 
   st_transform(2056)
 ```
 
@@ -687,12 +714,16 @@ TODO
 would work for viz purposes
 if spatial analytical work done on it - needs solution to clean small polygon slivers
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 test <- st_intersection(st_gg21, tg3o)
 
-frq(st_is_valid(ar_21_cor))
+frq(st_is_valid(test))
+
+qtm(test)
 
 test <- st_intersection(ar_21_cor, tg3o)
+
+frq(st_is_valid(test))
 
 qtm(test)
 ```

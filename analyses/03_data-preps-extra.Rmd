@@ -1,6 +1,7 @@
 ---
 title: "Spatial analyses of 2020-21 excess mortality in CH"
 subtitle: "Ancillary data preparation"
+pagetitle: "Spatial Excess: more data"
 author: "Radek Panczak"
 date: "`r Sys.Date()`"
 output:

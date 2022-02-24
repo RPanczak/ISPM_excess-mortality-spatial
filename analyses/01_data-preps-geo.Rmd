@@ -109,6 +109,11 @@ unique(st_geometry_type(gg21))
 # gg written alter after processing
 write_rds(kt21, "data/BfS/kt21.Rds")
 write_rds(se21, "data/BfS/se21.Rds")
+
+st_write(kt21, "data/geo/BfS.gpkg", 
+         layer = "kt21", delete_dsn = TRUE)
+st_write(se21, "data/geo/BfS.gpkg", 
+         layer = "se21", append = TRUE)
 ```
 
 ### Canton 
@@ -129,7 +134,7 @@ tm_shape(se21, is.master = FALSE) +
   tm_borders()
 ```
 
-## Alternative lakes dataset
+### Alternative lakes dataset
 
 Coming from Kartengeometrien ThemaKart - Set «PRO» 2019 available [here](https://www.bfs.admin.ch/bfs/de/home/statistiken/kataloge-datenbanken/karten.assetdetail.7546178.html).  
 
@@ -147,6 +152,13 @@ tm_shape(se21, is.master = FALSE) +
   tm_fill(col = "#a7cdf2")  +
   tm_shape(se21_alt) +
   tm_borders(col = "red")
+```
+
+```{r include=FALSE}
+write_rds(se21_alt, "data/BfS/se21_alt.Rds")
+
+st_write(se21_alt, "data/geo/BfS.gpkg", 
+         layer = "se21_alt", append = TRUE)
 ```
 
 ## swisstopo geodata 2021
@@ -170,19 +182,25 @@ unlink("data-raw/swisstopo/swissboundaries3d_2021-01_2056_5728.shp.zip")
 st_gg21 <- 
   st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp",
           as_tibble = TRUE) %>% 
-  st_zm(drop = TRUE, what = "ZM")
+  st_zm(drop = TRUE, what = "ZM") %>% 
+  st_transform(2056) 
 
 st_kt21 <- 
   st_read("data-raw/swisstopo/swissboundaries3d_2021-07_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp",
           as_tibble = TRUE) %>% 
-  st_zm(drop = TRUE, what = "ZM")
+  st_zm(drop = TRUE, what = "ZM") %>% 
+  st_transform(2056)
 ```
 
 ```{r include=FALSE}
 unique(st_geometry_type(st_gg21))
+unique(st_geometry_type(st_kt21))
 
 # st_gg written after processing
 write_rds(st_kt21, "data/swisstopo/st_kt21.Rds")
+
+st_write(st_kt21, "data/geo/swisstopo.gpkg", 
+         layer = "st_kt21", delete_dsn = TRUE)
 ```
 
 ### Lakes 
@@ -227,7 +245,11 @@ st_see21_insel <-
 
 st_se21 <- 
   st_difference(st_se21, st_union(st_see21_insel)) %>% 
-  st_cast("MULTIPOLYGON") 
+  st_collection_extract("POLYGON") %>% 
+  st_zm(drop = TRUE, what = "ZM") %>% 
+  st_transform(2056)
+
+unique(st_geometry_type(st_se21))
 
 frq(st_is_valid(st_se21))
 
@@ -236,8 +258,6 @@ summary(st_se21$area)
 plot(st_se21[, 2])
 
 rm(st_see21_insel); gc()
-
-unique(st_geometry_type(st_se21))
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -245,20 +265,28 @@ unique(st_geometry_type(st_se21))
 # st_write(st_see21_insel, "data/swisstopo/st_se21.gpkg", layer = "st_see21_insel", append = TRUE)
 
 write_rds(st_se21, "data/swisstopo/st_se21.Rds") 
+
+st_write(st_se21, "data/geo/swisstopo.gpkg", 
+         layer = "st_se21", append = TRUE)
 ```
 
 ### Combined 
 
 ```{r include=FALSE}
-st_se21 <- read_rds("data/swisstopo/st_se21.Rds") %>% 
-  filter(as.numeric(area) > 1000)
+st_se21_sel <- read_rds("data/swisstopo/st_se21.Rds") %>% 
+  st_filter(se21_alt)
+
+write_rds(st_se21_sel, "data/swisstopo/st_se21_sel.Rds") 
+
+st_write(st_se21_sel, "data/geo/swisstopo.gpkg", 
+         layer = "st_se21_sel", append = TRUE)
 ```
 
-Lakes dataset (selecting features more than 1km^2 in size) was then used to erase area of municipalities that extends over lakes. Issue is described in [#48](https://github.com/RPanczak/ISPM_geo-mortality/issues/48).  
+Lakes dataset (selecting only `r nrow(se21_alt)` largest features from ThemaKart dataset) was then used to erase area of municipalities that extends over lakes. Issue is described in [#48](https://github.com/RPanczak/ISPM_geo-mortality/issues/48).  
 
 ```{r warning=FALSE}
 st_gg21 <- 
-  st_difference(st_gg21, st_union(st_se21)) %>% 
+  st_difference(st_gg21, st_union(st_se21_sel)) %>% 
   # small slivers of lakes left
   filter(OBJEKTART != "Kantonsgebiet") %>% 
   st_collection_extract("POLYGON") %>% 
@@ -267,9 +295,11 @@ st_gg21 <-
 ```
 
 ```{r eval=FALSE, include=FALSE}
-# if needed as POLYGON
-# remove st_collection_extract() above
 unique(st_geometry_type(st_gg21))
+
+# if needed as POLYGON (not MULTI)
+# remove st_collection_extract() above
+# and run this one
 
 temp <- rbind(
   st_gg21 %>%
@@ -321,7 +351,7 @@ gg21 %>%
 
 ```{r eval=FALSE, include=FALSE}
 # if polygons are needed
-gg21 %<>% 
+gg21 %>% 
   filter(GMDNR == 6153) %>% 
   st_cast("POLYGON")
 ```
@@ -366,7 +396,7 @@ gg21 <-
 This doesn't cause problem in swisstopo data. 
 
 ```{r echo=FALSE}
-tm_shape(st_se21 %>% 
+tm_shape(st_se21_sel %>% 
            filter(NAME == "Ceresio | Lago di Lugano | Lac de Lugano | Lai da Lugano | Luganersee")) +
   tm_fill(col = "gray", alpha = 0.5) +
   tm_shape(st_gg21 %>% filter(BFS_NUMMER %in% c(5154, 5198)), 
@@ -384,6 +414,8 @@ Excluding municipalities without residents:
 - `Staatswald Galm`  
 - `Comunanza Cadenazzo/Monteceneri`  
 - `Comunanza Capriasca/Lugano`  
+
+We should not expect any cases there!  
 
 ```{r}
 gg21 %>% 
@@ -497,18 +529,13 @@ ar_21 <- gg21 %>%
   st_cast("MULTIPOLYGON")
 ```
 
-```{r eval=FALSE, include=FALSE}
-st_write(argr_21, "data/geo/argr_21.shp", delete_dsn = TRUE)
-st_write(ar_21, "data/geo/ar_21.shp", delete_dsn = TRUE)
-```
-
 Dissolving of BfS data via R was not perfect and manual corrections were implemented in QGIS software.  
 
 ```{r}
 # st_write(argr_21, "data/geo/argr_21_cor.shp", delete_dsn = TRUE)
 # st_write(ar_21, "data/geo/ar_21_cor.shp", delete_dsn = TRUE)
 
-argr_21_cor <- st_read("data/geo/argr_21_cor.shp") %>% 
+argr_21 <- st_read("data/geo/argr_21_cor.shp") %>% 
   select(-ARGRNAME) %>% 
   left_join(raum %>% select(ARGRNR, ARGRNAME)) %>% 
   group_by(ARGRNR) %>% 
@@ -516,28 +543,45 @@ argr_21_cor <- st_read("data/geo/argr_21_cor.shp") %>%
             ARGRNAME = first(ARGRNAME)) %>%
   st_cast("MULTIPOLYGON") 
 
-ar_21_cor <- st_read("data/geo/ar_21_cor.shp") %>% 
+ar_21 <- st_read("data/geo/ar_21_cor.shp") %>% 
   select(-ARNAME) %>% 
   left_join(raum %>% select(ARNR, ARNAME, border)) %>% 
   group_by(ARNR) %>% 
   summarise(ARNR = first(ARNR),
             ARNAME = first(ARNAME),
             border = first(border)) %>%
-  st_cast("MULTIPOLYGON") 
+  st_cast("MULTIPOLYGON")
+```
 
-write_rds(argr_21_cor, "data/geo/argr_21_cor.Rds")
-write_rds(ar_21_cor, "data/geo/ar_21_cor.Rds")
+```{r include=FALSE}
+unique(st_geometry_type(argr_21))
+unique(st_geometry_type(ar_21))
+
+# some dramas here
+table(st_is_valid(argr_21))
+table(st_is_valid(ar_21))
+
+ar_21 %>% 
+  filter(!st_is_valid(.)) %>% 
+  select(ARNAME)
+
+# fixing with this
+ar_21 <- st_make_valid(ar_21)
+table(st_is_valid(ar_21))
+
+write_rds(argr_21, "data/BfS/argr_21.Rds")
+write_rds(ar_21, "data/BfS/ar_21.Rds")
+
+st_write(argr_21, "data/geo/BfS.gpkg", 
+         layer = "argr_21", append = TRUE)
+st_write(ar_21, "data/geo/BfS.gpkg", 
+         layer = "ar_21", append = TRUE)
 ```
 
 ```{r eval=FALSE, include=FALSE}
-# there is some unresolved drama here
-ar_21_cor %>% 
-  mutate(valid = st_is_valid(.)) %>% 
-  filter(! valid)
-```
+p_load(cleangeo)
 
-```{r eval=FALSE, include=FALSE}
-sp <- maptools::readShapePoly("data/geo/ar_21_cor.shp")
+sp <- rgdal::readOGR("data/geo/ar_21_cor.shp")
 
 sp.report <- clgeo_CollectionReport(sp)
 sp.summary <- clgeo_SummaryReport(sp.report)
@@ -559,15 +603,13 @@ tm_shape(map_centre_b) +
   tm_borders(col = "red", lwd = 2, alpha = 0.5) 
 
 tmap_mode("plot")
-tm_shape(map_centre) +
+tm_shape(map_centre_b) +
   tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
   tm_shape(ar_21_cor) +
   tm_borders(col = "red", lwd = 2, alpha = 0.5) 
-```
 
-```{r eval=FALSE, include=FALSE}
-unlink("data/geo/argr_21.*")
-unlink("data/geo/ar_21.*")
+rm(sp, sp.report, sp.summary, sp.fixed, map_centre, map_centre_b); gc()
+p_unload(cleangeo)
 ```
 
 Dissolve in R using swisstopo data was all fine.  
@@ -594,15 +636,19 @@ st_ar_21 <- st_gg21 %>%
 ```
 
 ```{r include=FALSE}
-st_write(st_argr_21, "data/geo/st_argr_21.shp", delete_dsn = TRUE)
-st_write(st_ar_21, "data/geo/st_ar_21.shp", delete_dsn = TRUE)
+st_write(st_argr_21, "data/geo/swisstopo.gpkg", 
+         layer = "st_argr_21", append = TRUE)
+st_write(st_ar_21, "data/geo/swisstopo.gpkg", 
+         layer = "st_ar_21", append = TRUE)
 
-write_rds(st_argr_21, "data/geo/st_argr_21.Rds")
-write_rds(st_ar_21, "data/geo/st_ar_21.Rds")
+write_rds(st_argr_21, "data/swisstopo/st_argr_21.Rds")
+write_rds(st_ar_21, "data/swisstopo/st_ar_21.Rds")
 ```
 
 ```{r eval=FALSE, include=FALSE}
-sp <- maptools::readShapePoly("data/geo/st_ar_21.shp")
+p_load(cleangeo)
+
+sp <- rgdal::readOGR("data/geo/st_ar_21.shp")
 
 sp.report <- clgeo_CollectionReport(sp)
 sp.summary <- clgeo_SummaryReport(sp.report)
@@ -628,14 +674,18 @@ tm_shape(map_centre) +
   tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
   tm_shape(ar_21_cor) +
   tm_borders(col = "red", lwd = 2, alpha = 0.5) 
+
+
+rm(sp, sp.report, sp.summary, sp.fixed, map_centre, map_centre_b); gc()
+p_unload(cleangeo)
 ```
 
 ```{r echo=FALSE}
 tm_shape(se21, is.master = FALSE) +
   tm_fill(col = "lightskyblue", alpha = 0.5) +
-  tm_shape(ar_21_cor, is.master = TRUE) +
+  tm_shape(ar_21, is.master = TRUE) +
   tm_borders(col = "darkgray", lwd = 1, alpha = 0.5) +
-  tm_shape(argr_21_cor) +
+  tm_shape(argr_21) +
   tm_borders(col = "darkorchid", lwd = 2, alpha = 0.5) +
   tm_layout(
     title = "Labour market regions 2021"
@@ -660,15 +710,14 @@ Defined on the basis of [this map](https://www.bfs.admin.ch/bfs/de/home/aktuell/
 
 ![Border regions](../docs/border.png)
 
-
 ```{r echo=FALSE}
 tm_shape(se21, is.master = FALSE) +
   tm_fill(col = "lightskyblue", alpha = 0.5) +
-  tm_shape(ar_21_cor %>% mutate(border = factor(border))) +
+  tm_shape(ar_21 %>% mutate(border = factor(border))) +
   tm_fill(col = "border", lwd = 2, alpha = 0.66, 
           palette = "Set2", n = 2,
           legend.show = FALSE) +
-  tm_shape(ar_21_cor) +
+  tm_shape(ar_21) +
   tm_borders(col = "white") +
   tm_layout(
     title = "Border regions 2021"
@@ -676,7 +725,7 @@ tm_shape(se21, is.master = FALSE) +
 ```
 
 ```{r echo=FALSE}
-ar_21_cor %>% 
+ar_21 %>% 
   st_drop_geometry() %>% 
   filter(border == 1) %>%  
   select(-border) %>% 
@@ -714,20 +763,44 @@ gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, BZNAME,
   relocate(geometry, .after = last_col()) %>% 
   write_rds("data/BfS/gg21.Rds")
 
+gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, BZNAME, 
+                                   ARGRNR, ARGRNAME, ARNR, ARNAME,
+                                   border)) %>% 
+  relocate(geometry, .after = last_col()) %>%
+  st_write("data/geo/BfS.gpkg", 
+           layer = "gg21", append = TRUE)
+
 st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, BZNAME, 
                                       ARGRNR, ARGRNAME, ARNR, ARNAME,
                                       border)) %>% 
   relocate(geometry, .after = last_col()) %>% 
   write_rds("data/swisstopo/st_gg21.Rds")
+
+st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, BZNAME, 
+                                      ARGRNR, ARGRNAME, ARNR, ARNAME,
+                                      border)) %>% 
+  relocate(geometry, .after = last_col()) %>% 
+  st_write("data/geo/swisstopo.gpkg", 
+           layer = "st_gg21", append = TRUE)
 ```
 
-## tg3o simplification
+<!-- ----------------------------------------------------- -->
+
+# tg3o simplification
+
+So called 'productive areas', also coming from BfS' ThemaKart product.  
+
+Roughly coincides with removing areas of above 2000m asl.  
 
 ```{r}
 tg3o <- 
   st_read("data-raw/BfS/2019_THK_PRO/01_INST/Vegetationsfläche_vf/K4_suis18480101_vf/K4suis18480101vf_ch2007Poly.shp",
           as_tibble = TRUE) %>% 
   st_transform(2056)
+```
+
+```{r}
+qtm(tg3o)
 ```
 
 TODO
@@ -741,7 +814,21 @@ frq(st_is_valid(test))
 
 qtm(test)
 
-test <- st_intersection(ar_21_cor, tg3o)
+test <- st_intersection(st_ar_21, tg3o)
+
+frq(st_is_valid(test))
+
+qtm(test)
+```
+
+```{r eval=FALSE, include=FALSE}
+test <- st_intersection(gg21, tg3o)
+
+frq(st_is_valid(test))
+
+qtm(test)
+
+test <- st_intersection(ar_21, tg3o)
 
 frq(st_is_valid(test))
 

@@ -59,15 +59,3 @@ b <- brick("data-raw/meteoswiss/TabsD_ch01r.swiss.lv95_201401010000_201412310000
 plot(b[[1]])
 
 spplot(stack(b[[1]], b[[7]]))
-
-# #############################
-# getting origin 
-origin <- st_as_sf(tibble(E = min(E), N = min(N)), 
-                   coords = c("E", "N")) %>%
-  st_set_crs(2056) 
-
-origin
-
-library(tmap)
-tmap_mode("view")
-qtm(origin)

@@ -106,10 +106,8 @@ TabsD_14 <- nc_open('data-raw/meteoswiss/TabsD_ch01r.swiss.lv95_201401010000_201
 E <- ncvar_get(TabsD_14, "E") # X, lon
 N <- ncvar_get(TabsD_14, "N") # Y, lat
 
-offset_meteoswiss <- offset_statpop
-
-offset_meteoswiss$minX <- min(E)
-offset_meteoswiss$minY <- min(N)
+offset_meteoswiss <- as_tibble(cbind(minX = as.integer(min(E)), 
+                                     minY = as.integer(min(N))))
 
 p_unload(ncdf4)
 ```
@@ -175,7 +173,7 @@ View(st_drop_geometry(grid_1km_over))
 plot(st_geometry(grid_1km_over))
 ```
 
-```{r eval=FALSE}
+```{r eval=FALSE, include=FALSE}
 # grids
 st_write(grid_1km, "data/grid/grid_1km.gpkg", 
          layer = "grid_1km", delete_dsn = TRUE)
@@ -255,13 +253,21 @@ grid_1km_cent %<>%
   relocate(geometry, .after = last_col())
 ```
 
-```{r}
+```{r include=FALSE}
 grid_1km_crop_cent <- st_centroid(grid_1km_crop)
 
 grid_1km_crop_cent %<>% 
   mutate(X = st_coordinates(grid_1km_crop_cent)[, 1],
          Y = st_coordinates(grid_1km_crop_cent)[, 2]) %>% 
   relocate(geometry, .after = last_col())
+
+st_write(grid_1km_cent, "data/grid/grid_1km.gpkg", 
+         layer = "grid_1km_cent", append = TRUE)
+st_write(grid_1km_crop_cent, "data/grid/grid_1km.gpkg", 
+         layer = "grid_1km_crop_cent", append = TRUE)
+
+write_rds(grid_1km_cent, "data/grid/grid_1km_cent.Rds")
+write_rds(grid_1km_crop_cent, "data/grid/grid_1km_crop_cent.Rds")
 ```
 
 ```{r eval=FALSE, include=FALSE}

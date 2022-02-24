@@ -1,6 +1,7 @@
 ---
 title: "Spatial analyses of 2020-21 excess mortality in CH"
 subtitle: "Grid & grided data preparation"
+pagetitle: "Spatial Excess: grid"
 author: "Radek Panczak & Garyfallos Konstantinoudis"
 date: "`r Sys.Date()`"
 output:
@@ -22,7 +23,7 @@ options(scipen = 999)
 options(max.print = "75")
 
 library(pacman)
-p_load(tidyverse, magrittr, scales, haven,  
+p_load(tidyverse, lubridate, magrittr, scales, haven,  
        DT, 
        sf, tmap)
 
@@ -58,45 +59,70 @@ mu <- Hmisc::markupSpecs$html
 
 ## Municipality boundaries
 
-Used to 'clip' the data to the country outline, 'remove' the area of lakes and introduce the boundaries within grid cells belonging to two different municipalities.  
+Used to 'clip' the data to the country outline, 'remove' the area of lakes and introduce the boundaries within grid cells belonging to two different municipalities.   
 
 ```{r}
-# gg21 <- read_rds("data/BfS/gg21.Rds")
-
 st_gg21 <- read_rds("data/swisstopo/st_gg21.Rds") %>% 
   st_transform(2056)
 
-st_se21 <- read_rds("data/swisstopo/st_se21.Rds") %>% 
+st_se21_sel <- read_rds("data/swisstopo/st_se21_sel.Rds") %>% 
   st_transform(2056)
 ```
 
 ## Offset
 
-Open STATPOP dataset is used to define `offset` (ie. starting point; lowest left corner) for `st_make_grid`.  
+<!-- Openly available STATPOP dataset is used to define `offset` (ie. starting point; lowest left corner) for `st_make_grid`.   -->
 
 ```{r eval=FALSE, include=FALSE}
-# checking the most/least populated hectars
-density <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip", 
-                      delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
+origin_statpop <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip", 
+                             delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
   mutate_all(as.integer) %>% 
-  arrange(desc(B20BTOT)) %>% 
-  # arrange(B20BTOT) %>% 
-  slice(1) %>% 
-  st_as_sf(coords = c("E_KOORD", "N_KOORD"), 
+  summarise(minX = min(E_KOORD),
+            minY = min(N_KOORD)) %>% 
+  st_as_sf(coords = c("minX", "minY"), 
            crs = 2056,
            remove = FALSE)
 
-qtm(density)
+qtm(origin_statpop)
 ```
 
-```{r eval=FALSE}
-offset <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip", 
-                     delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
+```{r eval=FALSE, include=FALSE}
+offset_statpop <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip", 
+                             delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
   mutate_all(as.integer) %>% 
   summarise(minX = min(E_KOORD),
             minY = min(N_KOORD))
+```
 
-# statpop_20 %>% slice(1:10) %>% View()
+One of the meteoswiss datasets is used to define `offset` (ie. starting point; lowest left corner) for `st_make_grid`.  
+
+Using meteoswiss origin will allow us to perfectly align gridded mortality and population data to meteo data.   
+
+```{r}
+p_load(ncdf4)
+
+TabsD_14 <- nc_open('data-raw/meteoswiss/TabsD_ch01r.swiss.lv95_201401010000_201412310000.nc')
+
+E <- ncvar_get(TabsD_14, "E") # X, lon
+N <- ncvar_get(TabsD_14, "N") # Y, lat
+
+offset_meteoswiss <- offset_statpop
+
+offset_meteoswiss$minX <- min(E)
+offset_meteoswiss$minY <- min(N)
+
+p_unload(ncdf4)
+```
+
+```{r eval=FALSE, include=FALSE}
+# offset_statpop
+offset_meteoswiss
+
+origin_meteoswiss <- st_as_sf(tibble(E = min(E), N = min(N)), 
+                   coords = c("E", "N")) %>%
+  st_set_crs(2056) 
+
+qtm(origin)
 ```
 
 ## Grid 
@@ -111,10 +137,10 @@ Lastly, **experimental** grid integrating municipality boundaries is also create
 
 Also, adding ID for each cell (based on row number) and area for each of the iterations.  
 
-```{r eval=FALSE}
+```{r}
 grid_1km <- st_gg21 %>% 
   st_make_grid(cellsize = 1000, square = TRUE, 
-               offset = c(offset$minX, offset$minY)) %>% 
+               offset = c(offset_meteoswiss$minX, offset_meteoswiss$minY)) %>% 
   st_sf() %>%
   st_cast("POLYGON") %>% 
   st_filter(st_gg21, join = st_covers)  %>%
@@ -126,7 +152,7 @@ grid_1km <- st_gg21 %>%
 grid_1km_over <- grid_1km %>% 
   mutate(area2 = st_area(.)) %>% 
   relocate(ID, area) %>% 
-  st_difference(st_union(st_se21)) %>% 
+  st_difference(st_union(st_se21_sel)) %>% 
   st_transform(2056)
 
 # View(st_drop_geometry(grid_1km_over))
@@ -153,8 +179,8 @@ st_write(grid_1km_crop, "data/grid/grid_1km.gpkg",
 # admin bound
 st_write(st_gg21, "data/grid/grid_1km.gpkg", 
          layer = "st_gg21", append = TRUE)
-st_write(st_se21, "data/grid/grid_1km.gpkg", 
-         layer = "st_se21", append = TRUE)
+st_write(st_se21_sel, "data/grid/grid_1km.gpkg", 
+         layer = "st_se21_sel", append = TRUE)
 
 write_rds(grid_1km, "data/grid/grid_1km.Rds")
 write_rds(grid_1km_over, "data/grid/grid_1km_over.Rds")

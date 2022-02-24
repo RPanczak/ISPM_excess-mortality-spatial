@@ -1,6 +1,7 @@
 ---
 title: "Spatial analyses of 2020-21 excess mortality in CH"
 subtitle: "Mortality data preparation (*Wohnort* based)"
+pagetitle: "Spatial Excess: mortality data"
 author: "Radek Panczak"
 date: "`r Sys.Date()`"
 output:
@@ -58,7 +59,7 @@ mu <- Hmisc::markupSpecs$html
 
 Custom file delivered by BfS covering 2021 period and standardizing municipalities to Jul 2021.  
 
-Using **Wohnort** (*the municipality where the person died*) as unit of analysis.   
+Using **Wohnort** (*the municipality where the person lived*) as unit of analysis.   
 
 ```{r}
 w_deaths_2015_2021 <- read_csv("data-raw/BfS-closed/13OCT21_Lieferung_Panczak_Wohnort.csv", 

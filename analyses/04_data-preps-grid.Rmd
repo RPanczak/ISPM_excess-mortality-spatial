@@ -119,7 +119,7 @@ p_unload(ncdf4)
 offset_meteoswiss
 
 origin_meteoswiss <- st_as_sf(tibble(E = min(E), N = min(N)), 
-                   coords = c("E", "N")) %>%
+                              coords = c("E", "N")) %>%
   st_set_crs(2056) 
 
 qtm(origin)
@@ -137,7 +137,7 @@ Lastly, **experimental** grid integrating municipality boundaries is also create
 
 Also, adding ID for each cell (based on row number) and area for each of the iterations.  
 
-```{r}
+```{r eval=FALSE}
 grid_1km <- st_gg21 %>% 
   st_make_grid(cellsize = 1000, square = TRUE, 
                offset = c(offset_meteoswiss$minX, offset_meteoswiss$minY)) %>% 
@@ -149,32 +149,40 @@ grid_1km <- st_gg21 %>%
   st_transform(2056)
 
 # this one takes some time
-grid_1km_over <- grid_1km %>% 
-  mutate(area2 = st_area(.)) %>% 
-  relocate(ID, area) %>% 
-  st_difference(st_union(st_se21_sel)) %>% 
+grid_1km_crop <- grid_1km %>% 
+  st_intersection(st_union(st_gg21)) %>% 
+  st_collection_extract("POLYGON") %>% 
+  mutate(area = st_area(.)) %>% 
+  relocate(ID, area) %>%   
   st_transform(2056)
 
-# View(st_drop_geometry(grid_1km_over))
-
-grid_1km_crop <- grid_1km_over %>%
+grid_1km_over <- grid_1km_crop %>%
   st_intersection(st_gg21)  %>%
   mutate(ID2 = row_number(),
          area2 = st_area(.)) %>%
   relocate(ID, ID2, area, area2) %>% 
   st_transform(2056)
-
-# View(st_drop_geometry(grid_1km_crop))
 ```
 
 ```{r eval=FALSE, include=FALSE}
+View(st_drop_geometry(grid_1km))
+plot(st_geometry(grid_1km))
+
+View(st_drop_geometry(grid_1km_crop))
+plot(st_geometry(grid_1km_crop))
+
+View(st_drop_geometry(grid_1km_over))
+plot(st_geometry(grid_1km_over))
+```
+
+```{r eval=FALSE}
 # grids
 st_write(grid_1km, "data/grid/grid_1km.gpkg", 
          layer = "grid_1km", delete_dsn = TRUE)
-st_write(grid_1km_over, "data/grid/grid_1km.gpkg", 
-         layer = "grid_1km_over", append = TRUE)
 st_write(grid_1km_crop, "data/grid/grid_1km.gpkg",
          layer = "grid_1km_crop", append = TRUE)
+st_write(grid_1km_over, "data/grid/grid_1km.gpkg", 
+         layer = "grid_1km_over", append = TRUE)
 
 # admin bound
 st_write(st_gg21, "data/grid/grid_1km.gpkg", 
@@ -183,14 +191,14 @@ st_write(st_se21_sel, "data/grid/grid_1km.gpkg",
          layer = "st_se21_sel", append = TRUE)
 
 write_rds(grid_1km, "data/grid/grid_1km.Rds")
-write_rds(grid_1km_over, "data/grid/grid_1km_over.Rds")
 write_rds(grid_1km_crop, "data/grid/grid_1km_crop.Rds")
+write_rds(grid_1km_over, "data/grid/grid_1km_over.Rds")
 ```
 
 ```{r include=FALSE}
 grid_1km <- read_rds("data/grid/grid_1km.Rds")
-grid_1km_over <- read_rds("data/grid/grid_1km_over.Rds")
 grid_1km_crop <- read_rds("data/grid/grid_1km_crop.Rds")
+grid_1km_over <- read_rds("data/grid/grid_1km_over.Rds")
 ```
 
 Example of Bern  
@@ -198,7 +206,7 @@ Example of Bern
 ```{r echo=FALSE}
 tm_shape(st_gg21 %>% filter(GMDNR == 351)) + 
   tm_borders(col = "darkorchid") +
-  tm_shape(st_join(grid_1km_over,
+  tm_shape(st_join(grid_1km,
                    st_gg21 %>% filter(GMDNR == 351),
                    left = FALSE)) + 
   tm_borders(col = "red")
@@ -208,7 +216,7 @@ tm_shape(st_gg21 %>% filter(GMDNR == 351)) +
 
 Example of different integration of boundaries of `Gottlieben` municipality.  
 
-Comparing grid of 'regular' cells (green) and cells 'cropped' by outlines of the lakes (red). Only grid cells that overlay area of municipality are shown (purple):  
+Comparing grid of 'regular' cells (green) and cells 'cropped' by outlines of the country and water bodies. Only grid cells that overlay area of municipality are shown (purple):  
 
 ```{r echo=FALSE}
 tm_shape(st_gg21 %>% filter(GMDNR == 4651)) + 
@@ -217,7 +225,7 @@ tm_shape(st_gg21 %>% filter(GMDNR == 4651)) +
                    st_gg21 %>% filter(GMDNR == 4651),
                    left = FALSE)) + 
   tm_borders(col = "forestgreen") +
-  tm_shape(st_join(grid_1km_over,
+  tm_shape(st_join(grid_1km_crop,
                    st_gg21 %>% filter(GMDNR == 4651),
                    left = FALSE)) + 
   tm_borders(col = "red")
@@ -226,14 +234,79 @@ tm_shape(st_gg21 %>% filter(GMDNR == 4651)) +
 Comparing grid of 'cropped' cells (red again) with grid integrating community boundaries (yellow). Note subdivision of regular cells into smaller ([sometimes very small!](https://github.com/RPanczak/ISPM_geo-mortality/issues/49)) units:   
 
 ```{r echo=FALSE}
-tm_shape(st_join(grid_1km_over,
+tm_shape(st_join(grid_1km_crop,
+                 st_gg21 %>% filter(GMDNR == 4651),
+                 left = FALSE)) + 
+  tm_borders(col = "red") +
+  tm_shape(st_join(grid_1km_over,
+                   st_gg21 %>% filter(GMDNR == 4651),
+                   left = FALSE)) + 
+  tm_borders(col = "yellow")
+```
+
+## Grid centroids
+
+```{r}
+grid_1km_cent <- st_centroid(grid_1km)
+
+grid_1km_cent %<>% 
+  mutate(X = st_coordinates(.)[, 1],
+         Y = st_coordinates(.)[, 2]) %>% 
+  relocate(geometry, .after = last_col())
+```
+
+```{r}
+grid_1km_crop_cent <- st_centroid(grid_1km_crop)
+
+grid_1km_crop_cent %<>% 
+  mutate(X = st_coordinates(grid_1km_crop_cent)[, 1],
+         Y = st_coordinates(grid_1km_crop_cent)[, 2]) %>% 
+  relocate(geometry, .after = last_col())
+```
+
+```{r eval=FALSE, include=FALSE}
+View(st_drop_geometry(grid_1km))
+plot(st_geometry(grid_1km))
+```
+
+Example of Bern:    
+
+```{r echo=FALSE}
+tm_shape(st_gg21 %>% filter(GMDNR == 351)) + 
+  tm_borders(col = "darkorchid") +
+  tm_shape(st_join(grid_1km,
+                   st_gg21 %>% filter(GMDNR == 351),
+                   left = FALSE)) + 
+  tm_borders(col = "red") +
+  tm_shape(st_join(grid_1km_cent,
+                   st_gg21 %>% filter(GMDNR == 351),
+                   left = FALSE)) + 
+  tm_dots() 
+```
+
+Of course different grids will result in slightly different centroids in areas that were modified:  
+
+```{r echo=FALSE}
+tm_shape(st_join(grid_1km,
                  st_gg21 %>% filter(GMDNR == 4651),
                  left = FALSE)) + 
   tm_borders(col = "red") +
   tm_shape(st_join(grid_1km_crop,
                    st_gg21 %>% filter(GMDNR == 4651),
                    left = FALSE)) + 
-  tm_borders(col = "yellow")
+  tm_borders(col = "forestgreen") +
+  tm_shape(st_join(grid_1km_cent,
+                   st_join(grid_1km,
+                           st_gg21 %>% filter(GMDNR == 4651),
+                           left = FALSE),
+                   left = FALSE)) + 
+  tm_dots(col = "red") + 
+  tm_shape(st_join(grid_1km_crop_cent,
+                   st_join(grid_1km,
+                           st_gg21 %>% filter(GMDNR == 4651),
+                           left = FALSE),
+                   left = FALSE)) + 
+  tm_dots(col = "forestgreen") 
 ```
 
 <!-- ----------------------------------------------------- -->

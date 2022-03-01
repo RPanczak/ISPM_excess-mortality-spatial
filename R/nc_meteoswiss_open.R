@@ -90,15 +90,14 @@ ex2 <- data.frame(raster::extract(b, pt))
 terra <- terra::rast(filename)
 crs(terra) <- "epsg:2056"
 
+time(terra)
+
 # summary(data)
 plot(terra, range = c(-20, 25))
 plot(terra[[ c(1, 7) ]], range = c(-20, 25))
 
 # extract by point
 ex3 <- data.frame(terra::extract(terra, pt))
-
-# t(ex3)
-# seq(from = as.Date("2014-01-01"), to = as.Date("2014-12-31"), by = "day")
 
 # #############################
 # results

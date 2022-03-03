@@ -315,6 +315,82 @@ tm_shape(st_join(grid_1km,
   tm_dots(col = "forestgreen") 
 ```
 
+```{r include=FALSE}
+rm(grid_1km_over, grid_1km_crop, grid_1km_crop_cent); gc()
+```
+
+<!-- ----------------------------------------------------- -->
+
+# Gridded temperature data
+
+## Daily data 
+
+```{r}
+p_load(raster)
+
+filename <- "data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_201401010000_201412010000.nc"
+
+# r <- raster::stack(filename) # same same
+r <- raster::brick(filename)
+raster::crs(r) <- st_crs(2056)$proj4string
+
+nlayers(r)
+
+plot(r[[ c(1, 7) ]], 
+     main = "TabsD_14 - January & July",
+     zlim = c(-20, 25), 
+     col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
+
+p_unload(raster)
+```
+
+## Extract
+
+```{r}
+ex <- raster::extract(r, grid_1km_cent, df = TRUE) %>% 
+  as_tibble()
+```
+
+## Checks
+
+Data for Lugano & Jungfraujoch.  
+
+```{r}
+temp_checks <- 
+  tibble(Place = c("Jungfraujoch", "Lugano"),
+         lon = c(7.980556, 8.9525),
+         lat = c(46.547222, 46.005)) %>% 
+  st_as_sf(coords = c("lon", "lat"), 
+           crs = 4326 , 
+           remove = FALSE) %>% 
+  st_transform(2056)
+
+# qtm(temp_checks)
+
+temp_checks %<>% 
+  st_join(grid_1km) %>% 
+  st_drop_geometry() %>% 
+  select(Place, ID) %>% 
+  left_join(ex) %>% 
+  select(-ID) %>% 
+  pivot_longer(
+    !Place,
+    names_to = "Date",
+    values_to = "Temperature"
+  ) %>% 
+  mutate(Date = rep(seq(from = as.Date("2014-01-01"), 
+                        to = as.Date("2014-12-01"), 
+                        by = "month"), 
+                    2)
+  )
+
+ggplot(temp_checks, aes(Date, Temperature, 
+                        group = Place, col = Place)) +
+  geom_line() + 
+  theme_light()
+```
+
+
 <!-- ----------------------------------------------------- -->
 
 # Gridded data

@@ -8,26 +8,27 @@ library(terra)
 # #############################
 # via ncdf4
 
-filename <- "data-raw/meteoswiss/TabsD_ch01r.swiss.lv95_201401010000_201412310000.nc"
+filename <- "data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_201401010000_201412010000.nc"
+# filename <- "data-raw/meteoswiss/TabsD_ch01r.swiss.lv95_201401010000_201412310000.nc"
 
-TabsD_14 <- nc_open(filename)
+TabsM_14 <- nc_open(filename)
 
 # library(ncmeta)
 # ncmeta::nc_inq(filename)     ## one-row summary of file
 # ncmeta::nc_dims(filename)    ## all dimensions
 
-E <- ncvar_get(TabsD_14, "E") # X, lon
-N <- ncvar_get(TabsD_14, "N") # Y, lat
-t <- ncvar_get(TabsD_14, "time")
+E <- ncvar_get(TabsM_14, "E") # X, lon
+N <- ncvar_get(TabsM_14, "N") # Y, lat
+t <- ncvar_get(TabsM_14, "time")
 
-timestamp <- lubridate::as_date(t, origin = "1900-01-01")
+timestamp <- lubridate::as_date(month(t), origin = "1900-01-01")
 
 # store the data in a 3-dimensional array
-data <- ncvar_get(TabsD_14, "TabsD") 
+data <- ncvar_get(TabsM_14, "TabsD") 
 dim(data) 
 
 # NAs?
-fillvalue <- ncatt_get(TabsD_14, "TabsD", "_FillValue")
+fillvalue <- ncatt_get(TabsM_14, "TabsD", "_FillValue")
 fillvalue
 
 # one pixel example 
@@ -75,7 +76,7 @@ r <- raster::raster(data_slice,
 r <- raster::raster(filename, band = 1)
 raster::crs(r) <- st_crs(2056)$proj4string
 
-plot(r, main = "TabsD_14 - 1st January 2014",
+plot(r, main = "TabsM_14 - 1st January 2014",
      col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
 
 # extract by point
@@ -88,7 +89,8 @@ raster::crs(r) <- st_crs(2056)$proj4string
 
 nlayers(r)
 
-plot(r[[ c(1, 182) ]], main = "TabsD_14 - January & July",
+plot(r[[ c(1, 182) ]], main = "TabsM_14 - January & July",
+     zlim = c(-20, 25), 
      col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
 
 # extract by point
@@ -103,7 +105,8 @@ raster::crs(b) <- st_crs(2056)$proj4string
 
 nlayers(b)
 
-plot(b[[ c(1, 182) ]], main = "TabsD_14 - January & July",
+plot(b[[ c(1, 182) ]], main = "TabsM_14 - January & July",
+     zlim = c(-20, 25), 
      col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
 
 # extract by point
@@ -131,13 +134,13 @@ ex3 <- data.frame(terra::extract(terra, pt))
 # via terra with extent from RNetCDF
 
 # library(RNetCDF)
-# TabsD_14 <- open.nc(filename)
-# print.nc(TabsD_14)
+# TabsM_14 <- open.nc(filename)
+# print.nc(TabsM_14)
 # 
-# TabsD_14 <- read.nc(open.nc(filename))
+# TabsM_14 <- read.nc(open.nc(filename))
 # 
-# TabsD_14$E
-# TabsD_14$TabsD
+# TabsM_14$E
+# TabsM_14$TabsD
 # 
 # att.get.nc(open.nc(filename), "time", "units")
 

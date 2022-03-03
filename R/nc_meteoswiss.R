@@ -73,6 +73,7 @@ r <- raster::raster(data_slice,
 # without using data slice
 # for one day
 r <- raster::raster(filename, band = 1)
+raster::crs(r) <- st_crs(2056)$proj4string
 
 plot(r, main = "TabsD_14 - 1st January 2014",
      col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
@@ -83,10 +84,9 @@ colnames(ex1)[2] <- "X2014-01-01"
 
 # all bands with stack
 r <- raster::stack(filename)
+raster::crs(r) <- st_crs(2056)$proj4string
 
 nlayers(r)
-
-raster::crs(r) <- st_crs(2056)$proj4string
 
 plot(r[[ c(1, 182) ]], main = "TabsD_14 - January & July",
      col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
@@ -180,7 +180,8 @@ read_cf16 <- function(x, crs = NULL) {
 
 terra2 <- read_cf16(filename)
 
-plot(terra2[[ c(1, 7) ]], range = c(-20, 25))
+plot(terra2[[ c(1, 7) ]], range = c(-20, 25),
+     col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
 
 # extract by point
 ex4 <- data.frame(terra::extract(terra2, pt))

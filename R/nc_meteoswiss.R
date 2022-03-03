@@ -1,21 +1,9 @@
 # #############################
 library(sf)
-library(ncdf4)
 library(raster)
-
-# #############################
-# via RNetCDF
-
-# library(RNetCDF)
-# TabsD_14 <- open.nc(filename)
-# print.nc(TabsD_14)
-# 
-# TabsD_14 <- read.nc(open.nc(filename))
-# 
-# TabsD_14$E
-# TabsD_14$TabsD
-# 
-# att.get.nc(open.nc(filename), "time", "units")
+library(ncdf4)
+library(RNetCDF)
+library(terra)
 
 # #############################
 # via ncdf4
@@ -25,8 +13,8 @@ filename <- "data-raw/meteoswiss/TabsD_ch01r.swiss.lv95_201401010000_20141231000
 TabsD_14 <- nc_open(filename)
 
 # library(ncmeta)
-# nc_inq(filename)     ## one-row summary of file
-# nc_dims(filename)    ## all dimensions
+# ncmeta::nc_inq(filename)     ## one-row summary of file
+# ncmeta::nc_dims(filename)    ## all dimensions
 
 E <- ncvar_get(TabsD_14, "E") # X, lon
 N <- ncvar_get(TabsD_14, "N") # Y, lat
@@ -43,6 +31,9 @@ fillvalue <- ncatt_get(TabsD_14, "TabsD", "_FillValue")
 fillvalue
 
 # one pixel example 
+E[100]
+N[100]
+
 plot(data.frame(date = timestamp,
                 temp = data[100, 100, ]),
      type = "l")
@@ -61,6 +52,7 @@ pt <- cbind(c(E[100], E[200]),
 # #############################
 # raster solution 
 
+# creating raster from scratch
 # one day example
 data_slice <- data[, , 1] 
 
@@ -77,24 +69,42 @@ r <- raster::raster(data_slice,
                     ymn = min(N), ymx = max(N), 
                     crs = st_crs(2056)$proj4string)
 
+# alternative solution
+# without using data slice
+# for one day
+r <- raster::raster(filename, band = 1)
+
 plot(r, main = "TabsD_14 - 1st January 2014",
      col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
 
 # extract by point
-ex1 <- data.frame("X2014.12.27" = raster::extract(r, pt))
+ex1 <- raster::extract(r, pt, df = TRUE)
+colnames(ex1)[2] <- "X2014-01-01"
+
+# all bands with stack
+r <- raster::stack(filename)
+
+nlayers(r)
+
+raster::crs(r) <- st_crs(2056)$proj4string
+
+plot(r[[ c(1, 182) ]], main = "TabsD_14 - January & July",
+     col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
+
+# extract by point
+ex1 <- raster::extract(r, pt, df = TRUE)
 
 # #############################
 # brick solution 
 
 # 12 months combined 
-b <- brick(filename)
-# raster::crs(b) <- "EPSG:2056"
+b <- raster::brick(filename)
+raster::crs(b) <- st_crs(2056)$proj4string
 
 nlayers(b)
 
-spplot(b[[1]])
-
-spplot(stack(b[[1]], b[[182]]))
+plot(b[[ c(1, 182) ]], main = "TabsD_14 - January & July",
+     col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
 
 # extract by point
 ex2 <- data.frame(raster::extract(b, pt))
@@ -105,10 +115,11 @@ ex2 <- data.frame(raster::extract(b, pt))
 terra <- terra::rast(filename)
 crs(terra) <- "epsg:2056"
 
-# time(terra)
+time(terra)
 
 # summary(data)
-plot(terra[[ c(1, 182) ]], range = c(-20, 25))
+plot(terra[[ c(1, 182) ]], range = c(-20, 25),
+     col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
 
 # extract by point
 ex3 <- data.frame(terra::extract(terra, pt))
@@ -117,13 +128,69 @@ ex3 <- data.frame(terra::extract(terra, pt))
 # seq(from = as.Date("2014-01-01"), to = as.Date("2014-12-31"), by = "day")
 
 # #############################
-# results
+# via terra with extent from RNetCDF
 
-# one month
-ex0$X1
-ex1
+# library(RNetCDF)
+# TabsD_14 <- open.nc(filename)
+# print.nc(TabsD_14)
+# 
+# TabsD_14 <- read.nc(open.nc(filename))
+# 
+# TabsD_14$E
+# TabsD_14$TabsD
+# 
+# att.get.nc(open.nc(filename), "time", "units")
 
-# 12 months
+read_cf16 <- function(x, crs = NULL) {
+  nc <- RNetCDF::open.nc(x)
+  on.exit(RNetCDF::close.nc(nc), add = TRUE)
+  Conventions <- RNetCDF::att.get.nc(nc, "NC_GLOBAL", "Conventions")
+  if (!Conventions == "CF-1.6") {
+    message("file does not seem to be CF-1.6, may not work")
+  }
+  E <- RNetCDF::var.get.nc(nc, "E")
+  N <- RNetCDF::var.get.nc(nc, "N")
+  dxdy <- c(unique(diff(E)), unique(diff(N)))
+  if (length(dxdy) > 2) message("bad E,N coords")
+  ## ok let's keep going
+  ex <- c(min(E) - dxdy[1L]/2, max(E) + dxdy[1L]/2, 
+          min(N) - dxdy[2L]/2, max(N) + dxdy[2L]/2)
+  out <- terra::rast(x)
+  terra::ext(out) <- terra::ext(ex)
+  ## crs: find a var called "*_coordinates"?
+  # float swiss_lv95_coordinates ;
+  #          swiss_lv95_coordinates:_FillValue = -1.f ;
+  #          swiss_lv95_coordinates:grid_mapping_name = "Oblique Mercator (LV95 - CH1903+)" ;
+  #          swiss_lv95_coordinates:longitude_of_projection_center = 7.43958333 ;
+  #          swiss_lv95_coordinates:latitude_of_projection_center = 46.9524056 ;
+  #          swiss_lv95_coordinates:false_easting = 2600000. ;
+  #          swiss_lv95_coordinates:false_northing = 1200000. ;
+  #          swiss_lv95_coordinates:inverse_flattening = 299.1528128 ;
+  #          swiss_lv95_coordinates:semi_major_axis = 6377397.155 ;
+  # 
+  # 
+  # vars <- ncmeta::nc_vars(x)
+  # coordvar <- grep(".*_coordinates", vars$name, value = TRUE)[1L]
+  # GIVE UP
+  if (!is.null(crs)) {
+    terra::crs(out) <- crs
+  }
+  out
+}
+
+terra2 <- read_cf16(filename)
+
+plot(terra2[[ c(1, 7) ]], range = c(-20, 25))
+
+# extract by point
+ex4 <- data.frame(terra::extract(terra2, pt))
+
+
+# #############################
+# results for 12 months
+# achtung - some have ID column, some not
 ex0
+ex1
 ex2
 ex3
+ex4

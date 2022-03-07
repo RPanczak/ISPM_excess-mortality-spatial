@@ -323,6 +323,10 @@ rm(grid_1km_over, grid_1km_crop, grid_1km_crop_cent); gc()
 
 # Gridded temperature data
 
+Using gridded data from [meteoswiss](https://www.meteoswiss.admin.ch/home/climate/swiss-climate-in-detail/raeumliche-klimaanalysen.html).  
+
+Using `TabsM`: *Monthly mean temperature* dataset for the years of interest.  
+
 ## Daily data 
 
 ```{r}
@@ -337,11 +341,18 @@ raster::crs(r) <- st_crs(2056)$proj4string
 nlayers(r)
 
 plot(r[[ c(1, 7) ]], 
-     main = "TabsD_14 - January & July",
+     main = "TabsM_14 - January & July",
+     zlim = c(-20, 25), 
+     col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
+```
+
+```{r eval=FALSE, include=FALSE}
+plot(r[[1]], 
+     main = "TabsM_14 - January",
      zlim = c(-20, 25), 
      col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
 
-p_unload(raster)
+plot(st_geometry(grid_1km_cent), add = TRUE)
 ```
 
 ## Extract
@@ -349,13 +360,15 @@ p_unload(raster)
 ```{r}
 ex <- raster::extract(r, grid_1km_cent, df = TRUE) %>% 
   as_tibble()
+
+p_unload(raster)
 ```
 
 ## Checks
 
 Data for Lugano & Jungfraujoch.  
 
-```{r}
+```{r echo=FALSE}
 temp_checks <- 
   tibble(Place = c("Jungfraujoch", "Lugano"),
          lon = c(7.980556, 8.9525),
@@ -387,7 +400,10 @@ temp_checks %<>%
 ggplot(temp_checks, aes(Date, Temperature, 
                         group = Place, col = Place)) +
   geom_line() + 
+  geom_point() + 
   theme_light()
+
+rm(temp_checks)
 ```
 
 

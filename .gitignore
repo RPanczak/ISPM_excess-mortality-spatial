@@ -31,7 +31,7 @@ admin/
 # large files; lfs doesnt want to work
 data/grid/grid_1km.gpkg
 data-raw/swisstopo/SMR1000_2019/
-BfS/px-x-0102020206_102.px
+data/blob/
 
 # probably doesnt make sense to share it
 *.qgz

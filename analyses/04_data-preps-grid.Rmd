@@ -414,7 +414,6 @@ ggplot(temp_checks, aes(Date, Temperature,
 rm(temp_checks)
 ```
 
-
 <!-- ----------------------------------------------------- -->
 
 # Gridded population data
@@ -479,7 +478,7 @@ rm(list=ls(pattern="r*_pe_grid"))
 gc()
 ```
 
-# Aggregate by grid/gemeinde
+## Aggregate by grid/gemeinde
 
 ```{r}
 lu_grid_gem = pe_grid %>% 
@@ -490,7 +489,7 @@ rm(pe_grid)
 gc()
 ```
 
-# Expand grid for combinations with 0
+## Expand grid for combinations with 0
 
 ```{r}
 lu_grid_gem = grid_1km_over %>% 
@@ -505,7 +504,7 @@ lu_grid_gem = grid_1km_over %>%
   dplyr::mutate(pop=if_else(is.na(pop),as.integer(0),pop))
 ```
 
-# Aggregate by grid
+## Aggregate by grid
 
 ```{r}
 lu_grid = lu_grid_gem %>% 
@@ -514,7 +513,7 @@ lu_grid = lu_grid_gem %>%
 ```
 
 
-# Extrapolate pop by month
+## Extrapolate pop by month
 
 ```{r}
 pred_lu_grid = lu_grid %>% 
@@ -530,9 +529,94 @@ m3 = lme4::glmer(pop ~ age + sex + year_month + (year_month|ID), data=pred_lu_gr
 # save population by month 2014-2021
 ```
 
-# Distribute deaths by ID
+## Distribute deaths by ID
 
 ```{r}
 
 ```
 
+<!-- ----------------------------------------------------- -->
+
+# Gridded deaths
+
+### SNC data 
+
+```{r}
+snc5_deaths <- read_dta("data/SNC/deaths.dta") %>% 
+  zap_formats() %>% zap_labels() %>% zap_label() %>% 
+  dplyr::select(-geoyear, -last_census_seen, -dob) %>% 
+  dplyr::rename(year = yod) %>% 
+  mutate(yod = as.integer(year),
+         sex = if_else(sex == "1", "Female", "Male"),
+         sex = factor(sex),
+         age = cut(age_cont, 
+                   breaks = c(0, 40, seq(50, 80, 10), 120), right = FALSE, 
+                   labels = c("<40", "40-59", "50-59", "60-69", "70-79", "80+")),
+         month = month(dod)) %>% 
+  relocate(month, .after = year) %>% 
+  dplyr::select(-age_cont, -dod) %>% 
+  relocate(age, .after = sex) %>% 
+  st_as_sf(coords = c("geox", "geoy"), 
+           crs = 2056,
+           remove = TRUE)
+```
+
+```{r eval=FALSE, include=FALSE}
+# snc5_deaths %>% 
+#   group_by(age) %>% 
+#   summarise(min = min(age_cont),
+#             max = max(age_cont))
+
+# snc5_deaths %>% 
+#   sample_n(100) %>% 
+#   qtm()
+
+View(st_drop_geometry(snc5_deaths))
+with(snc5_deaths, table(yod == yod2))
+```
+
+### Overlay & aggregation
+
+```{r}
+# spatial join & aggregation by grid
+temp <- st_join(snc5_deaths, 
+                grid_1km, 
+                join = st_intersects) %>% 
+  st_drop_geometry() %>% 
+  group_by(ID, year, month, sex, age) %>% 
+  summarize(deaths = as.integer(n())) %>% 
+  ungroup() 
+
+# temp %>% 
+#     filter(is.na(ID))
+
+# size of output should be
+length(unique(grid_1km$ID)) * 
+  length(unique(temp$year)) * 
+  length(unique(temp$month)) * 
+  length(levels(temp$age)) * 
+  length(levels(temp$sex))
+
+st_grid_hist <-  
+  expand_grid(ID = unique(grid_1km$ID), 
+              year = unique(temp$year),
+              month = unique(temp$month),
+              sex = unique(temp$sex),
+              age = unique(temp$age)) %>% 
+  dplyr::arrange(ID, year, month, sex, age) %>% 
+  left_join(temp) %>% 
+  mutate(deaths = replace_na(deaths, 0)) %>% 
+  mutate(deaths = as.integer(deaths))
+
+# st_grid_hist_wide <- st_grid_hist %>% 
+#   mutate(month = str_pad(month, width = 2, side = "left", pad = "0")) %>% 
+#   pivot_wider(names_from = c(year, month, sex, age), 
+#               values_from = c(deaths))
+```
+
+```{r include=FALSE}
+rm(temp, snc5_deaths); gc()
+
+write_rds(st_grid_hist, "data/blob/st_grid_hist.Rds")
+# write_rds(grid_deaths_wide, "data/blob/grid_deaths_wide.Rds")
+```

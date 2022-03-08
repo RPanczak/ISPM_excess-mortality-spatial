@@ -30,7 +30,6 @@ admin/
 
 # large files; lfs doesnt want to work
 data/grid/grid_1km.gpkg
-data/grid/grid_1km_over.Rds
 data-raw/swisstopo/SMR1000_2019/
 
 # probably doesnt make sense to share it

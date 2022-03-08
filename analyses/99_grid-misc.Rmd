@@ -1,0 +1,169 @@
+## Test areas
+
+```{r}
+bern <- st_join(grid_1km,
+                st_gg21 %>% filter(GMDNR == 351),
+                left = FALSE)
+
+scuol <- st_join(grid_1km,
+                 st_gg21 %>% filter(GMDNR == 3762),
+                 left = FALSE)
+```
+
+Using *Bern* (map above) with `r number(nrow(bern))` cells as example of densely populated urban area. And *Scuol* (largest municipality in CH) with `r number(nrow(scuol))` cells - good example of where we expect many zeroes?  
+
+```{r echo=FALSE}
+tm_shape(st_gg21 %>% filter(GMDNR == 3762)) + 
+  tm_borders(col = "darkorchid") +
+  tm_shape(scuol) + 
+  tm_borders(col = "red")
+```
+
+```{r message=FALSE, include=FALSE}
+area <- bind_rows(bern, scuol)
+
+write_rds(area, "data/grid/area.Rds")
+# write_rds(bern, "data/grid/bern.Rds")
+# write_rds(scuol, "data/grid/scuol.Rds")
+
+rm(bern, scuol); gc()
+```
+
+### Multiple municipalities
+
+More details of [Issue #57](https://github.com/RPanczak/ISPM_geo-mortality/issues/57)
+
+```{r}
+temp1 <- st_join(r19_pe_geo, 
+                 grid_1km_crop, 
+                 join = st_intersects) 
+
+View(st_drop_geometry(temp1))
+
+temp2 <- temp1 %>% 
+  st_drop_geometry() %>% 
+  left_join(r19_pe, by = "egid") %>% 
+  select(-age, -sex) %>% 
+  group_by(ID, GMDNR) %>% 
+  summarize(population = sum(n)) %>% 
+  ungroup() %>% 
+  group_by(ID) %>% 
+  mutate(multi = n()) %>% 
+  ungroup()
+
+temp3 <- temp2 %>% 
+  group_by(ID) %>% 
+  summarize(multi = first(multi)) %>% 
+  ungroup() 
+
+frq(temp3, multi != 1)
+```
+
+Extreme example:  
+
+```{r echo=FALSE}
+tm_shape(
+  st_gg21 %>% 
+    st_filter(grid_1km %>% 
+                filter(ID == 1389), 
+              join = st_intersects)) + 
+  tm_borders(col = "darkorchid") +
+  tm_shape(grid_1km %>% 
+             filter(ID == 1389)) + 
+  tm_borders(col = "forestgreen") +
+  tm_shape(grid_1km_crop %>% 
+             filter(ID == 1389)) + 
+  tm_borders(col = "red")
+```
+
+### Buildings on grid
+
+More details of [Issue #58](https://github.com/RPanczak/ISPM_geo-mortality/issues/58)
+
+```{r}
+grid_1km_line <- grid_1km %>% 
+  st_cast("MULTILINESTRING")
+
+temp1 <- st_join(r19_pe_geo, 
+                 grid_1km_line, 
+                 join = st_intersects) 
+
+frq(!is.na(temp1$ID))
+
+temp1 %>% 
+  filter(!is.na(ID)) %>% 
+  st_write("data/STATPOP/geo.gpkg", 
+           layer = "grid_buildings", delete_layer = TRUE)
+```
+
+```{r echo=FALSE}
+tm_shape(
+  st_gg21 %>% 
+    st_filter(grid_1km_line %>% 
+                filter(ID == 1389), 
+              join = st_intersects)) + 
+  tm_borders(col = "darkorchid") +
+  tm_shape(grid_1km_crop %>% 
+             filter(ID == 1389)) + 
+  tm_borders(col = "red") +
+  tm_shape(grid_1km_line %>% 
+             filter(ID == 1389)) + 
+  tm_lines(col = "forestgreen") +
+  tm_shape(
+    r19_pe_geo %>% 
+      st_filter(grid_1km_line %>% 
+                  filter(ID == 1389), 
+                join = st_intersects)) + 
+  tm_dots(col = "black")
+```
+
+### Example
+
+Bern, 2014, Females 80+  
+
+```{r echo=FALSE}
+tm_shape(area %>% 
+           # filter(GMDNR == 3762) %>% 
+           filter(GMDNR == 351) %>%
+           # left_join(grid_population)
+           left_join(grid_population_wide)) +
+  # tm_fill("2014_Female_80+", alpha = 0.5)
+  tm_fill("Female_80+", alpha = 0.5)
+```
+
+## Together
+
+```{r}
+grid_data <- left_join(
+  
+  area, 
+  
+  grid_deaths %>% 
+    filter(yod == 2019) %>% 
+    left_join(grid_population) 
+  
+) %>% 
+  # FIXME deaths > pops still here!
+  mutate(population = if_else(population < deaths, deaths, population)) %>% 
+  mutate(rate = deaths / population) %>% 
+  mutate(rate = if_else(deaths == 0, 0, rate)) %>% 
+  relocate(geometry, .after = last_col())
+```
+
+```{r echo=FALSE}
+map_data <- grid_data %>% 
+  filter(sex == "Female" & age == "80+") %>% 
+  filter(GMDNR == 351)
+
+tm_shape(map_data) +
+  tm_fill("rate", alpha = 0.5)
+```
+
+```{r echo=FALSE}
+map_data <- grid_data %>% 
+  filter(sex == "Female" & age == "80+") %>% 
+  filter(GMDNR == 3762)
+
+tm_shape(map_data) +
+  tm_fill("rate", alpha = 0.5)
+```

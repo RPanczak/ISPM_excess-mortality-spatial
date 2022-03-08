@@ -335,9 +335,11 @@ Using gridded data from [meteoswiss](https://www.meteoswiss.admin.ch/home/climat
 
 Using `TabsM`: *Monthly mean temperature* dataset for the years of interest.  
 
-## Daily data 
+## Monthly data 
 
-```{r}
+Example of two months in 2014:  
+
+```{r echo=FALSE}
 p_load(raster)
 
 filename <- "data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_201401010000_201412010000.nc"
@@ -346,12 +348,14 @@ filename <- "data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_201401010000_20141201000
 r <- raster::brick(filename)
 raster::crs(r) <- st_crs(2056)$proj4string
 
-nlayers(r)
+# nlayers(r)
 
 plot(r[[ c(1, 7) ]], 
-     main = "TabsM_14 - January & July",
+     main = "Monthly temps 2014 - January & July",
      zlim = c(-20, 25), 
      col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
+
+rm(filename, r); gc()
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -366,13 +370,49 @@ plot(st_geometry(grid_1km_cent), add = TRUE)
 ## Extract
 
 ```{r}
-ex <- raster::extract(r, grid_1km_cent, df = TRUE) %>% 
-  as_tibble()
+extract_temps <- function(filename, year) {
+  
+  # r <- raster::stack(filename) # same same
+  r <- raster::brick(filename)
+  raster::crs(r) <- sf::st_crs(2056)$proj4string
+  
+  ex <- raster::extract(r, grid_1km_cent, df = TRUE) 
+  ex <- tibble::as_tibble(ex)
+  repeats <- nrow(ex)
+  
+  ex <- pivot_longer(ex,
+                     !ID,
+                     names_to = "date_temp",
+                     values_to = "temperature"
+  )
+  
+  ex$year <- as.integer(year)
+  ex$month <- rep(seq(1, 12), repeats)
+  ex$date_temp <- NULL
+  
+  return(ex)
+  
+}
 
-p_unload(raster)
+temperature <- bind_rows(
+  extract_temps("data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_201401010000_201412010000.nc", 2014),
+  extract_temps("data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_201501010000_201512010000.nc", 2015),
+  extract_temps("data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_201601010000_201612010000.nc", 2016),
+  extract_temps("data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_201701010000_201712010000.nc", 2017),
+  extract_temps("data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_201801010000_201812010000.nc", 2018),
+  extract_temps("data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_201901010000_201912010000.nc", 2019),
+  extract_temps("data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_202001010000_202012010000.nc", 2020),
+  extract_temps("data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_202101010000_202112010000.nc", 2021)
+) %>% 
+  filter(! (year == 2021 & month > 6))
 ```
 
-## Checks
+```{r include=FALSE}
+p_unload(raster)
+write_rds(temperature, "data/meteoswiss/temperature.Rds")
+```
+
+## Examples of time series
 
 Data for Lugano & Jungfraujoch.  
 
@@ -392,26 +432,18 @@ temp_checks %<>%
   st_join(grid_1km) %>% 
   st_drop_geometry() %>% 
   select(Place, ID) %>% 
-  left_join(ex) %>% 
+  left_join(temperature) %>% 
   select(-ID) %>% 
-  pivot_longer(
-    !Place,
-    names_to = "Date",
-    values_to = "Temperature"
-  ) %>% 
-  mutate(Date = rep(seq(from = as.Date("2014-01-01"), 
-                        to = as.Date("2014-12-01"), 
-                        by = "month"), 
-                    2)
-  )
+  mutate(Date = ym(paste(year, month, sep = " ")))
 
-ggplot(temp_checks, aes(Date, Temperature, 
+ggplot(temp_checks, aes(Date, temperature, 
                         group = Place, col = Place)) +
   geom_line() + 
   geom_point() + 
-  theme_light()
+  theme_light() +
+  ylab("Temperature")
 
-rm(temp_checks)
+rm(temp_checks); gc()
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -427,24 +459,20 @@ grid_1km_over <- read_rds("data/grid/grid_1km_over.Rds")
 gc()
 r19_pe_grid = geom_001_pe_to_grid("data/STATPOP/r19_pe.dta")
 write_rds(r19_pe_grid, "data/STATPOP/r19_pe_grid.Rds")
-
 rm(r19_pe_grid)
 gc()
+
 r18_pe_grid = geom_001_pe_to_grid("data/STATPOP/r18_pe.dta")
 write_rds(r18_pe_grid, "data/STATPOP/r18_pe_grid.Rds")
-
-
+rm(r18_pe_grid)
+gc()
 ```
 
 ```{r}
-r19_pe_grid = read_rds("data/STATPOP/r19_pe_grid.Rds") %>% 
-  st_drop_geometry()
-r18_pe_grid = read_rds("data/STATPOP/r18_pe_grid.Rds") %>% 
-  st_drop_geometry()
-
-pe_grid = bind_rows(r19_pe_grid,r18_pe_grid)
-rm(list=ls(pattern="r*_pe_grid"))
-gc()
+pe_grid = bind_rows(read_rds("data/STATPOP/r19_pe_grid.Rds") %>% 
+                      st_drop_geometry(),
+                    read_rds("data/STATPOP/r18_pe_grid.Rds") %>% 
+                      st_drop_geometry())
 ```
 
 ## Aggregate by grid/gemeinde
@@ -466,8 +494,8 @@ lu_grid_gem = grid_1km_over %>%
   as_tibble() %>% 
   dplyr::select(ID,ID2,area,area2,GMDNR,GMDNAME,KTNR,KTNAME) %>% 
   tidyr::expand_grid(year=unique(lu_grid_gem$year),
-                   age=unique(lu_grid_gem$age),
-                   sex=unique(lu_grid_gem$sex)) %>% 
+                     age=unique(lu_grid_gem$age),
+                     sex=unique(lu_grid_gem$sex)) %>% 
   dplyr::arrange(year,ID,ID2,sex,age) %>% 
   dplyr::left_join(lu_grid_gem) %>%
   dplyr::mutate(pop=if_else(is.na(pop),as.integer(0),pop))
@@ -480,7 +508,6 @@ lu_grid = lu_grid_gem %>%
   dplyr::group_by(ID,year,age,sex) %>% 
   dplyr::summarise(pop=sum(pop),.groups="drop")
 ```
-
 
 ## Extrapolate pop by month
 
@@ -531,14 +558,14 @@ snc5_deaths <- read_dta("data/SNC/deaths.dta") %>%
 ```
 
 ```{r eval=FALSE, include=FALSE}
-# snc5_deaths %>% 
-#   group_by(age) %>% 
-#   summarise(min = min(age_cont),
-#             max = max(age_cont))
+snc5_deaths %>%
+  group_by(age) %>%
+  summarise(min = min(age_cont),
+            max = max(age_cont))
 
-# snc5_deaths %>% 
-#   sample_n(100) %>% 
-#   qtm()
+snc5_deaths %>%
+  sample_n(100) %>%
+  qtm()
 
 View(st_drop_geometry(snc5_deaths))
 with(snc5_deaths, table(yod == yod2))
@@ -547,7 +574,6 @@ with(snc5_deaths, table(yod == yod2))
 ### Overlay & aggregation
 
 ```{r}
-# spatial join & aggregation by grid
 temp <- st_join(snc5_deaths, 
                 grid_1km, 
                 join = st_intersects) %>% 
@@ -576,16 +602,17 @@ st_grid_hist <-
   left_join(temp) %>% 
   mutate(deaths = replace_na(deaths, 0)) %>% 
   mutate(deaths = as.integer(deaths))
-
-# st_grid_hist_wide <- st_grid_hist %>% 
-#   mutate(month = str_pad(month, width = 2, side = "left", pad = "0")) %>% 
-#   pivot_wider(names_from = c(year, month, sex, age), 
-#               values_from = c(deaths))
 ```
 
 ```{r include=FALSE}
 rm(temp, snc5_deaths); gc()
 
 write_rds(st_grid_hist, "data/blob/st_grid_hist.Rds")
+
+# st_grid_hist_wide <- st_grid_hist %>% 
+#   mutate(month = str_pad(month, width = 2, side = "left", pad = "0")) %>% 
+#   pivot_wider(names_from = c(year, month, sex, age), 
+#               values_from = c(deaths))
+
 # write_rds(grid_deaths_wide, "data/blob/grid_deaths_wide.Rds")
 ```

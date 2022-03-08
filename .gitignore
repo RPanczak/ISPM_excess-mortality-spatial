@@ -39,7 +39,9 @@ data/blob/
 # TBC if possible to share custom data
 data-raw/BfS-closed/
 data/BfS-closed/
-data/sep/r19_bu_sep_gem21.rds
+data-raw/meteoswiss
+data/meteoswiss
 data-raw/SNC
 data-raw/STATPOP
 data-raw/meteoswiss
+data/sep/r19_bu_sep_gem21.rds

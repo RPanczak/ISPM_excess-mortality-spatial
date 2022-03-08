@@ -452,72 +452,87 @@ rm(bern, scuol); gc()
 
 ## Population
 
-```{r eval=FALSE}
-# aggregating personal file to building level; into long format
-r19_pe <- read_dta("data/STATPOP/r19_pe.dta") %>% 
-  zap_label() %>% zap_formats() %>% 
-  # check sex coding since it seems to be different than SNC?
-  mutate(
-    sex = if_else(sex == "2", "Female", "Male"),
-    sex = factor(sex),
-    age = cut(age, 
-              breaks = c(0, 40, seq(50, 80, 10), 120), right = FALSE, 
-              labels = c("<40", "40-59", "50-59", "60-69", "70-79", "80+"))) %>% 
-  group_by(year, ecoord, ncoord, sex, age) %>% 
-  summarise(n = n()) %>% 
-  ungroup()
+```{r, eval=FALSE}
+source("R/geom_001_pe_to_grid.R")
+grid_1km_over <- read_rds("data/grid/grid_1km_over.Rds")
+
+gc()
+r19_pe_grid = geom_001_pe_to_grid("data/STATPOP/r19_pe.dta")
+write_rds(r19_pe_grid, "data/STATPOP/r19_pe_grid.Rds")
+
+rm(r19_pe_grid)
+gc()
+r18_pe_grid = geom_001_pe_to_grid("data/STATPOP/r18_pe.dta")
+write_rds(r18_pe_grid, "data/STATPOP/r18_pe_grid.Rds")
+
+
 ```
 
-```{r eval=FALSE, include=FALSE}
-write_rds(r19_pe, "data/STATPOP/r19_pe.Rds")
+```{r}
+r19_pe_grid = read_rds("data/STATPOP/r19_pe_grid.Rds") %>% 
+  st_drop_geometry()
+r18_pe_grid = read_rds("data/STATPOP/r18_pe_grid.Rds") %>% 
+  st_drop_geometry()
+
+pe_grid = bind_rows(r19_pe_grid,r18_pe_grid)
+rm(list=ls(pattern="r*_pe_grid"))
+gc()
 ```
 
-```{r include=FALSE}
-r19_pe <- read_rds("data/STATPOP/r19_pe.Rds")
+# Aggregate by grid/gemeinde
+
+```{r}
+lu_grid_gem = pe_grid %>% 
+  group_by(year,sex,age,ID,ID2,area,area2,GMDNR,GMDNAME,KTNR,KTNAME) %>% 
+  summarise(pop=sum(n),.groups="drop") %>% 
+  dplyr::arrange(year,ID,ID2,sex,age)
+rm(pe_grid)
+gc()
 ```
 
-```{r eval=FALSE, include=FALSE}
-# !takes some time due to spatial operations!
+# Expand grid for combinations with 0
 
-r19_pe_geo <- read_dta("data/STATPOP/r19_pe.Rds") %>% 
-  st_as_sf(coords = c("ecoord", "ncoord"), 
-           crs = 2056,
-           remove = TRUE)
-
-st_write(r19_pe_geo, "data/STATPOP/geo.gpkg", 
-         layer = "r19_pe_geo")
-
-write_rds(r19_pe_geo, "data/STATPOP/r19_pe_geo.Rds")
-
-# r19_pe_geo %>% 
-#   sample_n(100) %>% 
-#   qtm()
-
-# join to gem
-# r19_pe_gem_link <- st_join(r19_pe_geo, st_gg21, join = st_nearest_feature)
-
-# r19_pe_gem_link %>% 
-#   filter(is.na(GMDNR)) %>%
-#   qtm()
-
-# join to grid
-# st_intersects much faster than st_nearest_feature
-r19_pe_grid <- st_join(r19_pe_geo, grid_1km_over, join = st_intersects)
-
-# r19_pe_grid %>% filter(is.na(GMDNR))
-
-r19_pe_grid %<>% relocate(geometry, .after = last_col())
-
-# View(st_drop_geometry(r19_pe_grid))
-# frq(r19_pe_grid$KTNAME)
-
-write_rds(r19_pe_grid, "data/STATPOP/r19_bu_link.Rds")
-
-st_write(r19_pe_grid, "data/STATPOP/geo.gpkg", 
-         layer = "r19_pe_grid", append = TRUE)
+```{r}
+lu_grid_gem = grid_1km_over %>% 
+  st_drop_geometry() %>% 
+  as_tibble() %>% 
+  dplyr::select(ID,ID2,area,area2,GMDNR,GMDNAME,KTNR,KTNAME) %>% 
+  tidyr::expand_grid(year=unique(lu_grid_gem$year),
+                   age=unique(lu_grid_gem$age),
+                   sex=unique(lu_grid_gem$sex)) %>% 
+  dplyr::arrange(year,ID,ID2,sex,age) %>% 
+  dplyr::left_join(lu_grid_gem) %>%
+  dplyr::mutate(pop=if_else(is.na(pop),as.integer(0),pop))
 ```
 
-```{r include=FALSE}
-r19_pe_geo <- read_rds("data/STATPOP/r19_pe_geo.Rds")
+# Aggregate by grid
+
+```{r}
+lu_grid = lu_grid_gem %>% 
+  dplyr::group_by(ID,year,age,sex) %>% 
+  dplyr::summarise(pop=sum(pop),.groups="drop")
+```
+
+
+# Extrapolate pop by month
+
+```{r}
+pred_lu_grid = lu_grid %>% 
+  tidyr::expand_grid(month=1:12) %>% 
+  dplyr::mutate(year_month=year+month/12) %>% 
+  dplyr::mutate(pop=if_else(month==12,pop,NA_integer_))
+
+m1 = glm(pop ~ age + sex + year_month, data=pred_lu_grid, family = poisson(link="log"))
+m2 = lme4::glmer(pop ~ age + sex + year_month + (1|ID), data=pred_lu_grid, family = poisson(link="log"))
+m3 = lme4::glmer(pop ~ age + sex + year_month + (year_month|ID), data=pred_lu_grid, family = poisson(link="log"))
+
+# predict
+# save population by month 2014-2021
+```
+
+# Distribute deaths by ID
+
+```{r}
+
 ```
 

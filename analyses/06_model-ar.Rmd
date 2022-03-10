@@ -1,6 +1,6 @@
 ---
 title: "Spatial analyses of 2020-21 excess mortality in CH"
-subtitle: "Analyses using municipalities"
+subtitle: "Analyses using AR"
 author: "Radek Panczak"
 date: "`r Sys.Date()`"
 output:
@@ -54,7 +54,8 @@ mu <- Hmisc::markupSpecs$html
 <!-- ----------------------------------------------------- -->
 
 ```{r}
-w_deaths_2015_2021_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_pop.Rds")
+w_deaths_2015_2021_ar_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_ar_pop.Rds")
 
+w_deaths_2015_2021_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_pop.Rds")
 ```
 

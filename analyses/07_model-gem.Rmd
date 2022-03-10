@@ -1,6 +1,6 @@
 ---
 title: "Spatial analyses of 2020-21 excess mortality in CH"
-subtitle: "EDA"
+subtitle: "Analyses using municipalities"
 author: "Radek Panczak"
 date: "`r Sys.Date()`"
 output:
@@ -22,10 +22,13 @@ options(scipen = 999)
 options(max.print = "75")
 
 library(pacman)
-p_load(sf, tidyverse, magrittr, scales, lubridate, kableExtra)
+p_load(tidyverse, magrittr, scales,  
+       DT, 
+       sf, tmap)
 
 import::from("sjmisc", "frq")
 ```
+
 
 ```{r conflicts, include = FALSE}
 tidyverse::tidyverse_conflicts()

@@ -2,8 +2,6 @@
 library(sf)
 library(raster)
 library(ncdf4)
-library(RNetCDF)
-library(terra)
 
 # #############################
 # via ncdf4
@@ -21,21 +19,21 @@ E <- ncvar_get(TabsM_14, "E") # X, lon
 N <- ncvar_get(TabsM_14, "N") # Y, lat
 t <- ncvar_get(TabsM_14, "time")
 
-timestamp <- lubridate::as_date(month(t), origin = "1900-01-01")
+# timestamp <- lubridate::as_date(month(t), origin = "1900-01-01")
 
 # store the data in a 3-dimensional array
-data <- ncvar_get(TabsM_14, "TabsD") 
+data <- ncvar_get(TabsM_14, "TabsM") 
 dim(data) 
 
 # NAs?
-fillvalue <- ncatt_get(TabsM_14, "TabsD", "_FillValue")
+fillvalue <- ncatt_get(TabsM_14, "TabsM", "_FillValue")
 fillvalue
 
 # one pixel example 
 E[100]
 N[100]
 
-plot(data.frame(date = timestamp,
+plot(data.frame(date = t,
                 temp = data[100, 100, ]),
      type = "l")
 
@@ -89,7 +87,7 @@ raster::crs(r) <- st_crs(2056)$proj4string
 
 nlayers(r)
 
-plot(r[[ c(1, 182) ]], main = "TabsM_14 - January & July",
+plot(r[[ c(1, 7) ]], main = "TabsM_14 - January & July",
      zlim = c(-20, 25), 
      col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
 
@@ -105,7 +103,7 @@ raster::crs(b) <- st_crs(2056)$proj4string
 
 nlayers(b)
 
-plot(b[[ c(1, 182) ]], main = "TabsM_14 - January & July",
+plot(b[[ c(1, 7) ]], main = "TabsM_14 - January & July",
      zlim = c(-20, 25), 
      col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
 
@@ -114,6 +112,8 @@ ex2 <- data.frame(raster::extract(b, pt))
 
 # #############################
 # terra solution
+
+library(terra)
 
 terra <- terra::rast(filename)
 crs(terra) <- "epsg:2056"
@@ -132,6 +132,8 @@ ex3 <- data.frame(terra::extract(terra, pt))
 
 # #############################
 # via terra with extent from RNetCDF
+
+library(RNetCDF)
 
 # library(RNetCDF)
 # TabsM_14 <- open.nc(filename)
@@ -189,6 +191,21 @@ plot(terra2[[ c(1, 7) ]], range = c(-20, 25),
 # extract by point
 ex4 <- data.frame(terra::extract(terra2, pt))
 
+# #############################
+# stars solution
+
+library(stars)
+
+stars <- stars::read_stars(filename)
+stars <- stars::read_ncdf(filename, var = "TabsM")
+
+st_crs(stars) <- st_crs(2056)
+
+plot(stars, max_times = 1)
+
+# extract by point
+# ex5 <- stars::st_extract(stars, pt)
+
 
 # #############################
 # results for 12 months
@@ -198,3 +215,4 @@ ex1
 ex2
 ex3
 ex4
+# ex5

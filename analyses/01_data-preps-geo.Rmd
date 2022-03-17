@@ -104,9 +104,9 @@ se21 <-
 ```
 
 ```{r include=FALSE}
-unique(st_geometry_type(gg21))
+# unique(st_geometry_type(gg21))
 
-# gg written alter after processing
+# gg21 written after after processing
 write_rds(kt21, "data/BfS/kt21.Rds")
 write_rds(se21, "data/BfS/se21.Rds")
 
@@ -134,6 +134,82 @@ tm_shape(se21, is.master = FALSE) +
   tm_borders()
 ```
 
+## BfS geodata 2022 {.tabset}
+
+[Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/en/home/services/geostat/swiss-federal-statistics-geodata/administrative-boundaries/generalized-boundaries-local-regional-authorities.assetdetail.21224783.html).  
+
+Last update:  
+
+> "08.02.2022"	
+
+Might be needed to link to voting datasets.  
+
+```{r eval=FALSE}
+download.file(url = "https://www.bfs.admin.ch/bfsstatic/dam/assets/21224783/master",
+              destfile = "data-raw/BfS/ag-b-00.03-875-gg22.zip",
+              method = "curl")
+
+unzip("data-raw/BfS/ag-b-00.03-875-gg22.zip", exdir = "data-raw/BfS/ag-b-00.03-875-gg22")
+
+unlink("data-raw/BfS/ag-b-00.03-875-gg22.zip")
+unlink("data-raw/BfS/ag-b-00.03-875-gg22/txt", recursive = TRUE)
+unlink("data-raw/BfS/ag-b-00.03-875-gg22/kmz", recursive = TRUE)
+unlink("data-raw/BfS/ag-b-00.03-875-gg22/ggg_2022_LV95/ggg_2022-LV95.gdb", recursive = TRUE)
+```
+
+```{r warning=FALSE}
+gg22 <- 
+  st_read("data-raw/BfS/ag-b-00.03-875-gg22/ggg_2022_LV95/shp/g1g22.shp",
+          as_tibble = TRUE) %>% 
+  st_set_crs(2056) %>% 
+  st_zm(drop = TRUE, what = "ZM")
+
+
+kt22 <- 
+  st_read("data-raw/BfS/ag-b-00.03-875-gg22/ggg_2022_LV95/shp/g1k22.shp",
+          as_tibble = TRUE) %>% 
+  st_zm(drop = TRUE, what = "ZM") %>% 
+  st_transform(2056)
+
+se22 <- 
+  st_read("data-raw/BfS/ag-b-00.03-875-gg22/ggg_2022_LV95/shp/g1s22.shp",
+          as_tibble = TRUE) %>% 
+  filter(GMDNAME != "Lago di Como") %>% 
+  st_zm(drop = TRUE, what = "ZM") %>% 
+  st_transform(2056)
+```
+
+```{r include=FALSE}
+unique(st_geometry_type(gg22))
+
+# gg22 written after after processing
+write_rds(kt22, "data/BfS/kt22.Rds")
+write_rds(se22, "data/BfS/se22.Rds")
+
+st_write(kt22, "data/geo/BfS.gpkg", 
+         layer = "kt22", append = TRUE)
+st_write(se22, "data/geo/BfS.gpkg", 
+         layer = "se22", append = TRUE)
+```
+
+<!-- ### Canton  -->
+
+```{r eval=FALSE}
+tm_shape(se22, is.master = FALSE) +
+  tm_fill(col = "#a7cdf2")  +
+  tm_shape(kt22) +
+  tm_borders()
+```
+
+<!-- ### Municipality  -->
+
+```{r eval=FALSE}
+tm_shape(se22, is.master = FALSE) +
+  tm_fill(col = "#a7cdf2")  +
+  tm_shape(gg22) +
+  tm_borders()
+```
+
 ## Alternative lakes dataset
 
 Coming from Kartengeometrien ThemaKart - Set «PRO» 2019 available [here](https://www.bfs.admin.ch/bfs/de/home/statistiken/kataloge-datenbanken/karten.assetdetail.7546178.html).  
@@ -145,13 +221,13 @@ se21_alt <-
   st_transform(2056)
 ```
 
-That adds few smaller lakes (in red, without fill):  
+That adds few smaller lakes (in blue):  
 
 ```{r echo=FALSE}
-tm_shape(se21, is.master = FALSE) +
-  tm_fill(col = "#a7cdf2")  +
-  tm_shape(se21_alt) +
-  tm_borders(col = "red")
+tm_shape(se21_alt, is.master = TRUE) +
+  tm_fill(col = "blue")  +
+  tm_shape(se21) +
+  tm_fill(col = "grey80")
 ```
 
 ```{r include=FALSE}
@@ -193,8 +269,8 @@ st_kt21 <-
 ```
 
 ```{r include=FALSE}
-unique(st_geometry_type(st_gg21))
-unique(st_geometry_type(st_kt21))
+# unique(st_geometry_type(st_gg21))
+# unique(st_geometry_type(st_kt21))
 
 # st_gg written after processing
 write_rds(st_kt21, "data/swisstopo/st_kt21.Rds")
@@ -268,18 +344,20 @@ write_rds(st_se21, "data/swisstopo/st_se21.Rds")
 
 st_write(st_se21, "data/geo/swisstopo.gpkg", 
          layer = "st_se21", append = TRUE)
-```
 
-### Combined 
-
-```{r include=FALSE}
-st_se21_sel <- read_rds("data/swisstopo/st_se21.Rds") %>% 
+st_se21_sel <- st_se21 %>% 
   st_filter(se21_alt)
 
 write_rds(st_se21_sel, "data/swisstopo/st_se21_sel.Rds") 
 
 st_write(st_se21_sel, "data/geo/swisstopo.gpkg", 
          layer = "st_se21_sel", append = TRUE)
+```
+
+### Combined 
+
+```{r include=FALSE}
+st_se21_sel <- read_rds("data/swisstopo/st_se21_sel.Rds") 
 ```
 
 Lakes dataset (selecting only `r nrow(se21_alt)` largest features from ThemaKart dataset) was then used to erase area of municipalities that extends over lakes. Issue is described in [#48](https://github.com/RPanczak/ISPM_geo-mortality/issues/48).  
@@ -389,8 +467,10 @@ gg21 <-
   st_read("data/geo/g1g21_01072021_cor.shp",
           as_tibble = TRUE) %>% 
   st_set_crs(2056)
+```
 
-# table(st_is_valid(gg21))
+```{r eval=FALSE}
+table(st_is_valid(gg21))
 ```
 
 This doesn't cause problem in swisstopo data. 
@@ -421,7 +501,7 @@ We should not expect any cases there!
 gg21 %>% 
   st_drop_geometry() %>% 
   filter(GMDNR %in% c(2391, 5391, 5394)) %>% 
-  select(GMDNAME)
+  select(GMDNR, GMDNAME)
 ```
 
 ```{r include=FALSE}
@@ -429,6 +509,11 @@ gg21 %<>%
   filter(! GMDNR %in% c(2391, 5391, 5394)) %>% 
   select(GMDNR, GMDNAME, BZNR, KTNR) %>% 
   arrange(GMDNR)
+
+# st_gg21 %>% 
+#   st_drop_geometry() %>% 
+#   filter(BFS_NUMMER %in% c(2391, 5391, 5394)) %>% 
+#   select(BFS_NUMMER, NAME)
 
 st_gg21 %<>% 
   filter(! BFS_NUMMER %in% c(2391, 5391, 5394)) %>% 
@@ -444,15 +529,19 @@ st_gg21 %<>%
   arrange(GMDNR)
 ```
 
-```{r eval=FALSE, include=FALSE}
+```{r echo=FALSE, include=FALSE}
 # should be exact overlap
-gg21 %>%
-  filter(! GMDNR %in% st_gg21$GMDNR) %>% 
-  nrow()
+stopifnot(
+  gg21 %>%
+    filter(! GMDNR %in% st_gg21$GMDNR) %>% 
+    nrow() == 0
+)
 
-st_gg21 %>%
-  filter(! GMDNR %in% gg21$GMDNR) %>% 
-  nrow()
+stopifnot(
+  st_gg21 %>%
+    filter(! GMDNR %in% gg21$GMDNR) %>% 
+    nrow() == 0
+)
 ```
 
 ## Labour market areas 2018
@@ -553,9 +642,9 @@ ar_21 <- st_read("data/geo/ar_21_cor.shp") %>%
   st_cast("MULTIPOLYGON")
 ```
 
-```{r include=FALSE}
-unique(st_geometry_type(argr_21))
-unique(st_geometry_type(ar_21))
+```{r echo=FALSE, include=FALSE}
+# unique(st_geometry_type(argr_21))
+# unique(st_geometry_type(ar_21))
 
 # some dramas here
 table(st_is_valid(argr_21))
@@ -693,7 +782,7 @@ tm_shape(se21, is.master = FALSE) +
 ```
 
 ```{r eval=FALSE, include=FALSE}
-tm_shape(se21, is.master = FALSE) +
+tm_shape(st_se21_sel, is.master = FALSE) +
   tm_fill(col = "lightskyblue", alpha = 0.5) +
   tm_shape(st_ar_21, is.master = TRUE) +
   tm_borders(col = "darkgray", lwd = 1, alpha = 0.5) +

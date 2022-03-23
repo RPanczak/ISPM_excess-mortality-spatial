@@ -192,31 +192,13 @@ st_write(se22, "data/geo/BfS.gpkg",
          layer = "se22", append = TRUE)
 ```
 
-<!-- ### Canton  -->
-
-```{r eval=FALSE}
-tm_shape(se22, is.master = FALSE) +
-  tm_fill(col = "#a7cdf2")  +
-  tm_shape(kt22) +
-  tm_borders()
-```
-
-<!-- ### Municipality  -->
-
-```{r eval=FALSE}
-tm_shape(se22, is.master = FALSE) +
-  tm_fill(col = "#a7cdf2")  +
-  tm_shape(gg22) +
-  tm_borders()
-```
-
 ## Alternative lakes dataset
 
 Coming from Kartengeometrien ThemaKart - Set «PRO» 2019 available [here](https://www.bfs.admin.ch/bfs/de/home/statistiken/kataloge-datenbanken/karten.assetdetail.7546178.html).  
 
 ```{r}
 se21_alt <- 
-  st_read("data-raw/BfS/2019_THK_PRO/00_TOPO/K4_seenyyyymmdd/k4seenyyyymmdd_ch2007Poly.shp",
+  st_read("data-raw/BfS/KM04-00-c-suis-2022-q/00_TOPO/K4_seenyyyymmdd/k4seenyyyymmdd_ch2007Poly.shp",
           as_tibble = TRUE) %>% 
   st_transform(2056)
 ```
@@ -428,16 +410,23 @@ st_gg22 <-
 #   filter(BFS_NUMMER %in% c(2391, 5391, 5394)) %>%
 #   select(BFS_NUMMER, NAME)
 
+st_gg22 <- 
+  st_difference(st_gg22, st_union(st_se21_sel)) %>% 
+  # small slivers of lakes left
+  filter(OBJEKTART != "Kantonsgebiet") %>% 
+  st_collection_extract("POLYGON") %>% 
+  st_zm(drop = TRUE, what = "ZM") %>% 
+  st_transform(2056) 
+
 st_gg22 %<>% 
   filter(! BFS_NUMMER %in% c(2391, 5391, 5394)) %>% 
   # exclude lakes
   filter(OBJEKTART != "Kantonsgebiet") %>% 
   # exclude FL & enclaves
   filter(ICC == "CH") %>% 
-  select(BFS_NUMMER, NAME, BEZIRKSNUM, KANTONSNUM, GEM_TEIL) %>% 
+  select(BFS_NUMMER, NAME, KANTONSNUM, GEM_TEIL) %>% 
   rename(GMDNR = BFS_NUMMER,
          GMDNAME = NAME,
-         BZNR = BEZIRKSNUM,
          KTNR = KANTONSNUM) %>% 
   arrange(GMDNR)
 
@@ -492,6 +481,39 @@ st_gg21 %>%
 ```
 
 That might have some implications in terms of spatial operations (maybe contiguity too?). Data can easily be converted between types if needed. 
+
+### 2021 vs 2022 boundaries
+
+Different number of communities:  
+
+```{r}
+length(unique(st_gg21$BFS_NUMMER))
+length(unique(st_gg22$GMDNR))
+```
+
+In 2021 but not in 2022:  
+
+```{r echo=FALSE}
+st_gg21 %>% 
+  st_drop_geometry() %>% 
+  select(BFS_NUMMER, NAME) %>% 
+  rename(GMDNR = BFS_NUMMER) %>% 
+  anti_join(st_drop_geometry(st_gg22)) %>% 
+  arrange(GMDNR) %>% 
+  datatable()
+```
+
+Vice versa:  
+
+```{r echo=FALSE}
+st_gg22 %>% 
+  st_drop_geometry() %>% 
+  select(GMDNR, GMDNAME) %>% 
+  rename(BFS_NUMMER = GMDNR) %>% 
+  anti_join(st_drop_geometry(st_gg21)) %>% 
+  arrange(BFS_NUMMER) %>% 
+  datatable()
+```
 
 <!-- ----------------------------------------------------- -->
 
@@ -555,7 +577,7 @@ gg21 %>%
 ```{r include=FALSE}
 gg21 %<>% 
   filter(! GMDNR %in% c(2391, 5391, 5394)) %>% 
-  select(GMDNR, GMDNAME, BZNR, KTNR) %>% 
+  select(GMDNR, GMDNAME, KTNR) %>% 
   arrange(GMDNR)
 
 # st_gg21 %>% 
@@ -569,10 +591,9 @@ st_gg21 %<>%
   filter(OBJEKTART != "Kantonsgebiet") %>% 
   # exclude FL & enclaves
   filter(ICC == "CH") %>% 
-  select(BFS_NUMMER, NAME, BEZIRKSNUM, KANTONSNUM, GEM_TEIL) %>% 
+  select(BFS_NUMMER, NAME, KANTONSNUM, GEM_TEIL) %>% 
   rename(GMDNR = BFS_NUMMER,
          GMDNAME = NAME,
-         BZNR = BEZIRKSNUM,
          KTNR = KANTONSNUM) %>% 
   arrange(GMDNR)
 ```
@@ -603,14 +624,14 @@ raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx",
                   skip = 1) %>% 
   remove_empty(c("rows", "cols")) %>% clean_names() %>% 
   filter(! is.na(bfs_gde_nummer)) %>% 
+  select(-bezirksname) %>% 
   rename(GMDNR = bfs_gde_nummer,
          GMDNAME = gemeindename,
          KTNAME = kanton,
-         BZNAME = bezirksname,
          ARGRNR = arbeitsmarktgrossregionen_2018,
          ARNR = arbeitsmarktregionen_2018) %>% 
   select(GMDNR, GMDNAME,
-         KTNAME, BZNAME, 
+         KTNAME, 
          ARGRNR, ARNR) %>% 
   left_join(
     read_xlsx("data-raw/BfS/Raumgliederungen.xlsx", 
@@ -668,10 +689,13 @@ ar_21 <- gg21 %>%
 
 Dissolving of BfS data via R was not perfect and manual corrections were implemented in QGIS software.  
 
-```{r}
+```{r eval=FALSE, include=FALSE}
+# corrected manually in GIS so do not overwirte! 
 # st_write(argr_21, "data/geo/argr_21_cor.shp", delete_dsn = TRUE)
 # st_write(ar_21, "data/geo/ar_21_cor.shp", delete_dsn = TRUE)
+```
 
+```{r}
 argr_21 <- st_read("data/geo/argr_21_cor.shp") %>% 
   select(-ARGRNAME) %>% 
   left_join(raum %>% select(ARGRNR, ARGRNAME)) %>% 
@@ -695,7 +719,7 @@ ar_21 <- st_read("data/geo/ar_21_cor.shp") %>%
 # unique(st_geometry_type(ar_21))
 
 # some dramas here
-table(st_is_valid(argr_21))
+# table(st_is_valid(argr_21))
 table(st_is_valid(ar_21))
 
 ar_21 %>% 
@@ -830,6 +854,7 @@ tm_shape(se21, is.master = FALSE) +
 ```
 
 ```{r eval=FALSE, include=FALSE}
+# same bus wisstopo based
 tm_shape(st_se21_sel, is.master = FALSE) +
   tm_fill(col = "lightskyblue", alpha = 0.5) +
   tm_shape(st_ar_21, is.master = TRUE) +
@@ -889,31 +914,31 @@ gg21 %>%
   st_drop_geometry() %>% 
   left_join(raum) %>% 
   filter(border == 1) %>%  
-  select(GMDNAME, BZNAME, ARGRNAME, ARNAME) %>% 
+  select(GMDNAME, ARGRNAME, ARNAME) %>% 
   datatable() 
 ```
 
 ```{r}
-gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, BZNAME, 
+gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, 
                                    ARGRNR, ARGRNAME, ARNR, ARNAME,
                                    border)) %>% 
   relocate(geometry, .after = last_col()) %>% 
   write_rds("data/BfS/gg21.Rds")
 
-gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, BZNAME, 
+gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, 
                                    ARGRNR, ARGRNAME, ARNR, ARNAME,
                                    border)) %>% 
   relocate(geometry, .after = last_col()) %>%
   st_write("data/geo/BfS.gpkg", 
            layer = "gg21", append = TRUE)
 
-st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, BZNAME, 
+st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, 
                                       ARGRNR, ARGRNAME, ARNR, ARNAME,
                                       border)) %>% 
   relocate(geometry, .after = last_col()) %>% 
   write_rds("data/swisstopo/st_gg21.Rds")
 
-st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, BZNAME, 
+st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, 
                                       ARGRNR, ARGRNAME, ARNR, ARNAME,
                                       border)) %>% 
   relocate(geometry, .after = last_col()) %>% 
@@ -925,126 +950,28 @@ st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, BZNAME,
 
 # tg3o simplification
 
-So called 'productive areas', also coming from BfS' ThemaKart product.  
+## Data 
+
+So called 'productive areas', also coming from BfS' *ThemaKart* [product](https://www.bfs.admin.ch/bfs/en/home/statistics/regional-statistics/base-maps/cartographic-bases.assetdetail.21245514.html).  
 
 Roughly coincides with removing areas of above 2000m asl.  
 
-```{r}
+```{r results=FALSE}
 tg3o <- 
-  st_read("data-raw/BfS/2019_THK_PRO/01_INST/Vegetationsfläche_vf/K4_suis18480101_vf/K4suis18480101vf_ch2007Poly.shp",
+  st_read("data-raw/BfS/KM04-00-c-suis-2022-q/01_INST/Vegetationsfläche_vf/K4_polg20210101_vf/K4polg20210101gf_ch2007Poly.shp",
           as_tibble = TRUE) %>% 
-  st_transform(2056)
+  st_transform(2056) %>% 
+  rename(GMDNR = id,
+         GMDNAME = name)
 ```
 
-```{r}
+```{r echo=FALSE}
 qtm(tg3o)
 ```
 
-## swisstopo {.tabset}
+Dataset consists of `r scales::number(length(unique(tg3o$GMDNR)), big.mark = ",")` communities. The state is from `2021-01-01` so needs to be updated to July to match the mortality of the data.  
 
-### Municipality
-
-```{r include=FALSE}
-st_gg21_tg3o <- st_intersection(st_gg21, tg3o) %>% 
-  st_collection_extract("POLYGON")
-
-frq(st_is_valid(st_gg21_tg3o))
-
-write_rds(st_gg21_tg3o, "data/geo/st_gg21_tg3o.Rds")
-
-st_write(st_gg21_tg3o, "data/geo/tg3o.gpkg", 
-         layer = "st_gg21_tg3o", append = TRUE)
-```
-
-```{r echo=FALSE}
-qtm(st_gg21_tg3o)
-```
-
-### AR 
-
-```{r include=FALSE}
-st_ar_21_tg3o <- st_intersection(st_ar_21, tg3o) %>% 
-  st_collection_extract("POLYGON")
-
-frq(st_is_valid(st_ar_21_tg3o))
-
-write_rds(st_ar_21_tg3o, "data/geo/st_ar_21_tg3o.Rds")
-
-st_write(st_ar_21_tg3o, "data/geo/tg3o.gpkg", 
-         layer = "st_ar_21_tg3o", append = TRUE)
-```
-
-```{r echo=FALSE}
-qtm(st_ar_21_tg3o)
-```
-
-## BfS
-
-### Municipality
-
-```{r include=FALSE}
-gg21_tg3o <- st_intersection(gg21, tg3o) %>% 
-  st_collection_extract("POLYGON") 
-
-frq(st_is_valid(gg21_tg3o))
-
-write_rds(gg21_tg3o, "data/geo/gg21_tg3o.Rds")
-
-st_write(gg21_tg3o, "data/geo/tg3o.gpkg", 
-         layer = "gg21_tg3o", append = TRUE)
-```
-
-```{r echo=FALSE}
-qtm(gg21_tg3o)
-```
-
-### AR 
-
-```{r include=FALSE}
-ar_21_tg3o <- st_intersection(ar_21, tg3o) %>% 
-  st_collection_extract("POLYGON") %>% 
-  group_by(ARNR) %>% 
-  summarise(geometry = st_combine(geometry),
-            ARNAME = first(ARNAME),
-            ARNR = first(ARNR)) %>%
-  ungroup()
-
-frq(st_is_valid(ar_21_tg3o))
-
-write_rds(ar_21_tg3o, "data/geo/ar_21_tg3o.Rds")
-
-st_write(ar_21_tg3o, "data/geo/tg3o.gpkg", 
-         layer = "ar_21_tg3o", append = TRUE)
-```
-
-```{r echo=FALSE}
-qtm(ar_21_tg3o)
-```
-
-## Slivers
-
-```{r include=FALSE}
-tg3o_gem <- 
-  st_read("data-raw/BfS/2019_THK_PRO/01_INST/Vegetationsfläche_vf/K4_polg20190101_vf/K4polg20190101vf_ch2007Poly.shp",
-          as_tibble = TRUE) %>% 
-  st_transform(2056)
-```
-
-```{r echo=FALSE}
-tm_shape(st_gg21 %>% 
-           filter(GMDNR %in% c(3961, 3945, 3947, 3862)), 
-         is.master = TRUE) +
-  tm_polygons(col = "GMDNAME", border.col = NA, alpha = 0.5) +
-  tm_shape(st_gg21_tg3o) +
-  tm_polygons(col = "red", border.col = "red", alpha = 0.5) +
-  tm_layout(
-    # title = "Connectivity issue Lago di Lugano"
-  )
-```
-
-<!-- ----------------------------------------------------- -->
-
-# Municipality boundaries mutations
+## Updating to Jul 2021
 
 Using `Gemeindestand - Stand vom 01.07.2021.xlsx` from [here](https://www.agvchapp.bfs.admin.ch/de/home) we can identify municipalities with changes during the study period.  
 
@@ -1064,43 +991,119 @@ histcomm <- read_xlsx("data-raw/BfS/Mutierte_Gemeinden_20150101_bis_20210701.xls
          kanton_new = kanton_6,
          bezirks_num_new = bezirks_nummer_7,
          bfs_gde_num_new = bfs_gde_nummer_8,
-         gemeindename_new = gemeindename_9)
+         gemeindename_new = gemeindename_9) %>% 
+  select(-bezirks_num_old, -bezirks_num_new)
 ```
 
 ```{r include=FALSE}
 write_rds(histcomm, "data/BfS/histcomm.Rds")
 ```
 
-There were `r length(unique(histcomm$bezirks_num_old))` municipalities with changes recorded in `2015-01-01` - `2021-07-01` period.  
+<!-- There were `r length(unique(histcomm$bezirks_num_old))` municipalities with changes recorded in `2015-01-01` - `2021-07-01` period.   -->
 
-Here is list of changes from `2020-01-01` onwards that could affect other data that date for instance refer to  `2020-12-31`:  
+The following changes occurred after `2020-01-01` onwards that need to be replicated in tg3o dataset:  
 
 ```{r echo=FALSE}
 histcomm %>% 
-  filter(datum_der_aufnahme >= ymd("2021-01-01")) %>% 
-  select(-kanton_new, -bezirks_num_old, -bezirks_num_new) %>% 
-  datatable()
+  filter(datum_der_aufnahme > ymd("2021-01-01")) %>% 
+  select(-kanton_new) %>% 
+  arrange(bfs_gde_num_new, gemeindename_new) %>% 
+  datatable(options = list(pageLength = 11))
 ```
-
-Luckily only few changes occurred after `2021-01-01` and it was a fusion which is easier to handle.  
 
 ```{r eval=FALSE, include=FALSE}
 # Auf den 18. April 2021 fusionierten die ehemaligen politischen Gemeinden Croglio, Monteggio, Ponte Tresa und Sessa zur neuen politischen Gemeinde Tresa
 
 histcomm %>% 
-  filter(bfs_gde_nummer %in% c(5239))
+  filter(bfs_gde_num_new %in% c(5239)) %>% 
+  select(bfs_gde_num_new, gemeindename_new, 
+         bfs_gde_num_old, gemeindename_old)
 
 histcomm %>% 
-  filter(bfs_gde_nummer %in% c(5178, 5202, 5213, 5222))
+  filter(bfs_gde_num_old %in% c(5178, 5202, 5213, 5222)) %>% 
+  select(bfs_gde_num_new, gemeindename_new, 
+         bfs_gde_num_old, gemeindename_old)
 
 gg21 %>% 
   st_drop_geometry() %>% 
   filter(GMDNR %in% c(5239)) %>% 
   select(GMDNR, GMDNAME)
 
-# st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01012021.shp",
-#         quiet = TRUE) %>% 
-#   st_drop_geometry() %>% 
-#   filter(GMDNR %in% c(5178, 5202, 5213, 5222)) %>% 
-#   select(GMDNR, GMDNAME)
+st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01012021.shp",
+        quiet = TRUE) %>%
+  st_drop_geometry() %>%
+  filter(GMDNR %in% c(5178, 5202, 5213, 5222)) %>%
+  select(GMDNR, GMDNAME)
+```
+
+```{r}
+changes <- histcomm %>% 
+  filter(datum_der_aufnahme > ymd("2021-01-01")) %>% 
+  select(bfs_gde_num_old, bfs_gde_num_new, gemeindename_new)
+
+tg3o %<>% 
+  left_join(changes, by = c("GMDNR" = "bfs_gde_num_old")) %>% 
+  mutate(GMDNR = if_else(!is.na(bfs_gde_num_new), 
+                         bfs_gde_num_new, GMDNR),
+         GMDNAME = if_else(!is.na(bfs_gde_num_new), 
+                           gemeindename_new, GMDNAME)) %>% 
+  select(-bfs_gde_num_new, -gemeindename_new) %>% 
+  group_by(GMDNR) %>% 
+  summarise(GMDNR = first(GMDNR),
+            GMDNAME = first(GMDNAME)) %>%
+  st_cast("MULTIPOLYGON") %>% 
+  ungroup()
+```
+
+```{r include=FALSE}
+# View(st_drop_geometry(tg3o))
+rm(changes); gc()
+frq(st_is_valid(tg3o))
+
+tg3o %>% 
+  st_drop_geometry() %>% 
+  select(GMDNR) %>% 
+  anti_join(gg21 %>% st_drop_geometry())
+```
+
+Dataset now consists of `r scales::number(length(unique(tg3o$GMDNR)), big.mark = ",")` communities.
+
+## AR 
+
+Merging to get AR in tg3o layout.  
+
+```{r include=FALSE}
+tg3o_ar <- tg3o %>% 
+  left_join(raum %>% select(-GMDNAME), 
+            by = c("GMDNR")) %>% 
+  group_by(ARNR) %>% 
+  summarise(ARNR = first(ARNR),
+            ARNAME = first(ARNAME),
+            border = first(border)) %>%
+  st_cast("MULTIPOLYGON") %>% 
+  ungroup()
+```
+
+```{r include=FALSE}
+frq(st_is_valid(tg3o_ar))
+
+tg3o_ar %>% 
+  st_drop_geometry() %>% 
+  select(ARNR) %>% 
+  anti_join(ar_21 %>% st_drop_geometry())
+```
+
+```{r echo=FALSE}
+qtm(tg3o_ar)
+```
+
+```{r include=FALSE}
+write_rds(tg3o, "data/geo/tg3o.Rds")
+write_rds(tg3o_ar, "data/geo/tg3o_ar.Rds")
+
+st_write(tg3o, "data/geo/tg3o.gpkg", 
+         layer = "tg3o", delete_dsn = TRUE)
+
+st_write(tg3o_ar, "data/geo/tg3o.gpkg", 
+         layer = "tg3o_ar", append = TRUE)
 ```

@@ -26,7 +26,8 @@ library(pacman)
 p_load(haven, readxl,
        tidyverse, magrittr, janitor, scales, lubridate, 
        DT, 
-       sf, tmap)
+       sf, tmap,
+       swissdd)
 
 import::from("sjmisc", "frq")
 ```
@@ -1111,3 +1112,130 @@ unlink("data/BfS-closed/w_deaths_2015_2021_exp.Rds")
 unlink("data/BfS-closed/w_deaths_2015_2021_ar.Rds")
 ```
 
+<!-- ----------------------------------------------------- -->
+
+# Voting
+
+Data from `swissdd` [package](https://github.com/politanch/swissdd).    
+
+Linked to municipality boundaries from `2022-01-01`.  
+
+```{r}
+st_gg22 <- read_rds("data/swisstopo/st_gg22.Rds")
+```
+
+## June vote
+
+> Bundesgesetz vom 25.09.2020 über die gesetzlichen Grundlagen für Verordnungen des Bundesrates zur Bewältigung der Covid-19-Epidemie (Covid-19-Gesetz)
+
+### Data 
+
+```{r}
+covid_jun <- get_nationalvotes(votedates = "2021-06-13", 
+                               geolevel = "municipality") %>% 
+  filter(name == "Bundesgesetz über die gesetzlichen Grundlagen für Verordnungen des Bundesrates zur Bewältigung der Covid-19-Epidemie (Covid-19-Gesetz)") %>% 
+  select(-name, -id)
+```
+
+```{r echo=FALSE, include=FALSE}
+# Votes from abroad are excluded. 
+# covid_jun %>% 
+#   filter(str_detect(mun_name, fixed("Ausland")) | str_detect(mun_name, fixed("l'étranger"))) %>% 
+#   select(mun_name, jaStimmenAbsolut, jaStimmenInProzent)
+
+covid_jun %<>% 
+  filter(! str_detect(mun_name, fixed("Ausland"))) %>% 
+  filter(! str_detect(mun_name, fixed("l'étranger"))) %>% 
+  mutate(GMDNR = as.numeric(mun_id)) %>% 
+  relocate(GMDNR)
+```
+
+Dataset consists of `r scales::number(length(unique(covid_jun$mun_id)), big.mark = ",")` communities.
+
+### Results preview
+
+```{r echo=FALSE}
+plot_nationalvotes(votedate = "2021-06-13", 
+                   vote_id = 6430, geolevel = "municipality")
+```
+
+### Link to municipalities
+
+Using `GMDNR` / `mun_id` for deterministic linkage.  
+
+```{r}
+covid_jun_gem <- st_gg22 %>%  
+  left_join(covid_jun)
+```
+
+There are few communities that exist on the map but do not exist in the voting dataset:   
+
+```{r echo=FALSE}
+covid_jun_gem %>% 
+  st_drop_geometry() %>% 
+  filter(is.na(jaStimmenInProzent)) %>% 
+  select(GMDNR, GMDNAME)
+```
+
+```{r include=FALSE}
+write_rds(covid_jun, "data/voting/covid_jun.Rds")
+write_rds(covid_jun_gem, "data/voting/covid_jun_gem.Rds")
+```
+
+## November vote
+
+> Änderung des Bundesgesetzes über die gesetzlichen Grundlagen für Verordnungen des Bundesrates zur Bewältigung der Covid-19-Epidemie (Covid-19-Gesetz) (Härtefälle, Arbeitslosenversicherung, familienergänzende Kinderbetreuung, Kulturschaffende, Veranstaltungen)  
+
+### Data 
+
+```{r}
+covid_nov <- get_nationalvotes(votedates = "2021-11-28", 
+                               geolevel = "municipality") %>% 
+  filter(name == "Änderung des Bundesgesetzes über die gesetzlichen Grundlagen für Verordnungen des Bundesrates zur Bewältigung der Covid-19-Epidemie (Covid-19-Gesetz) (Härtefälle, Arbeitslosenversicherung, familienergänzende Kinderbetreuung, Kulturschaffende, Veranstaltungen)") %>% 
+  select(-name, -id)
+```
+
+```{r echo=FALSE, include=FALSE}
+# Votes from abroad are excluded. 
+# covid_nov %>% 
+#   filter(str_detect(mun_name, fixed("Ausland")) | str_detect(mun_name, fixed("l'étranger"))) %>% 
+#   select(mun_name, jaStimmenAbsolut, jaStimmenInProzent)
+
+covid_nov %<>% 
+  filter(! str_detect(mun_name, fixed("Ausland"))) %>% 
+  filter(! str_detect(mun_name, fixed("l'étranger"))) %>% 
+  mutate(GMDNR = as.numeric(mun_id)) %>% 
+  relocate(GMDNR)
+```
+
+Dataset consists of `r scales::number(length(unique(covid_nov$mun_id)), big.mark = ",")` communities.
+
+### Results preview
+
+```{r echo=FALSE}
+plot_nationalvotes(votedate = "2021-11-28", 
+                   vote_id = 6500, geolevel = "municipality")
+```
+
+### Link to municipalities
+
+Using `GMDNR` / `mun_id` for deterministic linkage.  
+
+```{r}
+covid_nov_gem <- st_gg22 %>%  
+  left_join(covid_nov)
+```
+
+There are again few communities that exist on the map but do not exist in the voting dataset:  
+
+```{r echo=FALSE}
+covid_nov_gem %>% 
+  st_drop_geometry() %>% 
+  filter(is.na(jaStimmenInProzent)) %>% 
+  select(GMDNR, GMDNAME)
+```
+
+```{r include=FALSE}
+write_rds(covid_nov, "data/voting/covid_nov.Rds")
+write_rds(covid_nov_gem, "data/voting/covid_nov_gem.Rds")
+```

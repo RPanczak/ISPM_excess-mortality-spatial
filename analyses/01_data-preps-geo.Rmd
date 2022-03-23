@@ -241,7 +241,7 @@ st_write(se21_alt, "data/geo/BfS.gpkg",
 
 ### Boundaries
 
-`swissBOUNDARIES3D` data available from [here](https://www.swisstopo.admin.ch/de/geodata/landscape/boundaries3d.html). Also exist in July versions.  
+`swissBOUNDARIES3D` data available from [here](https://www.swisstopo.admin.ch/de/geodata/landscape/boundaries3d.html).   
 
 ```{r eval=FALSE}
 download.file(url = "https://data.geo.admin.ch/ch.swisstopo.swissboundaries3d/swissboundaries3d_2021-07/swissboundaries3d_2021-07_2056_5728.shp.zip",
@@ -399,6 +399,54 @@ st_gg21 %<>%
   st_cast("MULTIPOLYGON") 
 ```
 
+## swisstopo geodata 2022
+
+2022 boundaries are needed to link to voting patterns.  
+
+```{r eval=FALSE}
+download.file(url = "https://data.geo.admin.ch/ch.swisstopo.swissboundaries3d/swissboundaries3d_2022-01/swissboundaries3d_2022-01_2056_5728.shp.zip",
+              destfile = "data-raw/swisstopo/swissboundaries3d_2022-01_2056_5728.shp.zip",
+              method = "curl")
+
+unzip("data-raw/swisstopo/swissboundaries3d_2022-01_2056_5728.shp.zip", 
+      exdir = "data-raw/swisstopo/swissboundaries3d_2022-01_2056_5728")
+
+unlink("data-raw/swisstopo/swissboundaries3d_2022-01_2056_5728.shp.zip")
+```
+
+```{r}
+st_gg22 <- 
+  st_read("data-raw/swisstopo/swissboundaries3d_2022-01_2056_5728/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp",
+          as_tibble = TRUE) %>% 
+  st_zm(drop = TRUE, what = "ZM") %>% 
+  st_transform(2056) 
+```
+
+```{r include=FALSE}
+# st_gg22 %>%
+#   st_drop_geometry() %>%
+#   filter(BFS_NUMMER %in% c(2391, 5391, 5394)) %>%
+#   select(BFS_NUMMER, NAME)
+
+st_gg22 %<>% 
+  filter(! BFS_NUMMER %in% c(2391, 5391, 5394)) %>% 
+  # exclude lakes
+  filter(OBJEKTART != "Kantonsgebiet") %>% 
+  # exclude FL & enclaves
+  filter(ICC == "CH") %>% 
+  select(BFS_NUMMER, NAME, BEZIRKSNUM, KANTONSNUM, GEM_TEIL) %>% 
+  rename(GMDNR = BFS_NUMMER,
+         GMDNAME = NAME,
+         BZNR = BEZIRKSNUM,
+         KTNR = KANTONSNUM) %>% 
+  arrange(GMDNR)
+
+# unique(st_geometry_type(st_gg22))
+# length(unique(st_gg22$GMDNR))
+
+write_rds(st_gg22, "data/swisstopo/st_gg22.Rds")
+```
+
 ## Important differences
 
 ### Resolution
@@ -447,7 +495,7 @@ That might have some implications in terms of spatial operations (maybe contigui
 
 <!-- ----------------------------------------------------- -->
 
-# Preparations
+# Municipality boundaries preparations
 
 ## Disconnected boundaries
 

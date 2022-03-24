@@ -25,7 +25,7 @@ options(max.print = "75")
 library(pacman)
 p_load(tidyverse, readxl, magrittr, 
        scales, janitor, lubridate, DT,
-       sf, tmap)
+       spdep, sf, tmap)
 
 tmap_options(check.and.fix = TRUE)
 
@@ -36,6 +36,8 @@ import::from("sjmisc", "frq")
 tidyverse::tidyverse_conflicts()
 
 conflicted::conflict_scout()
+
+sf_extSoftVersion()
 ```
 
 ```{r knit-setup, include = FALSE}
@@ -88,7 +90,6 @@ gg21 <-
   st_set_crs(2056) %>% 
   st_zm(drop = TRUE, what = "ZM")
 
-
 kt21 <- 
   st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1k21.shp",
           as_tibble = TRUE) %>% 
@@ -113,7 +114,7 @@ write_rds(se21, "data/BfS/se21.Rds")
 st_write(kt21, "data/geo/BfS.gpkg", 
          layer = "kt21", delete_dsn = TRUE)
 st_write(se21, "data/geo/BfS.gpkg", 
-         layer = "se21", append = TRUE)
+         layer = "se21", append = FALSE)
 ```
 
 ### Canton 
@@ -164,7 +165,6 @@ gg22 <-
   st_set_crs(2056) %>% 
   st_zm(drop = TRUE, what = "ZM")
 
-
 kt22 <- 
   st_read("data-raw/BfS/ag-b-00.03-875-gg22/ggg_2022_LV95/shp/g1k22.shp",
           as_tibble = TRUE) %>% 
@@ -187,9 +187,9 @@ write_rds(kt22, "data/BfS/kt22.Rds")
 write_rds(se22, "data/BfS/se22.Rds")
 
 st_write(kt22, "data/geo/BfS.gpkg", 
-         layer = "kt22", append = TRUE)
+         layer = "kt22", append = FALSE)
 st_write(se22, "data/geo/BfS.gpkg", 
-         layer = "se22", append = TRUE)
+         layer = "se22", append = FALSE)
 ```
 
 ## Alternative lakes dataset
@@ -216,7 +216,7 @@ tm_shape(se21_alt, is.master = TRUE) +
 write_rds(se21_alt, "data/BfS/se21_alt.Rds")
 
 st_write(se21_alt, "data/geo/BfS.gpkg", 
-         layer = "se21_alt", append = TRUE)
+         layer = "se21_alt", append = FALSE)
 ```
 
 ## swisstopo geodata 2021
@@ -320,12 +320,12 @@ rm(st_see21_insel); gc()
 
 ```{r eval=FALSE, include=FALSE}
 # st_write(st_se21, "data/swisstopo/st_se21.gpkg", layer = "lakes", delete_dsn = TRUE)
-# st_write(st_see21_insel, "data/swisstopo/st_se21.gpkg", layer = "st_see21_insel", append = TRUE)
+# st_write(st_see21_insel, "data/swisstopo/st_se21.gpkg", layer = "st_see21_insel", append = FALSE)
 
 write_rds(st_se21, "data/swisstopo/st_se21.Rds") 
 
 st_write(st_se21, "data/geo/swisstopo.gpkg", 
-         layer = "st_se21", append = TRUE)
+         layer = "st_se21", append = FALSE)
 
 st_se21_sel <- st_se21 %>% 
   st_filter(se21_alt)
@@ -333,7 +333,7 @@ st_se21_sel <- st_se21 %>%
 write_rds(st_se21_sel, "data/swisstopo/st_se21_sel.Rds") 
 
 st_write(st_se21_sel, "data/geo/swisstopo.gpkg", 
-         layer = "st_se21_sel", append = TRUE)
+         layer = "st_se21_sel", append = FALSE)
 ```
 
 ### Combined 
@@ -484,7 +484,7 @@ That might have some implications in terms of spatial operations (maybe contigui
 
 ### 2021 vs 2022 boundaries
 
-Different number of communities:  
+Slightly less municipalities:  
 
 ```{r}
 length(unique(st_gg21$BFS_NUMMER))
@@ -519,7 +519,7 @@ st_gg22 %>%
 
 # Municipality boundaries preparations
 
-## Disconnected boundaries
+## Disconnected boundaries - Lake Lugano
 
 Two communities in TI *Bissone* & *Melide* are disconnected by Lake Lugano in BfS municipality data:
 
@@ -557,6 +557,22 @@ tm_shape(st_se21_sel %>%
   )
 ```
 
+## Disconnected boundaries - Lake Zurich
+
+Freienbach & Rapperswil-Jona are disconnected on the map of boundaries but connected IRL:  
+
+![No connectivity](../docs/conn4.png)
+On top of that shape of municipality consists of multiple features:
+
+
+```{r echo=FALSE}
+tmap_mode("view")
+tm_shape(gg21 %>% 
+           filter(GMDNAME %in% c("Freienbach", "Rapperswil-Jona"))) +
+  tm_fill(col = "red", lwd = 2, alpha = 0.5)
+tmap_mode("plot")
+```
+
 ## Non-residential municipalities
 
 Excluding municipalities without residents:  
@@ -567,7 +583,7 @@ Excluding municipalities without residents:
 
 We should not expect any cases there!  
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 gg21 %>% 
   st_drop_geometry() %>% 
   filter(GMDNR %in% c(2391, 5391, 5394)) %>% 
@@ -613,9 +629,11 @@ stopifnot(
 )
 ```
 
-## Labour market areas 2018
+<!-- ----------------------------------------------------- -->
 
-### Data sources 
+# Labour market areas 2018
+
+## Data sources 
 
 More info [here](https://www.bfs.admin.ch/bfs/de/home/aktuell/neue-veroeffentlichungen.gnpdetail.2019-0439.html).  
 
@@ -666,19 +684,19 @@ Number of municipalities that are located within border labour market areas:
 frq(raum, border)
 ```
 
-### Preps
+## Preps
 
 List of regions was merged on the basis of municipality number and then these municipalities were aggregated.  
 
 ```{r eval=FALSE}
-argr_21 <- gg21 %>% 
+argr21 <- gg21 %>% 
   left_join(raum) %>% 
   group_by(ARGRNR) %>% 
   summarise(ARGRNR = first(ARGRNR),
             ARGRNAME = first(ARGRNAME)) %>%
   st_cast("MULTIPOLYGON") 
 
-ar_21 <- gg21 %>% 
+ar21 <- gg21 %>% 
   left_join(raum) %>% 
   group_by(ARNR) %>% 
   summarise(ARNR = first(ARNR),
@@ -691,12 +709,12 @@ Dissolving of BfS data via R was not perfect and manual corrections were impleme
 
 ```{r eval=FALSE, include=FALSE}
 # corrected manually in GIS so do not overwirte! 
-# st_write(argr_21, "data/geo/argr_21_cor.shp", delete_dsn = TRUE)
-# st_write(ar_21, "data/geo/ar_21_cor.shp", delete_dsn = TRUE)
+# st_write(argr21, "data/geo/argr_21_cor.shp", delete_dsn = TRUE)
+# st_write(ar21, "data/geo/ar_21_cor.shp", delete_dsn = TRUE)
 ```
 
 ```{r}
-argr_21 <- st_read("data/geo/argr_21_cor.shp") %>% 
+argr21 <- st_read("data/geo/argr_21_cor.shp") %>% 
   select(-ARGRNAME) %>% 
   left_join(raum %>% select(ARGRNR, ARGRNAME)) %>% 
   group_by(ARGRNR) %>% 
@@ -704,7 +722,7 @@ argr_21 <- st_read("data/geo/argr_21_cor.shp") %>%
             ARGRNAME = first(ARGRNAME)) %>%
   st_cast("MULTIPOLYGON") 
 
-ar_21 <- st_read("data/geo/ar_21_cor.shp") %>% 
+ar21 <- st_read("data/geo/ar_21_cor.shp") %>% 
   select(-ARNAME) %>% 
   left_join(raum %>% select(ARNR, ARNAME, border)) %>% 
   group_by(ARNR) %>% 
@@ -715,28 +733,28 @@ ar_21 <- st_read("data/geo/ar_21_cor.shp") %>%
 ```
 
 ```{r echo=FALSE, include=FALSE}
-# unique(st_geometry_type(argr_21))
-# unique(st_geometry_type(ar_21))
+# unique(st_geometry_type(argr21))
+# unique(st_geometry_type(ar21))
 
 # some dramas here
-# table(st_is_valid(argr_21))
-table(st_is_valid(ar_21))
+# table(st_is_valid(argr21))
+table(st_is_valid(ar21))
 
-ar_21 %>% 
+ar21 %>% 
   filter(!st_is_valid(.)) %>% 
   select(ARNAME)
 
 # fixing with this
-ar_21 <- st_make_valid(ar_21)
-table(st_is_valid(ar_21))
+ar21 <- st_make_valid(ar21)
+table(st_is_valid(ar21))
 
-write_rds(argr_21, "data/BfS/argr_21.Rds")
-write_rds(ar_21, "data/BfS/ar_21.Rds")
+write_rds(argr21, "data/BfS/argr21.Rds")
+write_rds(ar21, "data/BfS/ar21.Rds")
 
-st_write(argr_21, "data/geo/BfS.gpkg", 
-         layer = "argr_21", append = TRUE)
-st_write(ar_21, "data/geo/BfS.gpkg", 
-         layer = "ar_21", append = TRUE)
+st_write(argr21, "data/geo/BfS.gpkg", 
+         layer = "argr21", append = FALSE)
+st_write(ar21, "data/geo/BfS.gpkg", 
+         layer = "ar21", append = FALSE)
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -760,13 +778,13 @@ tm_shape(map_centre_b) +
   tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
   tm_shape(map_centre) +
   tm_symbols() +
-  tm_shape(ar_21_cor) +
+  tm_shape(ar21_cor) +
   tm_borders(col = "red", lwd = 2, alpha = 0.5) 
 
 tmap_mode("plot")
 tm_shape(map_centre_b) +
   tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
-  tm_shape(ar_21_cor) +
+  tm_shape(ar21_cor) +
   tm_borders(col = "red", lwd = 2, alpha = 0.5) 
 
 rm(sp, sp.report, sp.summary, sp.fixed, map_centre, map_centre_b); gc()
@@ -778,7 +796,7 @@ Dissolve in R using swisstopo data was all fine.
 ```{r}
 # same for swisstopo
 # removing '-' from names which causes problems with writing shp
-st_argr_21 <- st_gg21 %>% 
+st_argr21 <- st_gg21 %>% 
   left_join(raum) %>% 
   group_by(ARGRNR) %>% 
   summarise(ARGRNR = first(ARGRNR),
@@ -786,7 +804,7 @@ st_argr_21 <- st_gg21 %>%
   st_cast("MULTIPOLYGON") %>% 
   mutate(ARGRNAME = str_replace_all(ARGRNAME, "–", " "))
 
-st_ar_21 <- st_gg21 %>% 
+st_ar21 <- st_gg21 %>% 
   left_join(raum) %>% 
   group_by(ARNR) %>% 
   summarise(ARNR = first(ARNR),
@@ -797,13 +815,13 @@ st_ar_21 <- st_gg21 %>%
 ```
 
 ```{r include=FALSE}
-st_write(st_argr_21, "data/geo/swisstopo.gpkg", 
-         layer = "st_argr_21", append = TRUE)
-st_write(st_ar_21, "data/geo/swisstopo.gpkg", 
-         layer = "st_ar_21", append = TRUE)
+st_write(st_argr21, "data/geo/swisstopo.gpkg", 
+         layer = "st_argr21", append = FALSE)
+st_write(st_ar21, "data/geo/swisstopo.gpkg", 
+         layer = "st_ar21", append = FALSE)
 
-write_rds(st_argr_21, "data/swisstopo/st_argr_21.Rds")
-write_rds(st_ar_21, "data/swisstopo/st_ar_21.Rds")
+write_rds(st_argr21, "data/swisstopo/st_argr21.Rds")
+write_rds(st_ar21, "data/swisstopo/st_ar21.Rds")
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -827,13 +845,13 @@ tm_shape(map_centre_b) +
   tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
   tm_shape(map_centre) +
   tm_symbols() +
-  tm_shape(ar_21_cor) +
+  tm_shape(ar21_cor) +
   tm_borders(col = "red", lwd = 2, alpha = 0.5) 
 
 tmap_mode("plot")
 tm_shape(map_centre) +
   tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
-  tm_shape(ar_21_cor) +
+  tm_shape(ar21_cor) +
   tm_borders(col = "red", lwd = 2, alpha = 0.5) 
 
 
@@ -844,9 +862,9 @@ p_unload(cleangeo)
 ```{r echo=FALSE}
 tm_shape(se21, is.master = FALSE) +
   tm_fill(col = "lightskyblue", alpha = 0.5) +
-  tm_shape(ar_21, is.master = TRUE) +
+  tm_shape(ar21, is.master = TRUE) +
   tm_borders(col = "darkgray", lwd = 1, alpha = 0.5) +
-  tm_shape(argr_21) +
+  tm_shape(argr21) +
   tm_borders(col = "darkorchid", lwd = 2, alpha = 0.5) +
   tm_layout(
     title = "Labour market regions 2021"
@@ -857,16 +875,16 @@ tm_shape(se21, is.master = FALSE) +
 # same bus wisstopo based
 tm_shape(st_se21_sel, is.master = FALSE) +
   tm_fill(col = "lightskyblue", alpha = 0.5) +
-  tm_shape(st_ar_21, is.master = TRUE) +
+  tm_shape(st_ar21, is.master = TRUE) +
   tm_borders(col = "darkgray", lwd = 1, alpha = 0.5) +
-  tm_shape(st_argr_21) +
+  tm_shape(st_argr21) +
   tm_borders(col = "darkorchid", lwd = 2, alpha = 0.5) +
   tm_layout(
     title = "Labour market regions 2021"
   )
 ```
 
-### Border regions
+## Border regions
 
 Defined on the basis of [this map](https://www.bfs.admin.ch/bfs/de/home/aktuell/neue-veroeffentlichungen.assetdetail.8706500.html). Linked by name of the region since some codes seemed to be out of date? (ie. Basel).  
 
@@ -875,11 +893,11 @@ Defined on the basis of [this map](https://www.bfs.admin.ch/bfs/de/home/aktuell/
 ```{r echo=FALSE}
 tm_shape(se21, is.master = FALSE) +
   tm_fill(col = "lightskyblue", alpha = 0.5) +
-  tm_shape(ar_21 %>% mutate(border = factor(border))) +
+  tm_shape(ar21 %>% mutate(border = factor(border))) +
   tm_fill(col = "border", lwd = 2, alpha = 0.66, 
           palette = "Set2", n = 2,
           legend.show = FALSE) +
-  tm_shape(ar_21) +
+  tm_shape(ar21) +
   tm_borders(col = "white") +
   tm_layout(
     title = "Border regions 2021"
@@ -887,7 +905,7 @@ tm_shape(se21, is.master = FALSE) +
 ```
 
 ```{r echo=FALSE}
-ar_21 %>% 
+ar21 %>% 
   st_drop_geometry() %>% 
   filter(border == 1) %>%  
   select(-border) %>% 
@@ -930,7 +948,7 @@ gg21 %>% left_join(raum %>% select(GMDNR, KTNAME,
                                    border)) %>% 
   relocate(geometry, .after = last_col()) %>%
   st_write("data/geo/BfS.gpkg", 
-           layer = "gg21", append = TRUE)
+           layer = "gg21", append = FALSE)
 
 st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, 
                                       ARGRNR, ARGRNAME, ARNR, ARNAME,
@@ -943,7 +961,7 @@ st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME,
                                       border)) %>% 
   relocate(geometry, .after = last_col()) %>% 
   st_write("data/geo/swisstopo.gpkg", 
-           layer = "st_gg21", append = TRUE)
+           layer = "st_gg21", append = FALSE)
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -1066,7 +1084,7 @@ tg3o %>%
   anti_join(gg21 %>% st_drop_geometry())
 ```
 
-Dataset now consists of `r scales::number(length(unique(tg3o$GMDNR)), big.mark = ",")` communities.
+Dataset now consists of `r scales::number(length(unique(tg3o$GMDNR)), big.mark = ",")` municipalities.
 
 ## AR 
 
@@ -1090,7 +1108,7 @@ frq(st_is_valid(tg3o_ar))
 tg3o_ar %>% 
   st_drop_geometry() %>% 
   select(ARNR) %>% 
-  anti_join(ar_21 %>% st_drop_geometry())
+  anti_join(ar21 %>% st_drop_geometry())
 ```
 
 ```{r echo=FALSE}
@@ -1105,5 +1123,318 @@ st_write(tg3o, "data/geo/tg3o.gpkg",
          layer = "tg3o", delete_dsn = TRUE)
 
 st_write(tg3o_ar, "data/geo/tg3o.gpkg", 
-         layer = "tg3o_ar", append = TRUE)
+         layer = "tg3o_ar", append = FALSE)
 ```
+
+<!-- ----------------------------------------------------- -->
+
+# Spatial connectivity of municipalities
+
+## Traditional 
+
+```{r eval=FALSE, include=FALSE}
+# results will differ if not multipart!
+# gg21 %<>%
+#   st_cast("POLYGON")
+```
+
+### Weights 
+
+```{r}
+gg21_wm_q <- poly2nb(gg21, queen = TRUE, row.names = gg21$GMDNR)
+
+gg21_wm_q
+summary(gg21_wm_q)
+```
+
+```{r include=FALSE}
+write_rds(gg21_wm_q, "data/nb/gg21_wm_q.Rds")
+```
+
+### Manual correction
+
+Adding missing link over Lake Zuirch, see below.  
+
+**Note: needs to be run outsdie or RStudio!**  
+
+```{r eval=FALSE}
+setwd("C:/projects/ISPM_geo-mortality")
+gg21 <- readr::read_rds("data/BfS/gg21.Rds")
+gg21_wm_q <- readr::read_rds("data/nb/gg21_wm_q.Rds")
+gg21_wm_q <- spdep::edit.nb(gg21_wm_q, polys = as(gg21, "Spatial"))
+
+readr::write_rds(gg21_wm_q, "data/nb/gg21_wm_q_cor.Rds")
+```
+
+```{r include=FALSE}
+gg21_wm_q <- read_rds("data/nb/gg21_wm_q_cor.Rds")
+
+gg21_wm_q
+summary(gg21_wm_q)
+```
+
+### Region with one neighbour
+
+`2271 Meyriez`  
+
+```{r echo=FALSE}
+tmap_mode("view")
+
+tm_shape(gg21 %>% st_join(gg21 %>% 
+                            filter(GMDNAME == "Meyriez"), 
+                          left = FALSE)) +
+  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
+  tm_shape(gg21 %>% 
+             filter(GMDNAME == "Meyriez")) +
+  tm_fill(col = "red", lwd = 2, alpha = 0.5)
+```
+
+### Region with twelve neighbour (max case)
+
+`5586 Lausanne`  
+
+```{r echo=FALSE}
+tm_shape(gg21 %>% st_join(gg21 %>% 
+                            filter(GMDNAME == "Lausanne"), 
+                          left = FALSE)) +
+  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
+  tm_shape(gg21 %>% 
+             filter(GMDNAME == "Lausanne")) +
+  tm_fill(col = "red", lwd = 2, alpha = 0.5)
+```
+
+### Multipart features
+
+<!-- `6153 Monthey`   -->
+
+```{r eval=FALSE}
+tm_shape(gg21 %>% st_join(gg21 %>% 
+                            filter(GMDNAME == "Monthey"), 
+                          left = FALSE)) +
+  tm_borders(col = "grey50", lwd = 1, alpha = 0.5) +
+  tm_shape(gg21 %>% 
+             filter(GMDNAME == "Monthey")) + 
+  tm_fill(col = "red", lwd = 2, alpha = 0.5)
+
+temp1 <- gg21 %>% 
+  st_join(gg21 %>% 
+            filter(GMDNAME == "Monthey"), 
+          left = FALSE) %>% 
+  as_Spatial()
+
+temp2 <- gg21 %>% 
+  filter(GMDNAME == "Monthey") %>% 
+  as_Spatial()
+
+plot(temp1, col = "lightgrey") 
+plot(temp2, col = "purple", add = TRUE) 
+plot(gg21_wm_q, coordinates(as_Spatial(gg21)), 
+     pch = 19, cex = 0.6, add = TRUE, col = "red")
+```
+
+<!-- `2054 Estavayer`   -->
+
+```{r eval=FALSE}
+tm_shape(gg21 %>% st_join(gg21 %>% 
+                            filter(GMDNAME == "Estavayer"), 
+                          left = FALSE)) +
+  tm_borders(col = "grey50", lwd = 1, alpha = 0.5) +
+  tm_shape(gg21 %>% 
+             filter(GMDNAME == "Estavayer")) + 
+  tm_fill(col = "red", lwd = 2, alpha = 0.5)
+
+temp1 <- gg21 %>% 
+  st_join(gg21 %>% 
+            filter(GMDNAME == "Estavayer"), 
+          left = FALSE) %>% 
+  as_Spatial()
+
+temp2 <- gg21 %>% 
+  filter(GMDNAME == "Estavayer") %>% 
+  as_Spatial()
+
+plot(temp1, col = "lightgrey") 
+plot(temp2, col = "purple", add = TRUE) 
+plot(gg21_wm_q, coordinates(as_Spatial(gg21)), 
+     pch = 19, cex = 0.6, add = TRUE, col = "red")
+```
+
+Example of `418 Oberburg`:  
+
+```{r echo=FALSE}
+tm_shape(gg21 %>% st_join(gg21 %>% 
+                            filter(GMDNAME == "Oberburg"), 
+                          left = FALSE)) +
+  tm_borders(col = "grey50", lwd = 1, alpha = 0.5) +
+  tm_shape(gg21 %>% 
+             filter(GMDNAME == "Oberburg")) + 
+  tm_fill(col = "red", lwd = 2, alpha = 0.5)
+
+temp1 <- gg21 %>% 
+  st_join(gg21 %>% 
+            filter(GMDNAME == "Oberburg"), 
+          left = FALSE) %>% 
+  as_Spatial()
+
+temp2 <- gg21 %>% 
+  filter(GMDNAME == "Oberburg") %>% 
+  as_Spatial()
+
+plot(temp1, col = "lightgrey") 
+plot(temp2, col = "purple", add = TRUE) 
+plot(gg21_wm_q, coordinates(as_Spatial(gg21)), 
+     pch = 19, cex = 0.6, add = TRUE, col = "red")
+```
+
+### Connectivity over Zurichsee
+
+Fixed above 
+
+`1322 Freienbach`  
+
+```{r schow=FALSE}
+tm_shape(gg21 %>% 
+           filter(GMDNAME %in% c("Freienbach", "Rapperswil-Jona"))) +
+  tm_fill(col = "red", lwd = 2, alpha = 0.5)
+
+temp1 <- gg21 %>% 
+  st_join(gg21 %>% 
+            filter(GMDNAME %in% c("Freienbach", "Rapperswil-Jona")), 
+          left = FALSE) %>% 
+  as_Spatial()
+
+temp2 <- gg21 %>% 
+  filter(GMDNAME %in% c("Freienbach", "Rapperswil-Jona")) %>% 
+  as_Spatial()
+
+plot(temp1, col = "lightgrey") 
+plot(temp2, col = "purple", add = TRUE) 
+plot(gg21_wm_q, coordinates(as_Spatial(gg21)), 
+     pch = 19, cex = 0.6, add = TRUE, col = "red")
+```
+
+<!-- ### Connectivity over Lugano -->
+
+```{r eval=FALSE}
+tm_shape(gg21 %>% st_join(gg21 %>% 
+                            filter(GMDNAME %in% c("Bissone", "Melide")), 
+                          left = FALSE)) +
+  tm_borders(col = "grey50", lwd = 1, alpha = 0.5) +
+  tm_shape(gg21 %>% 
+             filter(GMDNAME %in% c("Bissone", "Melide"))) + 
+  tm_fill(col = "red", lwd = 2, alpha = 0.5)
+
+temp <- gg21 %>% 
+  st_join(gg21 %>% 
+            filter(GMDNAME %in% c("Bissone", "Melide")), 
+          left = FALSE)
+
+plot(as_Spatial(temp), col = "lightgrey") 
+plot(gg21_wm_q, coordinates(as_Spatial(gg21)), 
+     pch = 19, cex = 0.6, add = TRUE, col = "red")
+```
+
+### All together:  
+
+```{r echo=FALSE}
+tmap_mode("plot")
+
+plot(as_Spatial(gg21), borders = "lightgrey") 
+plot(gg21_wm_q, coordinates(as_Spatial(gg21)), 
+     pch = 19, cex = 0.6, add = TRUE, col = "red")
+```
+
+### List 
+
+```{r}
+gg21_wm_q_list <- nb2listw(gg21_wm_q, style = "W", zero.policy = TRUE)
+```
+
+```{r include=FALSE}
+write_rds(gg21_wm_q_list, "data/nb/gg21_wm_q_list.Rds")
+```
+
+## tg3o simplification
+
+```{r eval=FALSE, include=FALSE}
+# results will differ if not multipart!
+# tg3o %<>%
+#   st_cast("POLYGON")
+```
+
+### Weights 
+
+```{r}
+tg3o_wm_q <- poly2nb(tg3o, queen = TRUE, row.names = tg3o$GMDNR)
+
+tg3o_wm_q
+summary(tg3o_wm_q)
+```
+
+```{r include=FALSE}
+write_rds(tg3o_wm_q, "data/nb/tg3o_wm_q.Rds")
+```
+
+### Manual correction
+
+Adding missing link over Lake Zuirch, see below.  
+
+**Note: needs to be run outside or RStudio!**  
+
+```{r eval=FALSE}
+setwd("C:/projects/ISPM_geo-mortality")
+tg3o <- readr::read_rds("data/geo/tg3o.Rds")
+tg3o_wm_q <- readr::read_rds("data/nb/tg3o_wm_q.Rds")
+tg3o_wm_q <- spdep::edit.nb(tg3o_wm_q, polys = as(tg3o, "Spatial"))
+
+readr::write_rds(tg3o_wm_q, "data/nb/tg3o_wm_q_cor.Rds")
+```
+
+```{r include=FALSE}
+tg3o_wm_q <- read_rds("data/nb/tg3o_wm_q_cor.Rds")
+
+tg3o_wm_q
+summary(tg3o_wm_q)
+```
+
+<!-- ### Connectivity over Lugano -->
+
+```{r eval=FALSE}
+tm_shape(tg3o %>% st_join(tg3o %>% 
+                            filter(GMDNAME %in% c("Bissone", "Melide")), 
+                          left = FALSE)) +
+  tm_borders(col = "grey50", lwd = 1, alpha = 0.5) +
+  tm_shape(tg3o %>% 
+             filter(GMDNAME %in% c("Bissone", "Melide"))) + 
+  tm_fill(col = "red", lwd = 2, alpha = 0.5)
+
+temp <- tg3o %>% 
+  st_join(tg3o %>% 
+            filter(GMDNAME %in% c("Bissone", "Melide")), 
+          left = FALSE)
+
+plot(as_Spatial(temp), col = "lightgrey") 
+plot(tg3o_wm_q, coordinates(as_Spatial(tg3o)), 
+     pch = 19, cex = 0.6, add = TRUE, col = "red")
+```
+
+### All together:  
+
+```{r echo=FALSE}
+tmap_mode("plot")
+
+plot(as_Spatial(tg3o), borders = "lightgrey") 
+plot(tg3o_wm_q, coordinates(as_Spatial(tg3o)), 
+     pch = 19, cex = 0.6, add = TRUE, col = "red")
+```
+
+### List 
+
+```{r}
+tg3o_wm_q_list <- nb2listw(tg3o_wm_q, style = "W", zero.policy = TRUE)
+```
+
+```{r include=FALSE}
+write_rds(tg3o_wm_q_list, "data/nb/tg3o_wm_q_list.Rds")
+```
+

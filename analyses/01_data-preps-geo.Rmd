@@ -83,9 +83,17 @@ unlink("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV03", recursive = TRUE)
 unlink("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/ggg_2021-LV95.gdb", recursive = TRUE)
 ```
 
+```{r include=FALSE}
+gg21_orig <- 
+  st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01072021.shp",
+          as_tibble = TRUE) %>% 
+  st_set_crs(2056) %>% 
+  st_zm(drop = TRUE, what = "ZM")
+```
+
 ```{r warning=FALSE}
 gg21 <- 
-  st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01072021.shp",
+  st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01072021_cor.shp",
           as_tibble = TRUE) %>% 
   st_set_crs(2056) %>% 
   st_zm(drop = TRUE, what = "ZM")
@@ -106,6 +114,8 @@ se21 <-
 
 ```{r include=FALSE}
 # unique(st_geometry_type(gg21))
+
+table(st_is_valid(gg21))
 
 # gg21 written after after processing
 write_rds(kt21, "data/BfS/kt21.Rds")
@@ -164,32 +174,6 @@ gg22 <-
           as_tibble = TRUE) %>% 
   st_set_crs(2056) %>% 
   st_zm(drop = TRUE, what = "ZM")
-
-kt22 <- 
-  st_read("data-raw/BfS/ag-b-00.03-875-gg22/ggg_2022_LV95/shp/g1k22.shp",
-          as_tibble = TRUE) %>% 
-  st_zm(drop = TRUE, what = "ZM") %>% 
-  st_transform(2056)
-
-se22 <- 
-  st_read("data-raw/BfS/ag-b-00.03-875-gg22/ggg_2022_LV95/shp/g1s22.shp",
-          as_tibble = TRUE) %>% 
-  filter(GMDNAME != "Lago di Como") %>% 
-  st_zm(drop = TRUE, what = "ZM") %>% 
-  st_transform(2056)
-```
-
-```{r include=FALSE}
-unique(st_geometry_type(gg22))
-
-# gg22 written after after processing
-write_rds(kt22, "data/BfS/kt22.Rds")
-write_rds(se22, "data/BfS/se22.Rds")
-
-st_write(kt22, "data/geo/BfS.gpkg", 
-         layer = "kt22", append = FALSE)
-st_write(se22, "data/geo/BfS.gpkg", 
-         layer = "se22", append = FALSE)
 ```
 
 ## Alternative lakes dataset
@@ -342,7 +326,7 @@ st_write(st_se21_sel, "data/geo/swisstopo.gpkg",
 st_se21_sel <- read_rds("data/swisstopo/st_se21_sel.Rds") 
 ```
 
-Lakes dataset (selecting only `r nrow(se21_alt)` largest features from ThemaKart dataset) was then used to erase area of municipalities that extends over lakes. Issue is described in [#48](https://github.com/RPanczak/ISPM_geo-mortality/issues/48).  
+Lakes dataset (selecting only `r nrow(se21_alt)` largest features from ThemaKart dataset overlap!) was then used to erase area of municipalities that extends over lakes. Issue is described in [#48](https://github.com/RPanczak/ISPM_geo-mortality/issues/48).  
 
 ```{r warning=FALSE}
 st_gg21 <- 
@@ -383,7 +367,7 @@ st_gg21 %<>%
 
 ## swisstopo geodata 2022
 
-2022 boundaries are needed to link to voting patterns.  
+2022 boundaries might be needed to link to voting patterns.  
 
 ```{r eval=FALSE}
 download.file(url = "https://data.geo.admin.ch/ch.swisstopo.swissboundaries3d/swissboundaries3d_2022-01/swissboundaries3d_2022-01_2056_5728.shp.zip",
@@ -466,9 +450,9 @@ gg21 %>%
 
 ```{r eval=FALSE, include=FALSE}
 # if polygons are needed
-gg21 %>% 
-  filter(GMDNR == 6153) %>% 
-  st_cast("POLYGON")
+# gg21 %>% 
+#   filter(GMDNR == 6153) %>% 
+#   st_cast("POLYGON")
 ```
 
 The same municipality in swisstopo data is stored as **set of** `MULTIPOLYGON` types and is represented by *four separate records* instead of one.  
@@ -524,7 +508,7 @@ st_gg22 %>%
 Two communities in TI *Bissone* & *Melide* are disconnected by Lake Lugano in BfS municipality data:
 
 ![No connectivity](../docs/conn1.png)
-In reality communities are rather connected:
+In reality communities are indeed connected:
 
 ![IRL](../docs/conn3.png)
 That has been manually corrected in GIS and now looks like:
@@ -532,46 +516,23 @@ That has been manually corrected in GIS and now looks like:
 ![Connected](../docs/conn2.png)
 Importance of this issue is covered [here](https://doi.org/10.1016/j.sste.2018.04.002).  
 
-```{r include=FALSE}
-gg21 <- 
-  st_read("data/geo/g1g21_01072021_cor.shp",
-          as_tibble = TRUE) %>% 
-  st_set_crs(2056)
-```
-
-```{r eval=FALSE}
-table(st_is_valid(gg21))
-```
-
-This doesn't cause problem in swisstopo data. 
-
-```{r echo=FALSE}
-tm_shape(st_se21_sel %>% 
-           filter(NAME == "Ceresio | Lago di Lugano | Lac de Lugano | Lai da Lugano | Luganersee")) +
-  tm_fill(col = "gray", alpha = 0.5) +
-  tm_shape(st_gg21 %>% filter(BFS_NUMMER %in% c(5154, 5198)), 
-           is.master = TRUE) +
-  tm_polygons("NAME", lwd = 1, alpha = 0.5) +
-  tm_layout(
-    # title = "Connectivity issue Lago di Lugano"
-  )
-```
-
 ## Disconnected boundaries - Lake Zurich
 
-Freienbach & Rapperswil-Jona are disconnected on the map of boundaries but connected IRL:  
+Freienbach & Rapperswil-Jona are disconnected on the map of boundaries:   
+
+![No connectivity](../docs/conn5.png)
+
+... but connected IRL:  
 
 ![No connectivity](../docs/conn4.png)
-On top of that shape of municipality consists of multiple features:
+That has been fixed manually in GIS.  
 
+## Spurious connection
 
-```{r echo=FALSE}
-tmap_mode("view")
-tm_shape(gg21 %>% 
-           filter(GMDNAME %in% c("Freienbach", "Rapperswil-Jona"))) +
-  tm_fill(col = "red", lwd = 2, alpha = 0.5)
-tmap_mode("plot")
-```
+Community of Twann-Tüscherz (in red) is connected to Erlach via small part of the St. Peter's Island.  
+
+![St. Peter's Island](../docs/conn7.png)
+This connection has been removed.  
 
 ## Non-residential municipalities
 
@@ -974,13 +935,34 @@ So called 'productive areas', also coming from BfS' *ThemaKart* [product](https:
 
 Roughly coincides with removing areas of above 2000m asl.  
 
-```{r results=FALSE}
-tg3o <- 
+```{r include=FALSE, results=FALSE}
+tg3o_orig <- 
   st_read("data-raw/BfS/KM04-00-c-suis-2022-q/01_INST/Vegetationsfläche_vf/K4_polg20210101_vf/K4polg20210101gf_ch2007Poly.shp",
           as_tibble = TRUE) %>% 
   st_transform(2056) %>% 
   rename(GMDNR = id,
          GMDNAME = name)
+```
+
+```{r results=FALSE}
+tg3o <- 
+  st_read("data-raw/BfS/KM04-00-c-suis-2022-q/01_INST/Vegetationsfläche_vf/K4_polg20210101_vf/K4polg20210101gf_ch2007Poly_cor.shp",
+          as_tibble = TRUE) %>% 
+  st_transform(2056) %>% 
+  rename(GMDNR = id,
+         GMDNAME = name)
+```
+
+```{r eval=FALSE}
+tg3o %>% 
+  st_drop_geometry() %>% 
+  filter(GMDNR %in% c(2391, 5391, 5394)) %>% 
+  select(GMDNR, GMDNAME)
+
+tg3o %<>% 
+  filter(! GMDNR %in% c(2391, 5391, 5394)) %>% 
+  select(GMDNR, GMDNAME, KTNR) %>% 
+  arrange(GMDNR)
 ```
 
 ```{r echo=FALSE}
@@ -1074,10 +1056,25 @@ tg3o %<>%
 ```
 
 ```{r include=FALSE}
+tg3o_orig %<>% 
+  left_join(changes, by = c("GMDNR" = "bfs_gde_num_old")) %>% 
+  mutate(GMDNR = if_else(!is.na(bfs_gde_num_new), 
+                         bfs_gde_num_new, GMDNR),
+         GMDNAME = if_else(!is.na(bfs_gde_num_new), 
+                           gemeindename_new, GMDNAME)) %>% 
+  select(-bfs_gde_num_new, -gemeindename_new) %>% 
+  group_by(GMDNR) %>% 
+  summarise(GMDNR = first(GMDNR),
+            GMDNAME = first(GMDNAME)) %>%
+  st_cast("MULTIPOLYGON") %>% 
+  ungroup()
+
 # View(st_drop_geometry(tg3o))
 rm(changes); gc()
 frq(st_is_valid(tg3o))
+```
 
+```{r eval=FALSE}
 tg3o %>% 
   st_drop_geometry() %>% 
   select(GMDNR) %>% 
@@ -1149,28 +1146,6 @@ summary(gg21_wm_q)
 
 ```{r include=FALSE}
 write_rds(gg21_wm_q, "data/nb/gg21_wm_q.Rds")
-```
-
-### Manual correction
-
-Adding missing link over Lake Zuirch, see below.  
-
-**Note: needs to be run outsdie or RStudio!**  
-
-```{r eval=FALSE}
-setwd("C:/projects/ISPM_geo-mortality")
-gg21 <- readr::read_rds("data/BfS/gg21.Rds")
-gg21_wm_q <- readr::read_rds("data/nb/gg21_wm_q.Rds")
-gg21_wm_q <- spdep::edit.nb(gg21_wm_q, polys = as(gg21, "Spatial"))
-
-readr::write_rds(gg21_wm_q, "data/nb/gg21_wm_q_cor.Rds")
-```
-
-```{r include=FALSE}
-gg21_wm_q <- read_rds("data/nb/gg21_wm_q_cor.Rds")
-
-gg21_wm_q
-summary(gg21_wm_q)
 ```
 
 ### Region with one neighbour
@@ -1293,17 +1268,17 @@ Fixed above
 `1322 Freienbach`  
 
 ```{r schow=FALSE}
-tm_shape(gg21 %>% 
+tm_shape(gg21_orig %>% 
            filter(GMDNAME %in% c("Freienbach", "Rapperswil-Jona"))) +
   tm_fill(col = "red", lwd = 2, alpha = 0.5)
 
-temp1 <- gg21 %>% 
-  st_join(gg21 %>% 
+temp1 <- gg21_orig %>% 
+  st_join(gg21_orig %>% 
             filter(GMDNAME %in% c("Freienbach", "Rapperswil-Jona")), 
           left = FALSE) %>% 
   as_Spatial()
 
-temp2 <- gg21 %>% 
+temp2 <- gg21_orig %>% 
   filter(GMDNAME %in% c("Freienbach", "Rapperswil-Jona")) %>% 
   as_Spatial()
 
@@ -1313,21 +1288,20 @@ plot(gg21_wm_q, coordinates(as_Spatial(gg21)),
      pch = 19, cex = 0.6, add = TRUE, col = "red")
 ```
 
-<!-- ### Connectivity over Lugano -->
+### Connectivity over Lugano
 
 ```{r eval=FALSE}
-tm_shape(gg21 %>% st_join(gg21 %>% 
-                            filter(GMDNAME %in% c("Bissone", "Melide")), 
-                          left = FALSE)) +
+tm_shape(gg21_orig %>% 
+           st_join(gg21_orig %>% 
+                     filter(GMDNAME %in% c("Bissone", "Melide")), 
+                   left = FALSE)) +
   tm_borders(col = "grey50", lwd = 1, alpha = 0.5) +
-  tm_shape(gg21 %>% 
+  tm_shape(gg21_orig %>% 
              filter(GMDNAME %in% c("Bissone", "Melide"))) + 
   tm_fill(col = "red", lwd = 2, alpha = 0.5)
 
-temp <- gg21 %>% 
-  st_join(gg21 %>% 
-            filter(GMDNAME %in% c("Bissone", "Melide")), 
-          left = FALSE)
+temp <- gg21_orig %>% 
+            filter(GMDNAME %in% c("Bissone", "Melide"))
 
 plot(as_Spatial(temp), col = "lightgrey") 
 plot(gg21_wm_q, coordinates(as_Spatial(gg21)), 
@@ -1377,7 +1351,7 @@ write_rds(tg3o_wm_q, "data/nb/tg3o_wm_q.Rds")
 
 ### Manual correction
 
-Adding missing link over Lake Zuirch, see below.  
+Adding missing links.    
 
 **Note: needs to be run outside or RStudio!**  
 
@@ -1385,37 +1359,16 @@ Adding missing link over Lake Zuirch, see below.
 setwd("C:/projects/ISPM_geo-mortality")
 tg3o <- readr::read_rds("data/geo/tg3o.Rds")
 tg3o_wm_q <- readr::read_rds("data/nb/tg3o_wm_q.Rds")
-tg3o_wm_q <- spdep::edit.nb(tg3o_wm_q, polys = as(tg3o, "Spatial"))
+tg3o_wm_q_cor <- spdep::edit.nb(tg3o_wm_q, polys = as(tg3o, "Spatial"))
 
-readr::write_rds(tg3o_wm_q, "data/nb/tg3o_wm_q_cor.Rds")
+readr::write_rds(tg3o_wm_q_cor, "data/nb/tg3o_wm_q_cor.Rds")
 ```
 
 ```{r include=FALSE}
-tg3o_wm_q <- read_rds("data/nb/tg3o_wm_q_cor.Rds")
+tg3o_wm_q_cor <- read_rds("data/nb/tg3o_wm_q_cor.Rds")
 
 tg3o_wm_q
 summary(tg3o_wm_q)
-```
-
-<!-- ### Connectivity over Lugano -->
-
-```{r eval=FALSE}
-tm_shape(tg3o %>% st_join(tg3o %>% 
-                            filter(GMDNAME %in% c("Bissone", "Melide")), 
-                          left = FALSE)) +
-  tm_borders(col = "grey50", lwd = 1, alpha = 0.5) +
-  tm_shape(tg3o %>% 
-             filter(GMDNAME %in% c("Bissone", "Melide"))) + 
-  tm_fill(col = "red", lwd = 2, alpha = 0.5)
-
-temp <- tg3o %>% 
-  st_join(tg3o %>% 
-            filter(GMDNAME %in% c("Bissone", "Melide")), 
-          left = FALSE)
-
-plot(as_Spatial(temp), col = "lightgrey") 
-plot(tg3o_wm_q, coordinates(as_Spatial(tg3o)), 
-     pch = 19, cex = 0.6, add = TRUE, col = "red")
 ```
 
 ### All together:  

@@ -1,0 +1,86 @@
+This doesn't cause problem in swisstopo data. 
+
+```{r echo=FALSE}
+tm_shape(st_se21_sel %>% 
+           filter(NAME == "Ceresio | Lago di Lugano | Lac de Lugano | Lai da Lugano | Luganersee")) +
+  tm_fill(col = "gray", alpha = 0.5) +
+  tm_shape(st_gg21 %>% filter(BFS_NUMMER %in% c(5154, 5198)), 
+           is.master = TRUE) +
+  tm_polygons("NAME", lwd = 1, alpha = 0.5) +
+  tm_layout(
+    # title = "Connectivity issue Lago di Lugano"
+  )
+```
+
+
+
+
+
+### Manual correction
+
+Adding missing link over Lake Zuirch, see below.  
+
+**Note: needs to be run outsdie or RStudio!**  
+
+```{r eval=FALSE}
+setwd("C:/projects/ISPM_geo-mortality")
+gg21 <- readr::read_rds("data/BfS/gg21.Rds")
+gg21_wm_q <- readr::read_rds("data/nb/gg21_wm_q.Rds")
+gg21_wm_q <- spdep::edit.nb(gg21_wm_q, polys = as(gg21, "Spatial"))
+
+readr::write_rds(gg21_wm_q, "data/nb/gg21_wm_q_cor.Rds")
+```
+
+```{r include=FALSE}
+gg21_wm_q <- read_rds("data/nb/gg21_wm_q_cor.Rds")
+
+gg21_wm_q
+summary(gg21_wm_q)
+```
+
+
+
+
+
+
+
+
+### Connectivity over Zurichsee
+
+Fixed above 
+
+`1322 Freienbach`  
+
+```{r schow=FALSE}
+tm_shape(tg3o_orig %>% 
+           filter(GMDNAME %in% c("Freienbach", "Rapperswil-Jona"))) +
+  tm_fill(col = "red", lwd = 2, alpha = 0.5)
+
+temp <- tg3o_orig %>% 
+  filter(GMDNAME %in% c("Freienbach", "Rapperswil-Jona")) %>% 
+  as_Spatial()
+
+plot(temp, col = "lightgrey") 
+plot(tg3o_wm_q, coordinates(as_Spatial(tg3o)), 
+     pch = 19, cex = 0.6, add = TRUE, col = "red")
+```
+
+### Connectivity over Lugano
+
+```{r eval=FALSE}
+tm_shape(tg3o_orig %>% 
+           st_join(tg3o_orig %>% 
+                     filter(GMDNAME %in% c("Bissone", "Melide")), 
+                   left = FALSE)) +
+  tm_borders(col = "grey50", lwd = 1, alpha = 0.5) +
+  tm_shape(tg3o_orig %>% 
+             filter(GMDNAME %in% c("Bissone", "Melide"))) + 
+  tm_fill(col = "red", lwd = 2, alpha = 0.5)
+
+temp <- tg3o_orig %>% 
+  filter(GMDNAME %in% c("Bissone", "Melide"))
+
+plot(as_Spatial(temp), col = "lightgrey") 
+plot(tg3o_wm_q, coordinates(as_Spatial(tg3o)), 
+     pch = 19, cex = 0.6, add = TRUE, col = "red")
+```

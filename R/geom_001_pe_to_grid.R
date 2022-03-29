@@ -10,7 +10,7 @@ geom_001_pe_to_grid = function(path) {
       sex = factor(sex),
       age = cut(age, 
                 breaks = c(0, 40, seq(50, 80, 10), 120), right = FALSE, 
-                labels = c("<40", "40-59", "50-59", "60-69", "70-79", "80+"))) %>% 
+                labels = c("<40", "40-49", "50-59", "60-69", "70-79", "80+"))) %>% 
     group_by(year, ecoord, ncoord, sex, age) %>% 
     summarise(n = n()) %>% 
     ungroup()  %>% 

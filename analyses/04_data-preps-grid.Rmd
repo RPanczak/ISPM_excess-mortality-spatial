@@ -499,41 +499,52 @@ lu_grid_gem = grid_1km_over %>%
   dplyr::arrange(year,ID,ID2,sex,age) %>% 
   dplyr::left_join(lu_grid_gem) %>%
   dplyr::mutate(pop=if_else(is.na(pop),as.integer(0),pop))
+
+# filter(lu_grid_gem,GMDNR==4651,age=="<40",sex=="Female",year==2018) %>% view() 
+  
 ```
+
+```{r eval=FALSE}
+gc()
+write_rds(lu_grid_gem, file="data/blob/lu_grid_gem.rds")
+```
+
 
 ## Aggregate by grid
 
 ```{r}
-lu_grid = lu_grid_gem %>% 
+st_grid_pop = lu_grid_gem %>% 
   dplyr::group_by(ID,year,age,sex) %>% 
   dplyr::summarise(pop=sum(pop),.groups="drop")
 ```
 
+```{r eval=FALSE}
+gc()
+write_rds(st_grid_pop, file="data/blob/st_grid_pop.rds")
+```
+
 ## Extrapolate pop by month
 
-```{r}
-pred_lu_grid = lu_grid %>% 
+```{r eval=FALSE}
+st_grid_pop_pred = st_grid_pop %>% 
   tidyr::expand_grid(month=1:12) %>% 
   dplyr::mutate(year_month=year+month/12) %>% 
   dplyr::mutate(pop=if_else(month==12,pop,NA_integer_))
 
-m1 = glm(pop ~ age + sex + year_month, data=pred_lu_grid, family = poisson(link="log"))
-m2 = lme4::glmer(pop ~ age + sex + year_month + (1|ID), data=pred_lu_grid, family = poisson(link="log"))
-m3 = lme4::glmer(pop ~ age + sex + year_month + (year_month|ID), data=pred_lu_grid, family = poisson(link="log"))
+# TODO: predict population by month 2014-2021
 
-# predict
-# save population by month 2014-2021
+# m1 = glm(pop ~ age + sex + year_month, data=st_grid_pop_pred, family = poisson(link="log"))
+# m2 = lme4::glmer(pop ~ age + sex + year_month + (1|ID), data=st_grid_pop_pred, family = poisson(link="log"))
+# m3 = lme4::glmer(pop ~ age + sex + year_month + (year_month|ID), data=st_grid_pop_pred, family = poisson(link="log"))
 ```
 
-## Distribute deaths by ID
-
-```{r}
-
+```{r eval=FALSE}
+gc()
+write_rds(st_grid_pop_pred, file="data/blob/st_grid_pop_pred.rds")
 ```
 
-<!-- ----------------------------------------------------- -->
 
-# Gridded deaths
+# Gridded deaths 2014-2019
 
 ### SNC data 
 
@@ -547,7 +558,7 @@ snc5_deaths <- read_dta("data/SNC/deaths.dta") %>%
          sex = factor(sex),
          age = cut(age_cont, 
                    breaks = c(0, 40, seq(50, 80, 10), 120), right = FALSE, 
-                   labels = c("<40", "40-59", "50-59", "60-69", "70-79", "80+")),
+                   labels = c("<40", "40-49", "50-59", "60-69", "70-79", "80+")),
          month = month(dod)) %>% 
   relocate(month, .after = year) %>% 
   dplyr::select(-age_cont, -dod) %>% 
@@ -559,21 +570,21 @@ snc5_deaths <- read_dta("data/SNC/deaths.dta") %>%
 
 ```{r eval=FALSE, include=FALSE}
 snc5_deaths %>%
+  st_drop_geometry() %>% 
   group_by(age) %>%
-  summarise(min = min(age_cont),
-            max = max(age_cont))
+  summarise(min = min(year),
+            max = max(year))
 
 snc5_deaths %>%
   sample_n(100) %>%
   qtm()
 
 View(st_drop_geometry(snc5_deaths))
-with(snc5_deaths, table(yod == yod2))
 ```
 
-### Overlay & aggregation
+### Aggregate deaths by ID until 2019
 
-```{r}
+```{r eval=FALSE}
 temp <- st_join(snc5_deaths, 
                 grid_1km, 
                 join = st_intersects) %>% 
@@ -582,17 +593,13 @@ temp <- st_join(snc5_deaths,
   summarize(deaths = as.integer(n())) %>% 
   ungroup() 
 
-# temp %>% 
-#     filter(is.na(ID))
-
-# size of output should be
 length(unique(grid_1km$ID)) * 
   length(unique(temp$year)) * 
   length(unique(temp$month)) * 
   length(levels(temp$age)) * 
   length(levels(temp$sex))
 
-st_grid_hist <-  
+st_grid_deaths_2014_2019 <-  
   expand_grid(ID = unique(grid_1km$ID), 
               year = unique(temp$year),
               month = unique(temp$month),
@@ -604,15 +611,37 @@ st_grid_hist <-
   mutate(deaths = as.integer(deaths))
 ```
 
-```{r include=FALSE}
+```{r eval=FALSE}
 rm(temp, snc5_deaths); gc()
-
-write_rds(st_grid_hist, "data/blob/st_grid_hist.Rds")
-
-# st_grid_hist_wide <- st_grid_hist %>% 
-#   mutate(month = str_pad(month, width = 2, side = "left", pad = "0")) %>% 
-#   pivot_wider(names_from = c(year, month, sex, age), 
-#               values_from = c(deaths))
-
-# write_rds(grid_deaths_wide, "data/blob/grid_deaths_wide.Rds")
+write_rds(st_grid_deaths_2014_2019, file="data/blob/st_grid_deaths_2014_2019.rds")
 ```
+
+
+# Gemeinde level deaths for 2020-2021 into grid
+
+```{r}
+st_gem_deaths_2020_2021 =
+  read_rds("data/BfS-closed/w_deaths_2015_2021_pop.Rds") %>% 
+  dplyr::select(GMDNR,GMDNAME,year,month,age,sex,deaths) %>% 
+  dplyr::distinct() %>% 
+  dplyr::filter(year >=2020) 
+```
+
+
+```{r}
+source("R/geom_002_deaths_to_grid.R")
+st_grid_deaths_2020_2021 = geom_002_deaths_to_grid(deaths_data=st_gem_deaths_2020_2021,
+                                                   pop_data=lu_grid_gem,
+                                                   n_iter=50) # choose number of replications
+```
+
+
+# Join all
+
+```{r eval=FALSE}
+st_grid_final = st_grid_pop %>%
+  left_join(st_grid_deaths_2014_2019) %>% 
+  left_join(st_grid_deaths_2020_2021)
+
+```
+

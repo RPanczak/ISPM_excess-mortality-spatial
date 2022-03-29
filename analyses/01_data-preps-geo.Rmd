@@ -335,7 +335,12 @@ st_gg21 <-
   filter(OBJEKTART != "Kantonsgebiet") %>% 
   st_collection_extract("POLYGON") %>% 
   st_zm(drop = TRUE, what = "ZM") %>% 
-  st_transform(2056) 
+  st_transform(2056) # %>% 
+  # group_by(BFS_NUMMER) %<>% 
+  # summarise(BFS_NUMMER = first(BFS_NUMMER),
+  #           NAME = first(NAME),
+  #           GEM_TEIL = max(GEM_TEIL)) %>%
+  # st_cast("MULTIPOLYGON") 
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -355,14 +360,6 @@ temp <- rbind(
 )
 
 unique(st_geometry_type(temp))
-
-# another way to convert mixed types
-st_gg21 %<>% 
-  group_by(BFS_NUMMER) %<>% 
-  summarise(BFS_NUMMER = first(BFS_NUMMER),
-            NAME = first(NAME),
-            GEM_TEIL = max(GEM_TEIL)) %>%
-  st_cast("MULTIPOLYGON") 
 ```
 
 ## swisstopo geodata 2022
@@ -400,7 +397,12 @@ st_gg22 <-
   filter(OBJEKTART != "Kantonsgebiet") %>% 
   st_collection_extract("POLYGON") %>% 
   st_zm(drop = TRUE, what = "ZM") %>% 
-  st_transform(2056) 
+  st_transform(2056) # %>% 
+  # group_by(BFS_NUMMER) %>% 
+  # summarise(BFS_NUMMER = first(BFS_NUMMER),
+  #           NAME = first(NAME),
+  #           GEM_TEIL = max(GEM_TEIL)) %>%
+  # st_cast("MULTIPOLYGON") 
 
 st_gg22 %<>% 
   filter(! BFS_NUMMER %in% c(2391, 5391, 5394)) %>% 
@@ -448,11 +450,11 @@ gg21 %>%
   plot()
 ```
 
-```{r eval=FALSE, include=FALSE}
+```{r eval=FALSE, warning=FALSE, include=FALSE}
 # if polygons are needed
-# gg21 %>% 
-#   filter(GMDNR == 6153) %>% 
-#   st_cast("POLYGON")
+gg21 %>%
+  filter(GMDNR == 6153) %>%
+  st_cast("POLYGON")
 ```
 
 The same municipality in swisstopo data is stored as **set of** `MULTIPOLYGON` types and is represented by *four separate records* instead of one.  
@@ -524,7 +526,7 @@ Freienbach & Rapperswil-Jona are disconnected on the map of boundaries:
 
 ... but connected IRL:  
 
-![No connectivity](../docs/conn4.png)
+![Connectivity](../docs/conn4.png)
 That has been fixed manually in GIS.  
 
 ## Spurious connection
@@ -833,7 +835,7 @@ tm_shape(se21, is.master = FALSE) +
 ```
 
 ```{r eval=FALSE, include=FALSE}
-# same bus wisstopo based
+# same bus swisstopo based
 tm_shape(st_se21_sel, is.master = FALSE) +
   tm_fill(col = "lightskyblue", alpha = 0.5) +
   tm_shape(st_ar21, is.master = TRUE) +
@@ -927,6 +929,7 @@ st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME,
 
 <!-- ----------------------------------------------------- -->
 
+
 # tg3o simplification
 
 ## Data 
@@ -953,7 +956,7 @@ tg3o <-
          GMDNAME = name)
 ```
 
-```{r eval=FALSE}
+```{r eval=FALSE, include=FALSE}
 tg3o %>% 
   st_drop_geometry() %>% 
   filter(GMDNR %in% c(2391, 5391, 5394)) %>% 
@@ -1055,7 +1058,12 @@ tg3o %<>%
   ungroup()
 ```
 
-```{r include=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# original dataset as it came from BfS
+frq(st_is_valid(tg3o_orig))
+
+gc() 
+
 tg3o_orig %<>% 
   left_join(changes, by = c("GMDNR" = "bfs_gde_num_old")) %>% 
   mutate(GMDNR = if_else(!is.na(bfs_gde_num_new), 
@@ -1069,9 +1077,45 @@ tg3o_orig %<>%
   st_cast("MULTIPOLYGON") %>% 
   ungroup()
 
+frq(st_is_valid(tg3o_orig))
+
+# manually corrected dataset forcing new connections
+tg3o_nb <- 
+  st_read("data-raw/BfS/KM04-00-c-suis-2022-q/01_INST/Vegetationsfläche_vf/K4_polg20210101_vf/K4polg20210101gf_ch2007Poly_cor_nb.shp",
+          as_tibble = TRUE) %>% 
+  st_transform(2056) %>% 
+  rename(GMDNR = id,
+         GMDNAME = name)
+
+frq(st_is_valid(tg3o_nb))
+
+# tg3o_nb %>% 
+#   filter(!st_is_valid(.)) %>% 
+#   select(GMDNAME)
+
+# fixing with this
+# tg3o_nb <- st_make_valid(tg3o_nb)
+# frq(st_is_valid(tg3o_nb))
+
+gc() 
+
+tg3o_nb %<>% 
+  left_join(changes, by = c("GMDNR" = "bfs_gde_num_old")) %>% 
+  mutate(GMDNR = if_else(!is.na(bfs_gde_num_new), 
+                         bfs_gde_num_new, GMDNR),
+         GMDNAME = if_else(!is.na(bfs_gde_num_new), 
+                           gemeindename_new, GMDNAME)) %>% 
+  select(-bfs_gde_num_new, -gemeindename_new) %>% 
+  group_by(GMDNR) %>% 
+  summarise(GMDNR = first(GMDNR),
+            GMDNAME = first(GMDNAME)) %>%
+  st_cast("MULTIPOLYGON") %>% 
+  ungroup()
+
+frq(st_is_valid(tg3o_nb))
+
 # View(st_drop_geometry(tg3o))
 rm(changes); gc()
-frq(st_is_valid(tg3o))
 ```
 
 ```{r eval=FALSE}
@@ -1114,10 +1158,14 @@ qtm(tg3o_ar)
 
 ```{r include=FALSE}
 write_rds(tg3o, "data/geo/tg3o.Rds")
+# write_rds(tg3o_orig, "data/geo/tg3o_orig.Rds")
 write_rds(tg3o_ar, "data/geo/tg3o_ar.Rds")
 
+st_write(tg3o_orig, "data/geo/tg3o.gpkg", 
+         layer = "tg3o_orig", delete_dsn = TRUE)
+
 st_write(tg3o, "data/geo/tg3o.gpkg", 
-         layer = "tg3o", delete_dsn = TRUE)
+         layer = "tg3o", append = FALSE)
 
 st_write(tg3o_ar, "data/geo/tg3o.gpkg", 
          layer = "tg3o_ar", append = FALSE)
@@ -1128,6 +1176,8 @@ st_write(tg3o_ar, "data/geo/tg3o.gpkg",
 # Spatial connectivity of municipalities
 
 ## Traditional 
+
+Based on queen connectivity between the areas. Uses 'normal' municipality boundaries and connects them irrespectively of mountains.  
 
 ```{r eval=FALSE, include=FALSE}
 # results will differ if not multipart!
@@ -1182,7 +1232,7 @@ tm_shape(gg21 %>% st_join(gg21 %>%
 
 <!-- `6153 Monthey`   -->
 
-```{r eval=FALSE}
+```{r eval=FALSE, include=FALSE}
 tm_shape(gg21 %>% st_join(gg21 %>% 
                             filter(GMDNAME == "Monthey"), 
                           left = FALSE)) +
@@ -1203,13 +1253,14 @@ temp2 <- gg21 %>%
 
 plot(temp1, col = "lightgrey") 
 plot(temp2, col = "purple", add = TRUE) 
-plot(gg21_wm_q, coordinates(as_Spatial(gg21)), 
+plot(gg21_wm_q, 
+     coordinates(as_Spatial(gg21)), 
      pch = 19, cex = 0.6, add = TRUE, col = "red")
 ```
 
 <!-- `2054 Estavayer`   -->
 
-```{r eval=FALSE}
+```{r eval=FALSE, include=FALSE}
 tm_shape(gg21 %>% st_join(gg21 %>% 
                             filter(GMDNAME == "Estavayer"), 
                           left = FALSE)) +
@@ -1230,11 +1281,12 @@ temp2 <- gg21 %>%
 
 plot(temp1, col = "lightgrey") 
 plot(temp2, col = "purple", add = TRUE) 
-plot(gg21_wm_q, coordinates(as_Spatial(gg21)), 
+plot(gg21_wm_q, 
+     coordinates(as_Spatial(gg21)), 
      pch = 19, cex = 0.6, add = TRUE, col = "red")
 ```
 
-Example of `418 Oberburg`:  
+Example of `418 Oberburg`. Location:  
 
 ```{r echo=FALSE}
 tm_shape(gg21 %>% st_join(gg21 %>% 
@@ -1244,7 +1296,11 @@ tm_shape(gg21 %>% st_join(gg21 %>%
   tm_shape(gg21 %>% 
              filter(GMDNAME == "Oberburg")) + 
   tm_fill(col = "red", lwd = 2, alpha = 0.5)
+```
 
+Connectivity:  
+
+```{r echo=FALSE}
 temp1 <- gg21 %>% 
   st_join(gg21 %>% 
             filter(GMDNAME == "Oberburg"), 
@@ -1257,21 +1313,22 @@ temp2 <- gg21 %>%
 
 plot(temp1, col = "lightgrey") 
 plot(temp2, col = "purple", add = TRUE) 
-plot(gg21_wm_q, coordinates(as_Spatial(gg21)), 
+plot(gg21_wm_q, 
+     coordinates(as_Spatial(gg21)), 
      pch = 19, cex = 0.6, add = TRUE, col = "red")
 ```
 
 ### Connectivity over Zurichsee
 
-Fixed above 
+`1322 Freienbach` fixed above:  
 
-`1322 Freienbach`  
-
-```{r schow=FALSE}
+```{r echo=FALSE}
 tm_shape(gg21_orig %>% 
            filter(GMDNAME %in% c("Freienbach", "Rapperswil-Jona"))) +
   tm_fill(col = "red", lwd = 2, alpha = 0.5)
+```
 
+```{r include=FALSE}
 temp1 <- gg21_orig %>% 
   st_join(gg21_orig %>% 
             filter(GMDNAME %in% c("Freienbach", "Rapperswil-Jona")), 
@@ -1281,7 +1338,9 @@ temp1 <- gg21_orig %>%
 temp2 <- gg21_orig %>% 
   filter(GMDNAME %in% c("Freienbach", "Rapperswil-Jona")) %>% 
   as_Spatial()
+```
 
+```{r echo=FALSE}
 plot(temp1, col = "lightgrey") 
 plot(temp2, col = "purple", add = TRUE) 
 plot(gg21_wm_q, coordinates(as_Spatial(gg21)), 
@@ -1299,10 +1358,14 @@ tm_shape(gg21_orig %>%
   tm_shape(gg21_orig %>% 
              filter(GMDNAME %in% c("Bissone", "Melide"))) + 
   tm_fill(col = "red", lwd = 2, alpha = 0.5)
+```
 
+```{r include=FALSE}
 temp <- gg21_orig %>% 
-            filter(GMDNAME %in% c("Bissone", "Melide"))
+  filter(GMDNAME %in% c("Bissone", "Melide"))
+```
 
+```{r echo=FALSE}
 plot(as_Spatial(temp), col = "lightgrey") 
 plot(gg21_wm_q, coordinates(as_Spatial(gg21)), 
      pch = 19, cex = 0.6, add = TRUE, col = "red")
@@ -1330,6 +1393,8 @@ write_rds(gg21_wm_q_list, "data/nb/gg21_wm_q_list.Rds")
 
 ## tg3o simplification
 
+Based on queen connectivity between the productive areas. Uses 'tg3o' simplified municipality boundaries so it breaks some connections in the mountainous regions. Few disconnected areas are connected back, mostly when tehre is a train tunnel or a year round road pass connection.    
+
 ```{r eval=FALSE, include=FALSE}
 # results will differ if not multipart!
 # tg3o %<>%
@@ -1338,10 +1403,17 @@ write_rds(gg21_wm_q_list, "data/nb/gg21_wm_q_list.Rds")
 
 ### Weights 
 
-```{r}
-tg3o_wm_q <- poly2nb(tg3o, queen = TRUE, row.names = tg3o$GMDNR)
+```{r include=FALSE}
+tg3o_orig_wm_q <- poly2nb(tg3o_orig, queen = TRUE, row.names = tg3o$GMDNR)
 
-tg3o_wm_q
+# tg3o_orig_wm_q
+# summary(tg3o_orig_wm_q)
+```
+
+```{r}
+tg3o_wm_q <- poly2nb(tg3o_nb, queen = TRUE, row.names = tg3o$GMDNR)
+
+# tg3o_wm_q
 summary(tg3o_wm_q)
 ```
 
@@ -1349,13 +1421,12 @@ summary(tg3o_wm_q)
 write_rds(tg3o_wm_q, "data/nb/tg3o_wm_q.Rds")
 ```
 
-### Manual correction
+<!-- ### Manual correction -->
 
-Adding missing links.    
+<!-- Adding missing links.     -->
 
-**Note: needs to be run outside or RStudio!**  
-
-```{r eval=FALSE}
+```{r eval=FALSE, include=FALSE}
+# **Note: needs to be run outside or RStudio!**  
 setwd("C:/projects/ISPM_geo-mortality")
 tg3o <- readr::read_rds("data/geo/tg3o.Rds")
 tg3o_wm_q <- readr::read_rds("data/nb/tg3o_wm_q.Rds")
@@ -1364,21 +1435,40 @@ tg3o_wm_q_cor <- spdep::edit.nb(tg3o_wm_q, polys = as(tg3o, "Spatial"))
 readr::write_rds(tg3o_wm_q_cor, "data/nb/tg3o_wm_q_cor.Rds")
 ```
 
-```{r include=FALSE}
+```{r eval=FALSE, include=FALSE}
 tg3o_wm_q_cor <- read_rds("data/nb/tg3o_wm_q_cor.Rds")
 
-tg3o_wm_q
+# tg3o_wm_q
 summary(tg3o_wm_q)
 ```
 
-### All together:  
+### All together
+
+Original connectivity, notice disconnected 'islands' of polygons:  
 
 ```{r echo=FALSE}
-tmap_mode("plot")
+plot(as_Spatial(tg3o), col = "lightgrey") 
 
-plot(as_Spatial(tg3o), borders = "lightgrey") 
-plot(tg3o_wm_q, coordinates(as_Spatial(tg3o)), 
+plot(tg3o_orig_wm_q, coordinates(as_Spatial(tg3o_orig)), 
      pch = 19, cex = 0.6, add = TRUE, col = "red")
+```
+
+```{r eval=FALSE, include=FALSE}
+plot(as_Spatial(tg3o), col = "lightgrey") 
+
+plot(tg3o_wm_q, coordinates(as_Spatial(tg3o_nb)), 
+     pch = 19, cex = 0.6, add = TRUE, col = "red")
+```
+
+Forcing extra connections; clearer when only the differences are shown:  
+
+```{r echo=FALSE}
+diffs <- diffnb(tg3o_wm_q, tg3o_orig_wm_q, verbose = NULL)
+
+plot(as_Spatial(tg3o), col = "lightgrey") 
+
+plot(diffs, coordinates(as_Spatial(tg3o_nb)), 
+     points = FALSE, add = TRUE, col = "red")
 ```
 
 ### List 
@@ -1390,4 +1480,3 @@ tg3o_wm_q_list <- nb2listw(tg3o_wm_q, style = "W", zero.policy = TRUE)
 ```{r include=FALSE}
 write_rds(tg3o_wm_q_list, "data/nb/tg3o_wm_q_list.Rds")
 ```
-

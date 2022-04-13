@@ -9,3 +9,4 @@
  
 ## Data analyses
 
+ - [Data analysis - EDA ofdiscrepancies](05_eda.html)

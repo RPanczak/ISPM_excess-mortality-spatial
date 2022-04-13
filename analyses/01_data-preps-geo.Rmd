@@ -835,7 +835,7 @@ tm_shape(se21, is.master = FALSE) +
 ```
 
 ```{r eval=FALSE, include=FALSE}
-# same bus swisstopo based
+# same but swisstopo based
 tm_shape(st_se21_sel, is.master = FALSE) +
   tm_fill(col = "lightskyblue", alpha = 0.5) +
   tm_shape(st_ar21, is.master = TRUE) +
@@ -1192,9 +1192,7 @@ gg21_wm_q <- poly2nb(gg21, queen = TRUE, row.names = gg21$GMDNR)
 
 gg21_wm_q
 summary(gg21_wm_q)
-```
 
-```{r include=FALSE}
 write_rds(gg21_wm_q, "data/nb/gg21_wm_q.Rds")
 ```
 
@@ -1349,7 +1347,7 @@ plot(gg21_wm_q, coordinates(as_Spatial(gg21)),
 
 ### Connectivity over Lugano
 
-```{r eval=FALSE}
+```{r echo=FALSE}
 tm_shape(gg21_orig %>% 
            st_join(gg21_orig %>% 
                      filter(GMDNAME %in% c("Bissone", "Melide")), 
@@ -1385,9 +1383,6 @@ plot(gg21_wm_q, coordinates(as_Spatial(gg21)),
 
 ```{r}
 gg21_wm_q_list <- nb2listw(gg21_wm_q, style = "W", zero.policy = TRUE)
-```
-
-```{r include=FALSE}
 write_rds(gg21_wm_q_list, "data/nb/gg21_wm_q_list.Rds")
 ```
 
@@ -1415,9 +1410,7 @@ tg3o_wm_q <- poly2nb(tg3o_nb, queen = TRUE, row.names = tg3o$GMDNR)
 
 # tg3o_wm_q
 summary(tg3o_wm_q)
-```
 
-```{r include=FALSE}
 write_rds(tg3o_wm_q, "data/nb/tg3o_wm_q.Rds")
 ```
 
@@ -1475,8 +1468,5 @@ plot(diffs, coordinates(as_Spatial(tg3o_nb)),
 
 ```{r}
 tg3o_wm_q_list <- nb2listw(tg3o_wm_q, style = "W", zero.policy = TRUE)
-```
-
-```{r include=FALSE}
 write_rds(tg3o_wm_q_list, "data/nb/tg3o_wm_q_list.Rds")
 ```

@@ -1107,9 +1107,11 @@ w_deaths_2015_2021_ar_pop %>%
   )
 
 write_rds(w_deaths_2015_2021_ar_pop, "data/BfS-closed/w_deaths_2015_2021_ar_pop.Rds")
+```
 
-unlink("data/BfS-closed/w_deaths_2015_2021_exp.Rds")
-unlink("data/BfS-closed/w_deaths_2015_2021_ar.Rds")
+```{r eval=FALSE, include=FALSE}
+# unlink("data/BfS-closed/w_deaths_2015_2021_exp.Rds")
+# unlink("data/BfS-closed/w_deaths_2015_2021_ar.Rds")
 ```
 
 <!-- ----------------------------------------------------- -->

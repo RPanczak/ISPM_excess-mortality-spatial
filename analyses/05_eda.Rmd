@@ -50,32 +50,49 @@ mu <- Hmisc::markupSpecs$html
 
 <!-- ----------------------------------------------------- -->
 
+# Deaths > population
+
+## AR level
+
 ```{r}
 w_deaths_2015_2021_ar_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_ar_pop.Rds")
 
-w_deaths_2015_2021_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_pop.Rds")
+length(unique(w_deaths_2015_2021_ar_pop$ARNR))
 
 w_deaths_2015_2021_ar_pop %>% 
   group_by(year) %>% 
   summarise(deaths = sum(deaths))
-```
 
-```{r}
 frq(w_deaths_2015_2021_ar_pop, deaths > population) 
 
 w_deaths_2015_2021_ar_pop %>% 
   filter(deaths > population)
-
-w_deaths_2015_2021_ar_pop %<>% 
-  mutate(population = if_else(deaths > population, deaths, population))
 ```
 
+## Municipality level 
+
 ```{r}
+w_deaths_2015_2021_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_pop.Rds")
+
+length(unique(w_deaths_2015_2021_pop$GMDNR))
+
 frq(w_deaths_2015_2021_pop, deaths > population) 
 
 w_deaths_2015_2021_pop %>% 
   filter(deaths > population)
 
-w_deaths_2015_2021_pop %<>% 
-  mutate(population = if_else(deaths > population, deaths, population))
+frq(w_deaths_2015_2021_pop, deaths > population_mid_lm) 
+
+w_deaths_2015_2021_pop %>% 
+  filter(deaths > population_mid_lm)
+
+frq(w_deaths_2015_2021_pop, deaths > population_mid_poi) 
+
+w_deaths_2015_2021_pop %>% 
+  filter(deaths > population_mid_poi)
 ```
+
+<!-- ----------------------------------------------------- -->
+
+# Differences in pop estimates 
+

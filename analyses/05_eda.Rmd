@@ -70,21 +70,6 @@ length(unique(w_deaths_2015_2021_ar_pop$ARNR))
 frq(w_deaths_2015_2021_ar_pop, deaths > population)
 ```
 
-```{r}
-w_deaths_2015_2021_ar_pop %>% 
-  filter(deaths > population) %>% 
-  mutate(diff = deaths - population) %>% 
-  select(diff) %>% 
-  summary()
-```
-
-```{r}
-w_deaths_2015_2021_ar_pop %>% 
-  mutate(diff = population - deaths) %>% 
-  filter(deaths > population) %>% 
-  datatable()
-```
-
 ## Municipality level 
 
 ```{r}
@@ -111,6 +96,7 @@ w_deaths_2015_2021_pop %>%
 w_deaths_2015_2021_pop %>% 
   mutate(diff = population - deaths) %>% 
   filter(deaths > population) %>% 
+  select(GMDNAME, KTNAME, year, age, sex, diff, deaths, population) %>% 
   datatable()
 ```
 
@@ -130,6 +116,7 @@ w_deaths_2015_2021_pop %>%
 w_deaths_2015_2021_pop %>% 
   mutate(diff = population_mid_poi - deaths) %>% 
   filter(deaths > population_mid_poi) %>% 
+  select(GMDNAME, KTNAME, year, age, sex, diff, deaths, population_mid_poi) %>% 
   datatable()
 ```
 
@@ -140,7 +127,7 @@ w_deaths_2015_2021_pop %>%
 ## Age group specific diffs
 
 ```{r}
-frq(w_deaths_2015_2021_pop, population_mid_lm > population) 
+frq(w_deaths_2015_2021_pop, population_mid_poi > population) 
 
 pop_diff <- w_deaths_2015_2021_pop %>% 
   mutate(pop_diff = population_mid_lm - population,

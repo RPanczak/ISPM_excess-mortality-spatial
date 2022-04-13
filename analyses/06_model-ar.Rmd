@@ -168,10 +168,10 @@ m1$summary.random
 m1$summary.hyperpar
 
 m1$summary.linear.predictor
-m1$marginals.linear.predictor
+# m1$marginals.linear.predictor
 
 m1$summary.fitted.values
-m1$marginals.fitted.values
+# m1$marginals.fitted.values
 
 marg.variance <- inla.tmarginal(function(x) 1/x,
                                 m1$marginals.hyperpar$"Precision for ARNR")
@@ -189,8 +189,8 @@ ggplot(m1_time, aes(x = ID)) +
 m1_fit <- m1$summary.fitted.values
 m1_fit$obs <- model_data$deaths
 
-ggplot(m1_fit, aes(x = ID)) + 
-  geom_point(aes(x = `0.5quant`, y = obs), alpha = 0.01) + 
+ggplot(m1_fit) + 
+  geom_point(aes(x = `0.5quant`, y = obs), alpha = 0.22) + 
   theme_minimal()
 ```
 
@@ -223,10 +223,10 @@ m2$summary.random
 m2$summary.hyperpar
 
 m2$summary.linear.predictor
-m2$marginals.linear.predictor
+# m2$marginals.linear.predictor
 
 m2$summary.fitted.values
-m2$marginals.fitted.values
+# m2$marginals.fitted.values
 
 marg.variance <- inla.tmarginal(function(x) 1/x,
                                 m2$marginals.hyperpar$"Precision for ARNR")
@@ -251,8 +251,8 @@ ggplot(m2_month, aes(x = ID)) +
 m2_fit <- m2$summary.fitted.values
 m2_fit$obs <- model_data$deaths
 
-ggplot(m2_fit, aes(x = ID)) + 
-  geom_point(aes(x = `0.5quant`, y = obs), alpha = 0.01) + 
+ggplot(m2_fit) + 
+  geom_point(aes(x = `0.5quant`, y = obs), alpha = 0.22) + 
   theme_minimal()
 ```
 

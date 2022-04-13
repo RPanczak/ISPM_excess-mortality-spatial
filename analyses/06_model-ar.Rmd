@@ -128,7 +128,8 @@ Using only data untill 2019.
 
 ```{r}
 model_data = w_deaths_2015_2021_ar_pop %>% 
-  filter(year < 2020)
+  filter(year < 2020) %>% 
+  filter(age != "<40")
 ```
 
 ## INLA setup
@@ -163,7 +164,7 @@ m1 <- inla(f1,
 
 summary(m1)
 
-m1$summary.fixed
+exp(m1$summary.fixed)
 m1$summary.random
 m1$summary.hyperpar
 
@@ -218,7 +219,7 @@ m2 <- inla(f2,
 
 summary(m2)
 
-m2$summary.fixed
+exp(m2$summary.fixed)
 m2$summary.random
 m2$summary.hyperpar
 
@@ -256,11 +257,89 @@ ggplot(m2_fit) +
   theme_minimal()
 ```
 
-```{r}
-m1$dic$dic
-m2$dic$dic
+## Adding canton
 
-m1$waic$waic
-m2$waic$waic
+```{r}
+f3 <-
+  deaths ~ 1 + offset(log(population)) + 
+  sex + age + 
+  f(time, model = "rw2", hyper = hyper.iid, constr = TRUE, scale.model = TRUE) +
+  f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE,
+    cyclic = TRUE)  +
+  f(ARNR, model = "iid", hyper = hyper.iid, constr = TRUE) + 
+  f(KTNAME, model = "iid", hyper = hyper.iid, constr = TRUE)
+
+m3 <- inla(f3,
+           data = model_data,
+           family = "Poisson",
+           # verbose = TRUE,
+           control.family = control.family,
+           control.compute = list(config = TRUE, dic = TRUE, waic = TRUE),
+           control.mode = list(restart = TRUE),
+           num.threads = round(parallel::detectCores() * .8),
+           control.predictor = list(link = 1)
+)
+
+summary(m3)
+
+m3$summary.fixed
+m3$summary.random
+m3$summary.hyperpar
+
+m3$summary.linear.predictor
+# m3$marginals.linear.predictor
+
+m3$summary.fitted.values
+# m3$marginals.fitted.values
+
+marg.variance <- inla.tmarginal(function(x) 1/x,
+                                m3$marginals.hyperpar$"Precision for ARNR")
+mm <- inla.emarginal(function(x) x^2, marg.variance)
+m <- inla.emarginal(function(x) x, marg.variance)
+sqrt(mm - m^2)
+
+m3_time <- m3$summary.random$time
+
+ggplot(m3_time, aes(x = ID)) + 
+  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) + 
+  geom_line(aes(y = `0.5quant`)) + 
+  theme_minimal()
+
+m3_month <- m3$summary.random$month
+
+ggplot(m3_month, aes(x = ID)) + 
+  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) + 
+  geom_line(aes(y = `0.5quant`)) + 
+  theme_minimal()
+
+m3_fit <- m3$summary.fitted.values
+m3_fit$obs <- model_data$deaths
+
+ggplot(m3_fit) + 
+  geom_point(aes(x = `0.5quant`, y = obs), alpha = 0.22) + 
+  theme_minimal()
+```
+
+```{r}
+dotchart(
+  c(
+    m1$dic$dic,
+    m2$dic$dic,
+    m3$dic$dic
+  ), labels = c(
+    "m1", "m2", "m3"
+  )
+)
+
+dotchart(
+  c(
+    m1$waic$waic,
+    m2$waic$waic,
+    m3$waic$waic
+  ), labels = c(
+    "m1", "m2", "m3"
+  )
+)
+
 ```
 

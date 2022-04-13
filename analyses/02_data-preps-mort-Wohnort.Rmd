@@ -235,7 +235,7 @@ w_deaths_2015_2021_exp <-
   mutate(date = ymd(paste(year, month, "1", sep = " "))) %>% 
   relocate(date, .after = month) %>% 
   left_join(raum) %>% 
-  select(-canton, -BZNAME) %>% 
+  select(-canton) %>% 
   relocate(GMDNR, .before = GMDNAME) %>% 
   relocate(KTNAME, .after = GMDNAME) %>% 
   # arrange(GMDNR, year, month, age, sex, nationality) %>% 

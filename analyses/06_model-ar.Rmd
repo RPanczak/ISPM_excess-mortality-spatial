@@ -53,9 +53,69 @@ mu <- Hmisc::markupSpecs$html
 
 <!-- ----------------------------------------------------- -->
 
-```{r}
-w_deaths_2015_2021_ar_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_ar_pop.Rds")
+# Data 
 
-w_deaths_2015_2021_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_pop.Rds")
+## Deaths
+
+```{r}
+w_deaths_2015_2021_ar_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_ar_pop.Rds") %>% 
+  mutate(time = as.numeric(as.factor(date))) %>% 
+  select(-date) %>% relocate(time, .after = month)
 ```
+
+## Spatial 
+
+```{r}
+ar21 <- readRDS("data/BfS/argr21.Rds")
+argr21 <- readRDS("data/BfS/argr21.Rds")
+
+tg3o_ar <- readRDS("data/geo/tg3o_ar.Rds")
+```
+
+<!-- ----------------------------------------------------- -->
+
+# Time series plots
+
+## Aggregated data 
+
+```{r}
+data <- w_deaths_2015_2021_ar_pop %>% 
+  mutate(rate = 1000 * deaths / population) %>% 
+  group_by(ARNAME, date) %>% 
+  summarize(CDR = weighted.mean(rate, population)) %>% 
+  ungroup() 
+```
+
+## Deaths
+
+```{r echo=FALSE}
+ggplot(data, aes(x = date, y = deaths, group = ARNAME)) + 
+  geom_line(colour = "darkorchid", alpha = 0.25) +
+  theme_minimal() + 
+  ylab("Number of deaths") + xlab("")
+```
+
+## Crude mort rates
+
+```{r echo=FALSE}
+ggplot(data, aes(x = date, y = CDR, group = ARNAME)) + 
+  geom_line(colour = "darkorchid", alpha = 0.25) +
+  theme_minimal() + 
+  ylab("Crude death rate [per 10,000]") + xlab("")
+```
+
+<!-- ----------------------------------------------------- -->
+
+# Tiles 
+
+```{r}
+ggplot(data, aes(x = date, y = ARNAME, fill = CDR)) + 
+  geom_tile(color = "white", size = 0.05) +
+  coord_equal(ratio = 50) + 
+  scale_fill_viridis_c(option = "E", direction = -1) + 
+  theme_minimal() + 
+  ylab("") + xlab("")
+```
+
+
 

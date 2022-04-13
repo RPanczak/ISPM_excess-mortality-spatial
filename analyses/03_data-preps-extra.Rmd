@@ -217,6 +217,10 @@ population_ext_lm <- population %>%
   relocate(year)
 ```
 
+```{r eval=FALSE, include=FALSE}
+summary(population_ext_lm$population_ext_lm)
+```
+
 ```{r}
 population_ext_poi <- population %>% 
   filter(year != 2020) %>% 
@@ -233,6 +237,11 @@ population_ext_poi <- population %>%
   # arrange(year, GMDNR, sex, nationality, age) %>% 
   arrange(year, GMDNR, sex, age) %>% 
   relocate(year)
+```
+
+```{r eval=FALSE, include=FALSE}
+# 4 NAs!
+summary(population_ext_poi$population_ext_poi)
 ```
 
 ### Results in large municipality {.tabset}
@@ -295,7 +304,37 @@ population %>%
   facet_wrap(age~sex, scales = "free")
 ```
 
-**Note lack of prediction for oldest males!**  
+**Note lack of prediction for 2020 & 2021 for oldest males!**  
+
+There are two municipalities with missing predictions for oldest males:  
+
+```{r echo=FALSE}
+(problems <- population_ext_poi %>% 
+   filter(is.na(population_ext_poi)) %>% 
+   select(GMDNR, age, sex) %>% 
+   left_join(population %>% 
+               select(GMDNR, GMDNAME) %>% 
+               distinct()) %>% 
+   distinct())
+```
+
+```{r eval=FALSE, include=FALSE}
+population %>% 
+  bind_rows(population_ext_poi) %>% 
+  filter(GMDNR %in% problems$GMDNR,
+         age %in% problems$age,
+         sex %in% problems$sex) %>%
+  arrange(GMDNR, sex, age, year) %>%
+  View()
+
+population %>% 
+  bind_rows(population_ext_lm) %>% 
+  filter(GMDNR %in% problems$GMDNR,
+         age %in% problems$age,
+         sex %in% problems$sex) %>%
+  arrange(GMDNR, sex, age, year) %>%
+  View()
+```
 
 ## Getting mid-year pops {.tabset}
 
@@ -341,7 +380,11 @@ data <- population %>%
   # 2020 replaced by estimates from lm extrapol
   mutate(population = if_else(year >= 2020, 
                               population_ext_poi, population)) %>% 
-  select(-population_ext_poi)
+  # replacing two missing strata with lm estimates
+  left_join(population_ext_lm) %>% 
+  mutate(population = if_else(year >= 2020 & is.na(population_ext_poi), 
+                              population_ext_lm, population)) %>% 
+  select(-population_ext_poi, -population_ext_lm) 
 
 for (i in 2014:2020){
   
@@ -422,7 +465,8 @@ population %>%
 
 ## Deaths <-> population link
 
-Prepared population file is merged to deaths prepared in `02.Rmd`. We use file based on place of residence.  
+Prepared population file is merged to deaths dataset prepared in `02.Rmd`.  
+**We use file based on place of residence.**  
 
 Non-existent population count `communityXyearXageXsexXnationality` strata are assumed to mean 0 pops.  
 
@@ -432,7 +476,8 @@ w_deaths_2015_2021_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_exp.Rds")
     bind_rows(population, 
               population %>% 
                 filter(year == 2020) %>% 
-                mutate(year = 2021))
+                mutate(year = 2021)
+    )
   ) %>% 
   replace_na(list(population = 0)) %>% 
   left_join(population_mid_lm) %>% 
@@ -441,19 +486,25 @@ w_deaths_2015_2021_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_exp.Rds")
   replace_na(list(population_mid_poi = 0))
 ```
 
+```{r eval=FALSE, include=FALSE}
+summary(w_deaths_2015_2021_pop$population)
+summary(w_deaths_2015_2021_pop$population_mid_lm)
+summary(w_deaths_2015_2021_pop$population_mid_poi)
+```
+
 ## Deaths > population problem
 
 ```{r}
-w_deaths_2015_2021_surplus <- w_deaths_2015_2021_pop %>% 
+surplus <- w_deaths_2015_2021_pop %>% 
   filter(deaths > population) %>% 
   arrange(GMDNR, date) %>% 
   mutate(difference = population - deaths)
 ```
 
-There are `r number(nrow(w_deaths_2015_2021_surplus))` strata from `r number(length(unique(w_deaths_2015_2021_surplus$GMDNR)))`  communities where count of deaths is larger than count of population. The difference is in range of 1-2 and refers to very small counts of deaths/pops.   
+There are `r number(nrow(surplus))` strata from `r number(length(unique(surplus$GMDNR)))`  communities where count of deaths is larger than count of population. The difference is in range of 1-2 and refers to very small counts of deaths/pops.   
 
 ```{r echo=FALSE}
-w_deaths_2015_2021_surplus %>% 
+surplus %>% 
   select(-GMDNR, -date, -border, -starts_with("AR")) %>% 
   datatable()
 ```
@@ -477,7 +528,7 @@ rm(w_deaths_2015_2021_exp, missing1, missing2); gc()
 ```
 
 ```{r include=FALSE}
-rm(w_deaths_2015_2021_surplus); gc()
+rm(surplus); gc()
 ```
 
 ## Labour market aggregates
@@ -485,19 +536,19 @@ rm(w_deaths_2015_2021_surplus); gc()
 Prepared population was also aggregated to labour market regions and joined to deaths.    
 
 ```{r}
-raum <- read_rds("data/BfS/AR.Rds") %>% 
-  select(GMDNR, ARNR, ARNAME)
+raum <- read_rds("data/BfS/raum.Rds") %>% 
+  select(GMDNR, ARNR)
 
-population_ar <- population %>% 
+population_ar <- population_mid_poi %>% 
   left_join(raum) %>% 
-  # group_by(year, ARNR, ARNAME, sex, nationality, age) %>% 
-  group_by(year, ARNR, ARNAME, sex, age) %>% 
-  summarise(population = sum(population)) %>% 
+  select(-GMDNR) %>% 
+  # group_by(year, ARNR, sex, nationality, age) %>% 
+  group_by(year, ARNR, age, sex) %>% 
+  dplyr::summarise(population = sum(population_mid_poi)) %>% 
   ungroup()
 
 w_deaths_2015_2021_ar_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_ar.Rds") %>% 
-  left_join(population_ar) %>% 
-  replace_na(list(population = 0)) 
+  left_join(population_ar)
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -636,9 +687,9 @@ rm(carto, carto_dorling, carto_ncont, carto_se); gc()
 
 ```{r include=FALSE}
 # prepared in 01.Rmd
-ar_21_cor <- st_read("data/geo/ar_21_cor.shp") %>% select(-ARNAME)
+ar_21_cor <- read_rds("data/BfS/ar21.Rds") %>% select(-ARNAME)
 
-st_ar_21 <- st_read("data/geo/st_ar_21.shp") %>% select(-ARNAME)
+st_ar_21 <- read_rds("data/swisstopo/st_ar21.Rds") %>% select(-ARNAME)
 ```
 
 ```{r eval=FALSE}
@@ -932,7 +983,7 @@ ssep3_gem_21_pop_geo %>%
 
 ```{r include=FALSE}
 # using swisstopo due to bfs geodata errors :/
-ar_21 <- st_read("data/geo/st_ar_21.shp") %>% 
+ar_21 <- read_rds("data/swisstopo/st_ar21.Rds") %>% 
   select(-ARNAME)
 ```
 
@@ -942,7 +993,7 @@ ssep3_ar_21_pop <- r19_bu_sep_gem21 %>%
   left_join(raum) %>% 
   select(-GMDNR) %>% 
   uncount(r19_nrpers_main) %>% 
-  group_by(ARNR, ARNAME) %>% 
+  group_by(ARNR) %>% 
   summarise(pop = n(),
             # ssep3_mean = mean(ssep3),
             ssep3_median = median(ssep3)) %>% 

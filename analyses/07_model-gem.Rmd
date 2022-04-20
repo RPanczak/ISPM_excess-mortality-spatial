@@ -205,13 +205,20 @@ control.family <- inla.set.control.family.default()
 f1 <-
   deaths ~ 1 + offset(log(population_mid_poi)) + 
   f(id_time, model = "rw2", hyper = hyper.iid, constr = TRUE, scale.model = TRUE) +
-  # f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
-  # f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE)  +
-  f(id_space, model = "bym2", graph = "data/nb/gg21_wm_q.adj", scale.model = TRUE, constr = TRUE, hyper = hyper.bym)
+  f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
+  f(month, model = "seasonal", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, season.length = 12) +
+  # f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE) +
+  f(id_space, model = "bym2", 
+    graph = "data/nb/gg21_wm_q.adj", 
+    # graph = "data/nb/tg3o_wm_q.adj", 
+    scale.model = TRUE, constr = TRUE, hyper = hyper.bym)
 
 m1 <- inla(f1,
            data = model_data,
-           family = "Poisson",
+           # family = "zeroinflatedpoisson0",
+           # family = "zeroinflatedpoisson1",
+           family = "zeroinflatednbinomial0",
+           # family = "zeroinflatednbinomial1",
            # verbose = TRUE,
            control.family = control.family,
            control.compute = list(config = TRUE, 

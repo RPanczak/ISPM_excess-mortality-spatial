@@ -180,10 +180,14 @@ model_data <- w_deaths_2015_2021_ar_pop %>%
   relocate(observed, .before = deaths) %>% 
   relocate(id_year, .before = year) %>% 
   mutate(deaths = if_else(year >= 2020, NA_integer_, observed)) %>% 
-  filter(age == "80+" & sex == "Female") %>% 
+  filter(age == "80+" & sex == "Male") %>% 
   select(-age, - sex)
+```
 
-# sapply(model_data, function(x) sum(is.na(x)))
+```{r eval=FALSE, include=FALSE}
+sapply(model_data, function(x) sum(is.na(x)))
+ggplot(model_data) + geom_histogram(aes(x = observed), binwidth = 1)
+frq(model_data, observed == 0)
 ```
 
 ## INLA setup
@@ -205,16 +209,20 @@ f1 <-
   deaths ~ 1 + offset(log(population)) + 
   f(id_time, model = "rw2", hyper = hyper.iid, constr = TRUE, scale.model = TRUE) +
   f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
-  f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE)  +
+  f(month, model = "seasonal", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, season.length = 12) +
+  # f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE) +
   f(id_space, model = "iid", hyper = hyper.iid, constr = TRUE)
 
 m1 <- inla(f1,
            data = model_data,
-           family = "Poisson",
+           # family = "zeroinflatedpoisson0",
+           # family = "zeroinflatedpoisson1",
+           family = "zeroinflatednbinomial0",
+           # family = "zeroinflatednbinomial1",
            # verbose = TRUE,
            control.family = control.family,
            control.compute = list(config = TRUE, 
-                                  return.marginals.predictor = TRUE,
+                                  # return.marginals.predictor = TRUE,
                                   # cpo = TRUE,
                                   dic = TRUE, waic = TRUE),
            control.mode = list(restart = TRUE),
@@ -272,12 +280,13 @@ m1_fit <- bind_cols(
 ggplot(m1_fit) + 
   geom_point(aes(x = `0.5quant`, y = observed), alpha = 0.22) + 
   facet_wrap(vars(split)) +
+  xlab("predicted") + 
   theme_minimal()
 
 m1_fit %>% 
   filter(ARNAME == "Bern") %>% 
   ggplot(aes(x = date)) + 
-  # geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) +
+  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) +
   geom_line(aes(y = `0.5quant`)) + 
   geom_point(aes(y = observed), alpha = 0.22) + 
   # facet_wrap(vars(split), scales = "free_x") +
@@ -336,16 +345,20 @@ f2 <-
   deaths ~ 1 + offset(log(population)) + 
   f(id_time, model = "rw2", hyper = hyper.iid, constr = TRUE, scale.model = TRUE) +
   f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
-  f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE)  +
+  f(month, model = "seasonal", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, season.length = 12) +
+  # f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE) +
   f(id_space, model = "bym2", graph = "data/nb/ar21_wm_q.adj", scale.model = TRUE, constr = TRUE, hyper = hyper.bym)
 
 m2 <- inla(f2,
            data = model_data,
-           family = "Poisson",
+           # family = "zeroinflatedpoisson0",
+           # family = "zeroinflatedpoisson1",
+           family = "zeroinflatednbinomial0",
+           # family = "zeroinflatednbinomial1",
            # verbose = TRUE,
            control.family = control.family,
            control.compute = list(config = TRUE, 
-                                  return.marginals.predictor = TRUE,
+                                  # return.marginals.predictor = TRUE,
                                   # cpo = TRUE,
                                   dic = TRUE, waic = TRUE),
            control.mode = list(restart = TRUE),
@@ -402,12 +415,13 @@ m2_fit <- bind_cols(
 ggplot(m2_fit) + 
   geom_point(aes(x = `0.5quant`, y = observed), alpha = 0.22) + 
   facet_wrap(vars(split)) +
+  xlab("predicted") + 
   theme_minimal()
 
 m2_fit %>% 
   filter(ARNAME == "Lugano") %>% 
   ggplot(aes(x = date)) + 
-  # geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) +
+  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) +
   geom_line(aes(y = `0.5quant`)) + 
   geom_point(aes(y = observed), alpha = 0.22) + 
   # facet_wrap(vars(split), scales = "free_x") +
@@ -460,11 +474,12 @@ dotchart(
     "m1", "m2"
   )
 )
+```
 
+```{r}
 m1$cpo$cpo
 m1$cpo$pit
 
 m2$cpo$cpo
 m2$cpo$pit
 ```
-

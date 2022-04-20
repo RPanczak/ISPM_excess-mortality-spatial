@@ -145,7 +145,7 @@ tm_shape(se21, is.master = FALSE) +
   tm_borders()
 ```
 
-## BfS geodata 2022 {.tabset}
+## BfS geodata 2022
 
 [Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/en/home/services/geostat/swiss-federal-statistics-geodata/administrative-boundaries/generalized-boundaries-local-regional-authorities.assetdetail.21224783.html).  
 
@@ -708,7 +708,12 @@ ar21 %>%
   select(ARNAME)
 
 # fixing with this
-ar21 <- st_make_valid(ar21)
+ar21 <- st_make_valid(ar21) %>%
+  group_by(ARNR) %>%
+  st_cast("MULTIPOLYGON")
+
+# unique(st_geometry_type(ar21))
+
 table(st_is_valid(ar21))
 
 write_rds(argr21, "data/BfS/argr21.Rds")
@@ -928,7 +933,6 @@ st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME,
 ```
 
 <!-- ----------------------------------------------------- -->
-
 
 # tg3o simplification
 
@@ -1212,7 +1216,7 @@ tm_shape(gg21 %>% st_join(gg21 %>%
   tm_fill(col = "red", lwd = 2, alpha = 0.5)
 ```
 
-### Region with twelve neighbour (max case)
+### Region with twelve neighbours (max case)
 
 `5586 Lausanne`  
 
@@ -1470,3 +1474,9 @@ plot(diffs, coordinates(as_Spatial(tg3o_nb)),
 tg3o_wm_q_list <- nb2listw(tg3o_wm_q, style = "W", zero.policy = TRUE)
 write_rds(tg3o_wm_q_list, "data/nb/tg3o_wm_q_list.Rds")
 ```
+
+<!-- ----------------------------------------------------- -->
+
+# Spatial connectivity of AR regions
+
+## Traditional 

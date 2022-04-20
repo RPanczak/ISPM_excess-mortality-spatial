@@ -30,7 +30,6 @@ p_load(tidyverse, magrittr, scales,
 import::from("sjmisc", "frq")
 ```
 
-
 ```{r conflicts, include = FALSE}
 tidyverse::tidyverse_conflicts()
 
@@ -61,7 +60,8 @@ mu <- Hmisc::markupSpecs$html
 ```{r}
 w_deaths_2015_2021_ar_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_ar_pop.Rds") %>% 
   mutate(time = as.numeric(as.factor(date))) %>% 
-  select(-date) %>% relocate(time, .after = month)
+  # select(-date) %>% 
+  relocate(time, .after = month)
 ```
 
 ## Spatial 
@@ -71,6 +71,12 @@ ar21 <- readRDS("data/BfS/argr21.Rds")
 argr21 <- readRDS("data/BfS/argr21.Rds")
 
 tg3o_ar <- readRDS("data/geo/tg3o_ar.Rds")
+```
+
+## Weights
+
+```{r}
+ar21_wm_q_list <- read_rds("data/nb/ar21_wm_q_list.Rds")
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -83,7 +89,8 @@ tg3o_ar <- readRDS("data/geo/tg3o_ar.Rds")
 data <- w_deaths_2015_2021_ar_pop %>% 
   mutate(rate = 1000 * deaths / population) %>% 
   group_by(ARNAME, date) %>% 
-  summarize(CDR = weighted.mean(rate, population)) %>% 
+  summarize(deaths = sum(deaths),
+            CDR = weighted.mean(rate, population)) %>% 
   ungroup() 
 ```
 
@@ -109,7 +116,9 @@ ggplot(data, aes(x = date, y = CDR, group = ARNAME)) +
 
 # Tiles 
 
-```{r}
+## All
+
+```{r echo=FALSE}
 ggplot(data, aes(x = date, y = ARNAME, fill = CDR)) + 
   geom_tile(color = "white", size = 0.05) +
   coord_equal(ratio = 50) + 
@@ -118,13 +127,58 @@ ggplot(data, aes(x = date, y = ARNAME, fill = CDR)) +
   ylab("") + xlab("")
 ```
 
+## Selected 
+
+```{r echo=FALSE}
+scales <- data %>% 
+  filter(ARNAME %in% c("Biasca", "Bern")) %>% 
+  summarise(min = min(CDR),
+            max = max(CDR))
+
+p1 <- data %>% 
+  filter(ARNAME %in% c("Biasca")) %>% 
+  ggplot(aes(x = date, y = "Biasca", fill = CDR)) + 
+  geom_tile(color = "white", size = 0.05) +
+  coord_equal(ratio = 50) + 
+  scale_fill_viridis_c(limits = c(scales$min, scales$max),
+                       option = "E", direction = -1) + 
+  facet_grid(rows = vars(ARNAME)) +
+  theme_minimal() + 
+  theme(axis.title.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        strip.background = element_blank(),
+        strip.text.y = element_blank()) +
+  ylab("") + xlab("")
+
+p2 <- data %>% 
+  filter(ARNAME %in% c("Bern")) %>% 
+  ggplot(aes(x = date, y = "Bern", fill = CDR)) + 
+  geom_tile(color = "white", size = 0.05) +
+  coord_equal(ratio = 50) + 
+  scale_fill_viridis_c(limits = c(scales$min, scales$max),
+                       option = "E", direction = -1) + 
+  facet_grid(rows = vars(ARNAME)) +
+  theme_minimal() + 
+  theme(axis.title.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        strip.background = element_blank(),
+        strip.text.y = element_blank()) +
+  ylab("") + xlab("")
+
+ggpubr::ggarrange(
+  p1, p2,
+  ncol = 1,
+  common.legend = TRUE, legend = "bottom"
+  )
+```
+
 <!-- ----------------------------------------------------- -->
 
 # Simple modelling
 
 ## Data
 
-Using only data untill 2019.  
+Using only data until 2019-12.  
 
 ```{r}
 model_data = w_deaths_2015_2021_ar_pop %>% 

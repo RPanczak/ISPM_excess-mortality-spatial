@@ -1434,3 +1434,63 @@ write_rds(tg3o_wm_q_list, "data/nb/tg3o_wm_q_list.Rds")
 # Spatial connectivity of AR regions
 
 ## Traditional 
+
+Based on queen connectivity between the areas. Uses 'normal' AR boundaries and connects them irrespectively of mountains.  
+
+### Weights 
+
+```{r}
+ar21_wm_q <- poly2nb(ar21, queen = TRUE, row.names = ar21$ARNR)
+
+ar21_wm_q
+summary(ar21_wm_q)
+
+write_rds(ar21_wm_q, "data/nb/ar21_wm_q.Rds")
+```
+
+### Region with one neighbour
+
+`08013 Basel`  
+
+```{r echo=FALSE}
+tmap_mode("view")
+
+tm_shape(ar21 %>% st_join(ar21 %>% 
+                            filter(ARNAME == "Basel"), 
+                          left = FALSE)) +
+  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
+  tm_shape(ar21 %>% 
+             filter(ARNAME == "Basel")) +
+  tm_fill(col = "red", lwd = 2, alpha = 0.5)
+```
+
+### Region with ten neighbours (max case)
+
+`05060 Solothurn`  
+
+```{r echo=FALSE}
+tm_shape(ar21 %>% st_join(ar21 %>% 
+                            filter(ARNAME == "Solothurn"), 
+                          left = FALSE)) +
+  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
+  tm_shape(ar21 %>% 
+             filter(ARNAME == "Solothurn")) +
+  tm_fill(col = "red", lwd = 2, alpha = 0.5)
+```
+
+### All together:  
+
+```{r echo=FALSE}
+tmap_mode("plot")
+
+plot(as_Spatial(ar21), border = "lightgrey") 
+plot(ar21_wm_q, coordinates(as_Spatial(ar21)), 
+     pch = 19, cex = 0.6, add = TRUE, col = "red")
+```
+
+### List 
+
+```{r}
+ar21_wm_q_list <- nb2listw(ar21_wm_q, style = "W", zero.policy = TRUE)
+write_rds(ar21_wm_q_list, "data/nb/ar21_wm_q_list.Rds")
+```

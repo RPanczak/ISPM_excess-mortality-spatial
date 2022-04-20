@@ -1101,7 +1101,7 @@ tg3o_ar <- tg3o %>%
   ungroup()
 ```
 
-```{r include=FALSE}
+```{r eval=FALSE, include=FALSE}
 frq(st_is_valid(tg3o_ar))
 
 tg3o_ar %>% 

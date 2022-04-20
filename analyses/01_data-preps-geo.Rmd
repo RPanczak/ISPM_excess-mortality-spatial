@@ -626,7 +626,9 @@ raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx",
               skip = 1, sheet = "CH1+CL_BAE+2018.0") %>% 
       rename(
         ARNR = Code,
-        ARNAME = Label) 
+        ARNAME = Label) %>% 
+      # weird hyphen in some neames?
+      mutate(ARNAME = str_replace(ARNAME, fixed("–"), "-"))
   ) %>% 
   relocate(ARGRNAME, .after = ARGRNR) %>% 
   relocate(ARNAME, .after = ARNR) %>% 
@@ -699,22 +701,8 @@ ar21 <- st_read("data/geo/ar_21_cor.shp") %>%
 # unique(st_geometry_type(argr21))
 # unique(st_geometry_type(ar21))
 
-# some dramas here
 # table(st_is_valid(argr21))
-table(st_is_valid(ar21))
-
-ar21 %>% 
-  filter(!st_is_valid(.)) %>% 
-  select(ARNAME)
-
-# fixing with this
-ar21 <- st_make_valid(ar21) %>%
-  group_by(ARNR) %>%
-  st_cast("MULTIPOLYGON")
-
-# unique(st_geometry_type(ar21))
-
-table(st_is_valid(ar21))
+# table(st_is_valid(ar21))
 
 write_rds(argr21, "data/BfS/argr21.Rds")
 write_rds(ar21, "data/BfS/ar21.Rds")
@@ -723,40 +711,6 @@ st_write(argr21, "data/geo/BfS.gpkg",
          layer = "argr21", append = FALSE)
 st_write(ar21, "data/geo/BfS.gpkg", 
          layer = "ar21", append = FALSE)
-```
-
-```{r eval=FALSE, include=FALSE}
-p_load(cleangeo)
-
-sp <- rgdal::readOGR("data/geo/ar_21_cor.shp")
-
-sp.report <- clgeo_CollectionReport(sp)
-sp.summary <- clgeo_SummaryReport(sp.report)
-sp.fixed <- clgeo_Clean(sp, verbose = TRUE)
-
-map_centre <- st_sfc(st_point(c(2717542, 1090036)), crs = 2056) %>% 
-  st_as_sf()
-
-map_centre_b <- map_centre %>% 
-  st_buffer(10000) %>% 
-  st_as_sf()
-
-tmap_mode("plot")
-tm_shape(map_centre_b) +
-  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
-  tm_shape(map_centre) +
-  tm_symbols() +
-  tm_shape(ar21_cor) +
-  tm_borders(col = "red", lwd = 2, alpha = 0.5) 
-
-tmap_mode("plot")
-tm_shape(map_centre_b) +
-  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
-  tm_shape(ar21_cor) +
-  tm_borders(col = "red", lwd = 2, alpha = 0.5) 
-
-rm(sp, sp.report, sp.summary, sp.fixed, map_centre, map_centre_b); gc()
-p_unload(cleangeo)
 ```
 
 Dissolve in R using swisstopo data was all fine.  

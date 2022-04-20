@@ -1152,6 +1152,7 @@ gg21_wm_q
 summary(gg21_wm_q)
 
 write_rds(gg21_wm_q, "data/nb/gg21_wm_q.Rds")
+nb2INLA("data/nb/gg21_wm_q.adj", gg21_wm_q) 
 ```
 
 ### Region with one neighbour
@@ -1370,6 +1371,7 @@ tg3o_wm_q <- poly2nb(tg3o_nb, queen = TRUE, row.names = tg3o$GMDNR)
 summary(tg3o_wm_q)
 
 write_rds(tg3o_wm_q, "data/nb/tg3o_wm_q.Rds")
+nb2INLA("data/nb/tg3o_wm_q.adj", tg3o_wm_q) 
 ```
 
 <!-- ### Manual correction -->
@@ -1446,6 +1448,7 @@ ar21_wm_q
 summary(ar21_wm_q)
 
 write_rds(ar21_wm_q, "data/nb/ar21_wm_q.Rds")
+nb2INLA("data/nb/ar21_wm_q.adj", ar21_wm_q) 
 ```
 
 ### Region with one neighbour

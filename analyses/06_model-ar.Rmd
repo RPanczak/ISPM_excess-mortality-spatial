@@ -57,12 +57,21 @@ mu <- Hmisc::markupSpecs$html
 ## Deaths
 
 ```{r}
-w_deaths_2015_2021_ar_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_ar_pop.Rds") %>% 
-  mutate(id_time = as.numeric(as.factor(date))) %>% 
+data <- 
+  read_rds("data/BfS-closed/w_deaths_2015_2021_ar_pop.Rds") %>% 
+  select(-ARGRNR, -ARGRNAME, -KTNAME) %>% 
+  # mutate(id_time = as.numeric(as.factor(date))) %>% 
+  # relocate(id_time, .after = month) %>% 
   # select(-date) %>% 
-  relocate(id_time, .after = month) %>% 
-  mutate(id_space = as.integer(as.factor(ARNR))) %>% 
-  relocate(id_space, .after = id_time)
+  mutate(id_year = year - 2014,
+         observed = deaths,
+         id_space = as.integer(as.factor(ARNR)),
+         id_age = as.integer(as.factor(age))) %>% 
+  mutate(deaths = if_else(year >= 2020, NA_integer_, observed)) %>% 
+  relocate(id_space) %>% 
+  relocate(id_age, .after = age) %>% 
+  relocate(observed, .after = deaths) %>% 
+  relocate(id_year, .after = year) 
 ```
 
 ## Spatial 
@@ -70,127 +79,10 @@ w_deaths_2015_2021_ar_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_ar_pop
 ```{r}
 ar21 <- readRDS("data/BfS/ar21.Rds")
 # argr21 <- readRDS("data/BfS/argr21.Rds")
-tg3o_ar <- readRDS("data/geo/tg3o_ar.Rds")
+# tg3o_ar <- readRDS("data/geo/tg3o_ar.Rds")
 ```
 
-<!-- ----------------------------------------------------- -->
-
-# Time series plots
-
-## Aggregated data 
-
-```{r}
-data <- w_deaths_2015_2021_ar_pop %>% 
-  mutate(rate = 1000 * deaths / population) %>% 
-  group_by(ARNAME, date) %>% 
-  summarize(deaths = sum(deaths),
-            CDR = weighted.mean(rate, population)) %>% 
-  ungroup() 
-```
-
-## Deaths
-
-```{r echo=FALSE}
-ggplot(data, aes(x = date, y = deaths, group = ARNAME)) + 
-  geom_line(colour = "darkorchid", alpha = 0.25) +
-  theme_minimal() + 
-  ylab("Number of deaths") + xlab("")
-```
-
-## Crude mort rates
-
-```{r echo=FALSE}
-ggplot(data, aes(x = date, y = CDR, group = ARNAME)) + 
-  geom_line(colour = "darkorchid", alpha = 0.25) +
-  theme_minimal() + 
-  ylab("Crude death rate [per 10,000]") + xlab("")
-```
-
-<!-- ----------------------------------------------------- -->
-
-# Tiles 
-
-## All
-
-```{r echo=FALSE}
-ggplot(data, aes(x = date, y = ARNAME, fill = CDR)) + 
-  geom_tile(color = "white", size = 0.05) +
-  coord_equal(ratio = 50) + 
-  scale_fill_viridis_c(option = "E", direction = -1) + 
-  theme_minimal() + 
-  ylab("") + xlab("")
-```
-
-## Selected 
-
-```{r echo=FALSE}
-scales <- data %>% 
-  filter(ARNAME %in% c("Biasca", "Bern")) %>% 
-  summarise(min = min(CDR),
-            max = max(CDR))
-
-p1 <- data %>% 
-  filter(ARNAME %in% c("Biasca")) %>% 
-  ggplot(aes(x = date, y = "Biasca", fill = CDR)) + 
-  geom_tile(color = "white", size = 0.05) +
-  coord_equal(ratio = 50) + 
-  scale_fill_viridis_c(limits = c(scales$min, scales$max),
-                       option = "E", direction = -1) + 
-  facet_grid(rows = vars(ARNAME)) +
-  theme_minimal() + 
-  theme(axis.title.y = element_blank(),
-        axis.ticks.y = element_blank(),
-        strip.background = element_blank(),
-        strip.text.y = element_blank()) +
-  ylab("") + xlab("")
-
-p2 <- data %>% 
-  filter(ARNAME %in% c("Bern")) %>% 
-  ggplot(aes(x = date, y = "Bern", fill = CDR)) + 
-  geom_tile(color = "white", size = 0.05) +
-  coord_equal(ratio = 50) + 
-  scale_fill_viridis_c(limits = c(scales$min, scales$max),
-                       option = "E", direction = -1) + 
-  facet_grid(rows = vars(ARNAME)) +
-  theme_minimal() + 
-  theme(axis.title.y = element_blank(),
-        axis.ticks.y = element_blank(),
-        strip.background = element_blank(),
-        strip.text.y = element_blank()) +
-  ylab("") + xlab("")
-
-ggpubr::ggarrange(
-  p1, p2,
-  ncol = 1,
-  common.legend = TRUE, legend = "bottom"
-)
-```
-
-<!-- ----------------------------------------------------- -->
-
-# Simple modelling
-
-## Data
-
-```{r}
-model_data <- w_deaths_2015_2021_ar_pop %>% 
-  select(-ARGRNR, -ARGRNAME, -KTNAME) %>% 
-  mutate(id_year = year - 2014,
-         observed = deaths) %>% 
-  relocate(observed, .before = deaths) %>% 
-  relocate(id_year, .before = year) %>% 
-  mutate(deaths = if_else(year >= 2020, NA_integer_, observed)) %>% 
-  filter(age == "80+" & sex == "Male") %>% 
-  select(-age, - sex)
-```
-
-```{r eval=FALSE, include=FALSE}
-sapply(model_data, function(x) sum(is.na(x)))
-ggplot(model_data) + geom_histogram(aes(x = observed), binwidth = 1)
-frq(model_data, observed == 0)
-```
-
-## INLA setup
+# INLA setup
 
 ```{r}
 # priors
@@ -198,8 +90,30 @@ hyper.iid <- list(theta = list(prior = "pc.prec", param = c(1, 0.01)))
 hyper.bym <- list(theta1 = list("PCprior", c(1, 0.01)), 
                   theta2 = list("PCprior", c(0.5, 0.5)))
 
-# Under Poisson uses default set up
+# under Poisson uses default set up
 control.family <- inla.set.control.family.default()
+```
+
+<!-- ----------------------------------------------------- -->
+
+# Stratified modelling
+
+## Data
+
+```{r}
+data_strat <- data %>% 
+  filter(age == "80+" & sex == "Male") %>% 
+  select(-age, - sex)
+```
+
+```{r eval=FALSE, include=FALSE}
+sapply(data_strat, function(x) sum(is.na(x)))
+
+ggplot(data_strat) + 
+  geom_histogram(aes(x = observed), binwidth = 1) +
+  theme_minimal()
+
+frq(data_strat, observed == 0)
 ```
 
 ## iid space
@@ -207,46 +121,40 @@ control.family <- inla.set.control.family.default()
 ```{r}
 f1 <-
   deaths ~ 1 + offset(log(population)) + 
-  f(id_time, model = "rw2", hyper = hyper.iid, constr = TRUE, scale.model = TRUE) +
   f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
-  f(month, model = "seasonal", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, season.length = 12) +
-  # f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE) +
+  # f(month, model = "seasonal", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, season.length = 12) +
+  f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE) +
   f(id_space, model = "iid", hyper = hyper.iid, constr = TRUE)
 
 m1 <- inla(f1,
-           data = model_data,
+           data = data_strat,
+           family = "Poisson",
            # family = "zeroinflatedpoisson0",
            # family = "zeroinflatedpoisson1",
-           family = "zeroinflatednbinomial0",
+           # family = "zeroinflatednbinomial0",
            # family = "zeroinflatednbinomial1",
            # verbose = TRUE,
            control.family = control.family,
            control.compute = list(config = TRUE, 
-                                  # return.marginals.predictor = TRUE,
-                                  # cpo = TRUE,
+                                  return.marginals.predictor = TRUE,
+                                  cpo = TRUE,
                                   dic = TRUE, waic = TRUE),
            control.mode = list(restart = TRUE),
            num.threads = round(parallel::detectCores() * .8),
            control.predictor = list(compute = TRUE, 
-                                    link = 1)
-           # , control.inla = list(int.strategy = "grid", diff.logdens = 4)
-           # , control.inla = list(strategy = "laplace", npoints = 21)
+                                    link = 1),
+           control.inla = list(
+             strategy = "simplified.laplace", # default
+             # strategy = "adaptive",  
+             # strategy = "gaussian",  
+             # strategy = "laplace", #npoints = 21, 
+             int.strategy = "ccd" # default
+             # int.strategy = "grid", diff.logdens = 4
+           )
 )
 
 summary(m1)
 m1$summary.hyperpar
-
-m1_time <- m1$summary.random$id_time %>% 
-  mutate(`0.025quant` = exp(`0.025quant`),
-         `0.5quant` = exp(`0.5quant`),
-         `0.975quant` = exp(`0.975quant`))
-
-m1_time %>% 
-  filter(ID <= 60) %>%
-  ggplot(aes(x = ID)) + 
-  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) + 
-  geom_line(aes(y = `0.5quant`)) + 
-  theme_minimal()
 
 m1_month <- m1$summary.random$month %>% 
   mutate(`0.025quant` = exp(`0.025quant`),
@@ -272,10 +180,10 @@ m1_year %>%
   theme_minimal()
 
 m1_fit <- bind_cols(
-  model_data,
+  data_strat,
   m1$summary.fitted.values
 ) %>% 
-  mutate(split = ifelse(id_time <= 60, "Pre", "Pand"))
+  mutate(split = ifelse(date <= as.Date("2019-12-01"), "Pre", "Pand"))
 
 ggplot(m1_fit) + 
   geom_point(aes(x = `0.5quant`, y = observed), alpha = 0.22) + 
@@ -284,18 +192,34 @@ ggplot(m1_fit) +
   theme_minimal()
 
 m1_fit %>% 
-  filter(ARNAME == "Bern") %>% 
+  filter(ARNAME == "Lugano") %>% 
   ggplot(aes(x = date)) + 
   geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) +
   geom_line(aes(y = `0.5quant`)) + 
-  geom_point(aes(y = observed), alpha = 0.22) + 
+  geom_point(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
   # facet_wrap(vars(split), scales = "free_x") +
+  xlab("") + ylab("predicted/observed") +
+  theme_minimal()
+
+m1_fit_agg <- m1_fit %>% 
+  # mutate(population = ifelse(month == 1, population, NA)) %>% 
+  group_by(date) %>% 
+  summarise(observed = sum(observed),
+            # population = sum(population),
+            predicted = as.integer(sum(`0.5quant`)))
+
+m1_fit_agg %>% 
+  ggplot(aes(x = date)) + 
+  geom_line(aes(y = predicted)) + 
+  geom_line(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
+  # facet_wrap(vars(split), scales = "free_x") +
+  xlab("") + ylab("predicted/observed") +
   theme_minimal()
 
 m1_space <- 
   ar21 %>%
   # tg3o_ar %>%
-  left_join(model_data %>% select(ARNR, id_space) %>% distinct()) %>% 
+  left_join(data_strat %>% select(ARNR, id_space) %>% distinct()) %>% 
   left_join(m1$summary.random$id_space %>% 
               mutate(`0.025quant` = exp(`0.025quant`),
                      `0.5quant` = exp(`0.5quant`),
@@ -312,14 +236,14 @@ list_marginals <- m1$marginals.fitted.values
 
 marginals <- data.frame(do.call(rbind, list_marginals))
 marginals$ID <- rep(names(list_marginals),
-                           times = sapply(list_marginals, nrow))
+                    times = sapply(list_marginals, nrow))
 ```
 
 ```{r eval=FALSE, include=FALSE}
 improved_m1 = inla.cpo(m1)
 
 m1_fit <- bind_cols(
-  model_data,
+  data_strat,
   improved_m1$summary.fitted.values
 ) %>% 
   mutate(split = ifelse(id_time <= 60, "Pre", "Pand"))
@@ -330,11 +254,11 @@ ggplot(m1_fit) +
   theme_minimal()
 
 m1_fit %>% 
-  filter(ARNAME == "Bern") %>% 
+  filter(ARNAME == "Lugano") %>% 
   ggplot(aes(x = date)) + 
-  # geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) +
+  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) +
   geom_line(aes(y = `0.5quant`)) + 
-  geom_point(aes(y = observed), alpha = 0.22) + 
+  geom_point(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
   theme_minimal()
 ```
 
@@ -343,45 +267,39 @@ m1_fit %>%
 ```{r}
 f2 <-
   deaths ~ 1 + offset(log(population)) + 
-  f(id_time, model = "rw2", hyper = hyper.iid, constr = TRUE, scale.model = TRUE) +
   f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
-  f(month, model = "seasonal", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, season.length = 12) +
-  # f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE) +
+  # f(month, model = "seasonal", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, season.length = 12) +
+  f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE) +
   f(id_space, model = "bym2", graph = "data/nb/ar21_wm_q.adj", scale.model = TRUE, constr = TRUE, hyper = hyper.bym)
 
 m2 <- inla(f2,
-           data = model_data,
+           data = data_strat,
+           family = "Poisson",
            # family = "zeroinflatedpoisson0",
            # family = "zeroinflatedpoisson1",
-           family = "zeroinflatednbinomial0",
+           # family = "zeroinflatednbinomial0",
            # family = "zeroinflatednbinomial1",
            # verbose = TRUE,
            control.family = control.family,
            control.compute = list(config = TRUE, 
-                                  # return.marginals.predictor = TRUE,
-                                  # cpo = TRUE,
+                                  return.marginals.predictor = TRUE,
+                                  cpo = TRUE, 
                                   dic = TRUE, waic = TRUE),
            control.mode = list(restart = TRUE),
            num.threads = round(parallel::detectCores() * .8),
-           control.predictor = list(compute = TRUE, link = 1)
-           # , control.inla = list(int.strategy = "grid", diff.logdens = 4)
-           # , control.inla = list(strategy = "laplace", npoints = 21)
+           control.predictor = list(compute = TRUE, link = 1),
+           control.inla = list(
+             strategy = "simplified.laplace", # default
+             # strategy = "adaptive",  
+             # strategy = "gaussian",  
+             # strategy = "laplace", #npoints = 21, 
+             int.strategy = "ccd" # default
+             # int.strategy = "grid", diff.logdens = 4
+           )
 )
 
 summary(m2)
 m2$summary.hyperpar
-
-m2_time <- m2$summary.random$id_time %>% 
-  mutate(`0.025quant` = exp(`0.025quant`),
-         `0.5quant` = exp(`0.5quant`),
-         `0.975quant` = exp(`0.975quant`))
-
-m2_time %>% 
-  filter(ID <= 60) %>%
-  ggplot(aes(x = ID)) + 
-  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) + 
-  geom_line(aes(y = `0.5quant`)) + 
-  theme_minimal()
 
 m2_month <- m2$summary.random$month %>% 
   mutate(`0.025quant` = exp(`0.025quant`),
@@ -407,10 +325,10 @@ m2_year %>%
   theme_minimal()
 
 m2_fit <- bind_cols(
-  model_data,
+  data_strat,
   m2$summary.fitted.values
 ) %>% 
-  mutate(split = ifelse(id_time <= 60, "Pre", "Pand"))
+  mutate(split = ifelse(date <= as.Date("2019-12-01"), "Pre", "Pand"))
 
 ggplot(m2_fit) + 
   geom_point(aes(x = `0.5quant`, y = observed), alpha = 0.22) + 
@@ -423,14 +341,30 @@ m2_fit %>%
   ggplot(aes(x = date)) + 
   geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) +
   geom_line(aes(y = `0.5quant`)) + 
-  geom_point(aes(y = observed), alpha = 0.22) + 
+  geom_point(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
   # facet_wrap(vars(split), scales = "free_x") +
+  xlab("") + ylab("predicted/observed") +
+  theme_minimal()
+
+m2_fit_agg <- m2_fit %>% 
+  # mutate(population = ifelse(month == 1, population, NA)) %>% 
+  group_by(date) %>% 
+  summarise(observed = sum(observed),
+            # population = sum(population),
+            predicted = as.integer(sum(`0.5quant`)))
+
+m2_fit_agg %>% 
+  ggplot(aes(x = date)) + 
+  geom_line(aes(y = predicted)) + 
+  geom_line(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
+  # facet_wrap(vars(split), scales = "free_x") +
+  xlab("") + ylab("predicted/observed") +
   theme_minimal()
 
 m2_space <-
-  # ar21 %>%
-  tg3o_ar %>%
-  left_join(model_data %>% select(ARNR, id_space) %>% distinct()) %>%
+  ar21 %>%
+  # tg3o_ar %>%
+  left_join(data_strat %>% select(ARNR, id_space) %>% distinct()) %>%
   left_join(m2$summary.random$id_space %>%
               slice(1:nrow(ar21)) %>% 
               mutate(`0.025quant` = exp(`0.025quant`),
@@ -445,6 +379,8 @@ tm_shape(m2_space) +
 
 ## Compare 
 
+### Variance
+
 ```{r}
 marg.variance <- inla.tmarginal(function(x) 1/x,
                                 m1$marginals.hyperpar$"Precision for id_space")
@@ -455,8 +391,12 @@ marg.variance <- inla.tmarginal(function(x) 1/x,
                                 m2$marginals.hyperpar$"Precision for id_space")
 inla.zmarginal(marg.variance)
 
-rm(marg.variance, m, mm); gc()
+rm(marg.variance); gc()
+```
 
+### Performance 
+
+```{r}
 dotchart(
   c(
     m1$dic$dic,
@@ -477,9 +417,348 @@ dotchart(
 ```
 
 ```{r}
-m1$cpo$cpo
-m1$cpo$pit
+table(m1$cpo$failure > 0)
+sum(-log(m1$cpo$cpo), na.rm = TRUE)
+# m1$cpo$pit
 
-m2$cpo$cpo
-m2$cpo$pit
+table(m2$cpo$failure > 0)
+sum(-log(m2$cpo$cpo), na.rm = TRUE)
+# m2$cpo$pit
+```
+
+
+<!-- ----------------------------------------------------- -->
+
+# Adjusted modelling
+
+## Data
+
+```{r eval=FALSE, include=FALSE}
+sapply(data, function(x) sum(is.na(x)))
+
+ggplot(data) + 
+  geom_histogram(aes(x = observed), binwidth = 1) +
+  theme_minimal()
+
+frq(data, observed == 0)
+```
+
+## iid space
+
+```{r}
+f1 <-
+  deaths ~ 1 + offset(log(population)) + 
+  
+  sex +
+  f(id_age, model = "iid", hyper = hyper.iid, constr = TRUE) +
+  
+  f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
+  # f(month, model = "seasonal", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, season.length = 12) +
+  f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE) +
+  f(id_space, model = "iid", hyper = hyper.iid, constr = TRUE)
+
+m1 <- inla(f1,
+           data = data,
+           family = "Poisson",
+           # family = "zeroinflatedpoisson0",
+           # family = "zeroinflatedpoisson1",
+           # family = "zeroinflatednbinomial0",
+           # family = "zeroinflatednbinomial1",
+           # verbose = TRUE,
+           control.family = control.family,
+           control.compute = list(config = TRUE, 
+                                  # return.marginals.predictor = TRUE,
+                                  # cpo = TRUE,
+                                  dic = TRUE, waic = TRUE),
+           control.mode = list(restart = TRUE),
+           num.threads = round(parallel::detectCores() * .8),
+           control.predictor = list(compute = TRUE, 
+                                    link = 1),
+           control.inla = list(
+             strategy = "simplified.laplace", # default
+             # strategy = "adaptive",  
+             # strategy = "gaussian",  
+             # strategy = "laplace", #npoints = 21, 
+             int.strategy = "ccd" # default
+             # int.strategy = "grid", diff.logdens = 4
+           )
+)
+
+summary(m1)
+m1$summary.hyperpar
+
+m1_month <- m1$summary.random$month %>% 
+  mutate(`0.025quant` = exp(`0.025quant`),
+         `0.5quant` = exp(`0.5quant`),
+         `0.975quant` = exp(`0.975quant`))
+
+m1_month %>% 
+  ggplot(aes(x = ID)) + 
+  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) + 
+  geom_line(aes(y = `0.5quant`)) + 
+  theme_minimal()
+
+m1_year <- m1$summary.random$id_year %>% 
+  mutate(ID = ID + 2014, 
+         `0.025quant` = exp(`0.025quant`),
+         `0.5quant` = exp(`0.5quant`),
+         `0.975quant` = exp(`0.975quant`))
+
+m1_year %>% 
+  ggplot(aes(x = ID)) + 
+  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) + 
+  geom_line(aes(y = `0.5quant`)) + 
+  theme_minimal()
+
+m1_fit <- bind_cols(
+  data,
+  m1$summary.fitted.values
+) %>% 
+  mutate(split = ifelse(date <= as.Date("2019-12-01"), "Pre", "Pand"))
+
+ggplot(m1_fit) + 
+  geom_point(aes(x = `0.5quant`, y = observed), alpha = 0.22) + 
+  facet_wrap(vars(split)) +
+  xlab("predicted") + 
+  theme_minimal()
+
+m1_fit %>% 
+  filter(ARNAME == "Lugano") %>% 
+  filter(age == "80+" & sex == "Male") %>% 
+  ggplot(aes(x = date)) + 
+  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) +
+  geom_line(aes(y = `0.5quant`)) + 
+  geom_point(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
+  # facet_wrap(vars(split), scales = "free_x") +
+  xlab("") + ylab("predicted/observed") +
+  theme_minimal()
+
+m1_fit_agg <- m1_fit %>% 
+  # mutate(population = ifelse(month == 1, population, NA)) %>% 
+  group_by(date) %>% 
+  summarise(observed = sum(observed),
+            # population = sum(population),
+            predicted = as.integer(sum(`0.5quant`)))
+
+m1_fit_agg %>% 
+  ggplot(aes(x = date)) + 
+  geom_line(aes(y = predicted)) + 
+  geom_line(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
+  # facet_wrap(vars(split), scales = "free_x") +
+  xlab("") + ylab("predicted/observed") +
+  theme_minimal()
+
+m1_space <- 
+  ar21 %>%
+  # tg3o_ar %>%
+  left_join(data %>% select(ARNR, id_space) %>% distinct()) %>% 
+  left_join(m1$summary.random$id_space %>% 
+              mutate(`0.025quant` = exp(`0.025quant`),
+                     `0.5quant` = exp(`0.5quant`),
+                     `0.975quant` = exp(`0.975quant`)), 
+            by = c("id_space" = "ID")) %>% 
+  mutate(`0.5quant` = exp(`0.5quant`))
+
+tm_shape(m1_space) + 
+  tm_fill("0.5quant")
+```
+
+```{r eval=FALSE, include=FALSE}
+list_marginals <- m1$marginals.fitted.values
+
+marginals <- data.frame(do.call(rbind, list_marginals))
+marginals$ID <- rep(names(list_marginals),
+                    times = sapply(list_marginals, nrow))
+```
+
+```{r eval=FALSE, include=FALSE}
+improved_m1 = inla.cpo(m1)
+
+m1_fit <- bind_cols(
+  data,
+  improved_m1$summary.fitted.values
+) %>% 
+  mutate(split = ifelse(id_time <= 60, "Pre", "Pand"))
+
+ggplot(m1_fit) + 
+  geom_point(aes(x = `0.5quant`, y = observed), alpha = 0.22) + 
+  facet_wrap(vars(split)) +
+  theme_minimal()
+
+m1_fit %>% 
+  filter(ARNAME == "Lugano") %>% 
+  ggplot(aes(x = date)) + 
+  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) +
+  geom_line(aes(y = `0.5quant`)) + 
+  geom_point(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
+  theme_minimal()
+```
+
+## Spatial version
+
+```{r}
+f2 <-
+  deaths ~ 1 + offset(log(population)) + 
+  
+  sex +
+  f(id_age, model = "iid", hyper = hyper.iid, constr = TRUE) +
+  
+  f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
+  # f(month, model = "seasonal", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, season.length = 12) +
+  f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE) +
+  f(id_space, model = "bym2", graph = "data/nb/ar21_wm_q.adj", scale.model = TRUE, constr = TRUE, hyper = hyper.bym)
+
+m2 <- inla(f2,
+           data = data,
+           family = "Poisson",
+           # family = "zeroinflatedpoisson0",
+           # family = "zeroinflatedpoisson1",
+           # family = "zeroinflatednbinomial0",
+           # family = "zeroinflatednbinomial1",
+           # verbose = TRUE,
+           control.family = control.family,
+           control.compute = list(config = TRUE, 
+                                  # return.marginals.predictor = TRUE,
+                                  # cpo = TRUE, 
+                                  dic = TRUE, waic = TRUE),
+           control.mode = list(restart = TRUE),
+           num.threads = round(parallel::detectCores() * .8),
+           control.predictor = list(compute = TRUE, link = 1),
+           control.inla = list(
+             strategy = "simplified.laplace", # default
+             # strategy = "adaptive",  
+             # strategy = "gaussian",  
+             # strategy = "laplace", #npoints = 21, 
+             int.strategy = "ccd" # default
+             # int.strategy = "grid", diff.logdens = 4
+           )
+)
+
+summary(m2)
+m2$summary.hyperpar
+
+m2_month <- m2$summary.random$month %>% 
+  mutate(`0.025quant` = exp(`0.025quant`),
+         `0.5quant` = exp(`0.5quant`),
+         `0.975quant` = exp(`0.975quant`))
+
+m2_month %>% 
+  ggplot(aes(x = ID)) + 
+  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) + 
+  geom_line(aes(y = `0.5quant`)) + 
+  theme_minimal()
+
+m2_year <- m2$summary.random$id_year %>% 
+  mutate(ID = ID + 2014, 
+         `0.025quant` = exp(`0.025quant`),
+         `0.5quant` = exp(`0.5quant`),
+         `0.975quant` = exp(`0.975quant`))
+
+m2_year %>% 
+  ggplot(aes(x = ID)) + 
+  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) + 
+  geom_line(aes(y = `0.5quant`)) + 
+  theme_minimal()
+
+m2_fit <- bind_cols(
+  data,
+  m2$summary.fitted.values
+) %>% 
+  mutate(split = ifelse(date <= as.Date("2019-12-01"), "Pre", "Pand"))
+
+ggplot(m2_fit) + 
+  geom_point(aes(x = `0.5quant`, y = observed), alpha = 0.22) + 
+  facet_wrap(vars(split)) +
+  xlab("predicted") + 
+  theme_minimal()
+
+m2_fit %>% 
+  filter(ARNAME == "Lugano") %>% 
+  filter(age == "80+" & sex == "Male") %>% 
+  ggplot(aes(x = date)) + 
+  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) +
+  geom_line(aes(y = `0.5quant`)) + 
+  geom_point(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
+  # facet_wrap(vars(split), scales = "free_x") +
+  xlab("") + ylab("predicted/observed") +
+  theme_minimal()
+
+m2_fit_agg <- m2_fit %>% 
+  # mutate(population = ifelse(month == 1, population, NA)) %>% 
+  group_by(date) %>% 
+  summarise(observed = sum(observed),
+            # population = sum(population),
+            predicted = as.integer(sum(`0.5quant`)))
+
+m2_fit_agg %>% 
+  ggplot(aes(x = date)) + 
+  geom_line(aes(y = predicted)) + 
+  geom_line(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
+  # facet_wrap(vars(split), scales = "free_x") +
+  xlab("") + ylab("predicted/observed") +
+  theme_minimal()
+
+m2_space <-
+  ar21 %>%
+  # tg3o_ar %>%
+  left_join(data %>% select(ARNR, id_space) %>% distinct()) %>%
+  left_join(m2$summary.random$id_space %>%
+              slice(1:nrow(ar21)) %>% 
+              mutate(`0.025quant` = exp(`0.025quant`),
+                     `0.5quant` = exp(`0.5quant`),
+                     `0.975quant` = exp(`0.975quant`)),
+            by = c("id_space" = "ID")) %>%
+  mutate(`0.5quant` = exp(`0.5quant`))
+
+tm_shape(m2_space) +
+  tm_fill("0.5quant")
+```
+
+## Compare 
+
+### Variance
+
+```{r}
+marg.variance <- inla.tmarginal(function(x) 1/x,
+                                m1$marginals.hyperpar$"Precision for id_space")
+inla.zmarginal(marg.variance)
+
+
+marg.variance <- inla.tmarginal(function(x) 1/x,
+                                m2$marginals.hyperpar$"Precision for id_space")
+inla.zmarginal(marg.variance)
+
+rm(marg.variance); gc()
+```
+
+### Performance 
+
+```{r}
+dotchart(
+  c(
+    m1$dic$dic,
+    m2$dic$dic
+  ), labels = c(
+    "m1", "m2"
+  )
+)
+
+dotchart(
+  c(
+    m1$waic$waic,
+    m2$waic$waic
+  ), labels = c(
+    "m1", "m2"
+  )
+)
+```
+
+```{r eval=FALSE, include=FALSE}
+table(m1$cpo$failure > 0)
+sum(-log(m1$cpo$cpo), na.rm = TRUE)
+# m1$cpo$pit
+
+table(m2$cpo$failure > 0)
+sum(-log(m2$cpo$cpo), na.rm = TRUE)
+# m2$cpo$pit
 ```

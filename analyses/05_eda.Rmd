@@ -194,6 +194,16 @@ tm_shape(gg21_centr) +
 
 <!-- ----------------------------------------------------- -->
 
+# Deaths > pops
+
+
+```{r}
+w_deaths_2015_2021_pop %<>%
+  mutate(population_mid_poi = if_else(deaths > population_mid_poi, deaths, population_mid_poi))
+```
+
+<!-- ----------------------------------------------------- -->
+
 # Time series plots AR
 
 ## Aggregated data 
@@ -285,4 +295,98 @@ ggpubr::ggarrange(
 )
 
 rm(data_agg); gc()
+```
+
+
+
+
+
+
+
+
+
+<!-- ----------------------------------------------------- -->
+
+# Time series plots GEM
+
+## Aggregated data 
+
+```{r}
+data <- w_deaths_2015_2021_pop %>% 
+  mutate(rate = 1000 * deaths / population) %>% 
+  group_by(GMDNAME, date) %>% 
+  summarize(deaths = sum(deaths),
+            CDR = weighted.mean(rate, population),
+            population = sum(population)
+  ) %>% 
+  ungroup() 
+```
+
+## Deaths
+
+```{r echo=FALSE}
+ggplot(data, aes(x = date, y = deaths, group = GMDNAME)) + 
+  geom_line(colour = "darkorchid", alpha = 0.25) +
+  theme_minimal() + 
+  ylab("Number of deaths") + xlab("")
+```
+
+## Crude mort rates
+
+```{r echo=FALSE}
+ggplot(data, aes(x = date, y = CDR, group = GMDNAME)) + 
+  geom_line(colour = "darkorchid", alpha = 0.25) +
+  theme_minimal() + 
+  ylab("Crude death rate [per 10,000]") + xlab("")
+```
+
+<!-- ----------------------------------------------------- -->
+
+# Tiles GEM
+
+## Selected 
+
+```{r echo=FALSE}
+scales <- data %>% 
+  filter(GMDNAME %in% c("Brienzwiler", "Bern")) %>% 
+  summarise(min = min(CDR),
+            max = max(CDR))
+
+p1 <- data %>% 
+  filter(GMDNAME %in% c("Brienzwiler")) %>% 
+  ggplot(aes(x = date, y = "Brienzwiler", fill = CDR)) + 
+  geom_tile(color = "white", size = 0.05) +
+  coord_equal(ratio = 50) + 
+  scale_fill_viridis_c(limits = c(scales$min, scales$max),
+                       option = "E", direction = -1) + 
+  facet_grid(rows = vars(GMDNAME)) +
+  theme_minimal() + 
+  theme(axis.title.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        strip.background = element_blank(),
+        strip.text.y = element_blank()) +
+  ylab("") + xlab("")
+
+p1 
+
+p2 <- data %>% 
+  filter(GMDNAME %in% c("Bern")) %>% 
+  ggplot(aes(x = date, y = "Bern", fill = CDR)) + 
+  geom_tile(color = "white", size = 0.05) +
+  coord_equal(ratio = 50) + 
+  scale_fill_viridis_c(limits = c(scales$min, scales$max),
+                       option = "E", direction = -1) + 
+  facet_grid(rows = vars(GMDNAME)) +
+  theme_minimal() + 
+  theme(axis.title.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        strip.background = element_blank(),
+        strip.text.y = element_blank()) +
+  ylab("") + xlab("")
+
+ggpubr::ggarrange(
+  p1, p2,
+  ncol = 1,
+  common.legend = TRUE, legend = "bottom"
+)
 ```

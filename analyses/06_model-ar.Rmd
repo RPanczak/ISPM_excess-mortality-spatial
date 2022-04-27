@@ -103,20 +103,24 @@ control.family <- inla.set.control.family.default()
 ```{r}
 data_strat <- data %>% 
   filter(age == "80+" & sex == "Male") %>% 
-  select(-age, - sex)
+  select(-age, -sex, -id_age)
 ```
 
 ```{r eval=FALSE, include=FALSE}
 sapply(data_strat, function(x) sum(is.na(x)))
+```
+
+## Zeroes
+
+```{r echo=FALSE}
+frq(data_strat, observed == 0)
 
 ggplot(data_strat) + 
   geom_histogram(aes(x = observed), binwidth = 1) +
   theme_minimal()
-
-frq(data_strat, observed == 0)
 ```
 
-## iid space
+## Model
 
 ```{r}
 f1 <-
@@ -124,155 +128,9 @@ f1 <-
   f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
   # f(month, model = "seasonal", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, season.length = 12) +
   f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE) +
-  f(id_space, model = "iid", hyper = hyper.iid, constr = TRUE)
-
-m1 <- inla(f1,
-           data = data_strat,
-           family = "Poisson",
-           # family = "zeroinflatedpoisson0",
-           # family = "zeroinflatedpoisson1",
-           # family = "zeroinflatednbinomial0",
-           # family = "zeroinflatednbinomial1",
-           # verbose = TRUE,
-           control.family = control.family,
-           control.compute = list(config = TRUE, 
-                                  return.marginals.predictor = TRUE,
-                                  cpo = TRUE,
-                                  dic = TRUE, waic = TRUE),
-           control.mode = list(restart = TRUE),
-           num.threads = round(parallel::detectCores() * .8),
-           control.predictor = list(compute = TRUE, 
-                                    link = 1),
-           control.inla = list(
-             strategy = "simplified.laplace", # default
-             # strategy = "adaptive",  
-             # strategy = "gaussian",  
-             # strategy = "laplace", #npoints = 21, 
-             int.strategy = "ccd" # default
-             # int.strategy = "grid", diff.logdens = 4
-           )
-)
-
-summary(m1)
-m1$summary.hyperpar
-
-m1_month <- m1$summary.random$month %>% 
-  mutate(`0.025quant` = exp(`0.025quant`),
-         `0.5quant` = exp(`0.5quant`),
-         `0.975quant` = exp(`0.975quant`))
-
-m1_month %>% 
-  ggplot(aes(x = ID)) + 
-  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) + 
-  geom_line(aes(y = `0.5quant`)) + 
-  theme_minimal()
-
-m1_year <- m1$summary.random$id_year %>% 
-  mutate(ID = ID + 2014, 
-         `0.025quant` = exp(`0.025quant`),
-         `0.5quant` = exp(`0.5quant`),
-         `0.975quant` = exp(`0.975quant`))
-
-m1_year %>% 
-  ggplot(aes(x = ID)) + 
-  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) + 
-  geom_line(aes(y = `0.5quant`)) + 
-  theme_minimal()
-
-m1_fit <- bind_cols(
-  data_strat,
-  m1$summary.fitted.values
-) %>% 
-  mutate(split = ifelse(date <= as.Date("2019-12-01"), "Pre", "Pand"))
-
-ggplot(m1_fit) + 
-  geom_point(aes(x = `0.5quant`, y = observed), alpha = 0.22) + 
-  facet_wrap(vars(split)) +
-  xlab("predicted") + 
-  theme_minimal()
-
-m1_fit %>% 
-  filter(ARNAME == "Lugano") %>% 
-  ggplot(aes(x = date)) + 
-  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) +
-  geom_line(aes(y = `0.5quant`)) + 
-  geom_point(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
-  # facet_wrap(vars(split), scales = "free_x") +
-  xlab("") + ylab("predicted/observed") +
-  theme_minimal()
-
-m1_fit_agg <- m1_fit %>% 
-  # mutate(population = ifelse(month == 1, population, NA)) %>% 
-  group_by(date) %>% 
-  summarise(observed = sum(observed),
-            # population = sum(population),
-            predicted = as.integer(sum(`0.5quant`)))
-
-m1_fit_agg %>% 
-  ggplot(aes(x = date)) + 
-  geom_line(aes(y = predicted)) + 
-  geom_line(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
-  # facet_wrap(vars(split), scales = "free_x") +
-  xlab("") + ylab("predicted/observed") +
-  theme_minimal()
-
-m1_space <- 
-  ar21 %>%
-  # tg3o_ar %>%
-  left_join(data_strat %>% select(ARNR, id_space) %>% distinct()) %>% 
-  left_join(m1$summary.random$id_space %>% 
-              mutate(`0.025quant` = exp(`0.025quant`),
-                     `0.5quant` = exp(`0.5quant`),
-                     `0.975quant` = exp(`0.975quant`)), 
-            by = c("id_space" = "ID")) %>% 
-  mutate(`0.5quant` = exp(`0.5quant`))
-
-tm_shape(m1_space) + 
-  tm_fill("0.5quant")
-```
-
-```{r eval=FALSE, include=FALSE}
-list_marginals <- m1$marginals.fitted.values
-
-marginals <- data.frame(do.call(rbind, list_marginals))
-marginals$ID <- rep(names(list_marginals),
-                    times = sapply(list_marginals, nrow))
-```
-
-```{r eval=FALSE, include=FALSE}
-improved_m1 = inla.cpo(m1)
-
-m1_fit <- bind_cols(
-  data_strat,
-  improved_m1$summary.fitted.values
-) %>% 
-  mutate(split = ifelse(id_time <= 60, "Pre", "Pand"))
-
-ggplot(m1_fit) + 
-  geom_point(aes(x = `0.5quant`, y = observed), alpha = 0.22) + 
-  facet_wrap(vars(split)) +
-  theme_minimal()
-
-m1_fit %>% 
-  filter(ARNAME == "Lugano") %>% 
-  ggplot(aes(x = date)) + 
-  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) +
-  geom_line(aes(y = `0.5quant`)) + 
-  geom_point(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
-  theme_minimal()
-```
-
-## Spatial version
-
-```{r}
-f2 <-
-  deaths ~ 1 + offset(log(population)) + 
-  f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
-  # f(month, model = "seasonal", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, season.length = 12) +
-  f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE) +
   f(id_space, model = "bym2", graph = "data/nb/ar21_wm_q.adj", scale.model = TRUE, constr = TRUE, hyper = hyper.bym)
 
-m2 <- inla(f2,
+m1 <- inla(f1,
            data = data_strat,
            family = "Poisson",
            # family = "zeroinflatedpoisson0",
@@ -298,192 +156,6 @@ m2 <- inla(f2,
            )
 )
 
-summary(m2)
-m2$summary.hyperpar
-
-m2_month <- m2$summary.random$month %>% 
-  mutate(`0.025quant` = exp(`0.025quant`),
-         `0.5quant` = exp(`0.5quant`),
-         `0.975quant` = exp(`0.975quant`))
-
-m2_month %>% 
-  ggplot(aes(x = ID)) + 
-  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) + 
-  geom_line(aes(y = `0.5quant`)) + 
-  theme_minimal()
-
-m2_year <- m2$summary.random$id_year %>% 
-  mutate(ID = ID + 2014, 
-         `0.025quant` = exp(`0.025quant`),
-         `0.5quant` = exp(`0.5quant`),
-         `0.975quant` = exp(`0.975quant`))
-
-m2_year %>% 
-  ggplot(aes(x = ID)) + 
-  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) + 
-  geom_line(aes(y = `0.5quant`)) + 
-  theme_minimal()
-
-m2_fit <- bind_cols(
-  data_strat,
-  m2$summary.fitted.values
-) %>% 
-  mutate(split = ifelse(date <= as.Date("2019-12-01"), "Pre", "Pand"))
-
-ggplot(m2_fit) + 
-  geom_point(aes(x = `0.5quant`, y = observed), alpha = 0.22) + 
-  facet_wrap(vars(split)) +
-  xlab("predicted") + 
-  theme_minimal()
-
-m2_fit %>% 
-  filter(ARNAME == "Lugano") %>% 
-  ggplot(aes(x = date)) + 
-  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) +
-  geom_line(aes(y = `0.5quant`)) + 
-  geom_point(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
-  # facet_wrap(vars(split), scales = "free_x") +
-  xlab("") + ylab("predicted/observed") +
-  theme_minimal()
-
-m2_fit_agg <- m2_fit %>% 
-  # mutate(population = ifelse(month == 1, population, NA)) %>% 
-  group_by(date) %>% 
-  summarise(observed = sum(observed),
-            # population = sum(population),
-            predicted = as.integer(sum(`0.5quant`)))
-
-m2_fit_agg %>% 
-  ggplot(aes(x = date)) + 
-  geom_line(aes(y = predicted)) + 
-  geom_line(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
-  # facet_wrap(vars(split), scales = "free_x") +
-  xlab("") + ylab("predicted/observed") +
-  theme_minimal()
-
-m2_space <-
-  ar21 %>%
-  # tg3o_ar %>%
-  left_join(data_strat %>% select(ARNR, id_space) %>% distinct()) %>%
-  left_join(m2$summary.random$id_space %>%
-              slice(1:nrow(ar21)) %>% 
-              mutate(`0.025quant` = exp(`0.025quant`),
-                     `0.5quant` = exp(`0.5quant`),
-                     `0.975quant` = exp(`0.975quant`)),
-            by = c("id_space" = "ID")) %>%
-  mutate(`0.5quant` = exp(`0.5quant`))
-
-tm_shape(m2_space) +
-  tm_fill("0.5quant")
-```
-
-## Compare 
-
-### Variance
-
-```{r}
-marg.variance <- inla.tmarginal(function(x) 1/x,
-                                m1$marginals.hyperpar$"Precision for id_space")
-inla.zmarginal(marg.variance)
-
-
-marg.variance <- inla.tmarginal(function(x) 1/x,
-                                m2$marginals.hyperpar$"Precision for id_space")
-inla.zmarginal(marg.variance)
-
-rm(marg.variance); gc()
-```
-
-### Performance 
-
-```{r}
-dotchart(
-  c(
-    m1$dic$dic,
-    m2$dic$dic
-  ), labels = c(
-    "m1", "m2"
-  )
-)
-
-dotchart(
-  c(
-    m1$waic$waic,
-    m2$waic$waic
-  ), labels = c(
-    "m1", "m2"
-  )
-)
-```
-
-```{r}
-table(m1$cpo$failure > 0)
-sum(-log(m1$cpo$cpo), na.rm = TRUE)
-# m1$cpo$pit
-
-table(m2$cpo$failure > 0)
-sum(-log(m2$cpo$cpo), na.rm = TRUE)
-# m2$cpo$pit
-```
-
-
-<!-- ----------------------------------------------------- -->
-
-# Adjusted modelling
-
-## Data
-
-```{r eval=FALSE, include=FALSE}
-sapply(data, function(x) sum(is.na(x)))
-
-ggplot(data) + 
-  geom_histogram(aes(x = observed), binwidth = 1) +
-  theme_minimal()
-
-frq(data, observed == 0)
-```
-
-## iid space
-
-```{r}
-f1 <-
-  deaths ~ 1 + offset(log(population)) + 
-  
-  sex +
-  f(id_age, model = "iid", hyper = hyper.iid, constr = TRUE) +
-  
-  f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
-  # f(month, model = "seasonal", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, season.length = 12) +
-  f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE) +
-  f(id_space, model = "iid", hyper = hyper.iid, constr = TRUE)
-
-m1 <- inla(f1,
-           data = data,
-           family = "Poisson",
-           # family = "zeroinflatedpoisson0",
-           # family = "zeroinflatedpoisson1",
-           # family = "zeroinflatednbinomial0",
-           # family = "zeroinflatednbinomial1",
-           # verbose = TRUE,
-           control.family = control.family,
-           control.compute = list(config = TRUE, 
-                                  # return.marginals.predictor = TRUE,
-                                  # cpo = TRUE,
-                                  dic = TRUE, waic = TRUE),
-           control.mode = list(restart = TRUE),
-           num.threads = round(parallel::detectCores() * .8),
-           control.predictor = list(compute = TRUE, 
-                                    link = 1),
-           control.inla = list(
-             strategy = "simplified.laplace", # default
-             # strategy = "adaptive",  
-             # strategy = "gaussian",  
-             # strategy = "laplace", #npoints = 21, 
-             int.strategy = "ccd" # default
-             # int.strategy = "grid", diff.logdens = 4
-           )
-)
-
 summary(m1)
 m1$summary.hyperpar
 
@@ -511,7 +183,7 @@ m1_year %>%
   theme_minimal()
 
 m1_fit <- bind_cols(
-  data,
+  data_strat,
   m1$summary.fitted.values
 ) %>% 
   mutate(split = ifelse(date <= as.Date("2019-12-01"), "Pre", "Pand"))
@@ -524,7 +196,6 @@ ggplot(m1_fit) +
 
 m1_fit %>% 
   filter(ARNAME == "Lugano") %>% 
-  filter(age == "80+" & sex == "Male") %>% 
   ggplot(aes(x = date)) + 
   geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) +
   geom_line(aes(y = `0.5quant`)) + 
@@ -548,53 +219,69 @@ m1_fit_agg %>%
   xlab("") + ylab("predicted/observed") +
   theme_minimal()
 
-m1_space <- 
+m1_space <-
   ar21 %>%
   # tg3o_ar %>%
-  left_join(data %>% select(ARNR, id_space) %>% distinct()) %>% 
-  left_join(m1$summary.random$id_space %>% 
-              mutate(`0.025quant` = exp(`0.025quant`),
-                     `0.5quant` = exp(`0.5quant`),
-                     `0.975quant` = exp(`0.975quant`)), 
-            by = c("id_space" = "ID")) %>% 
-  mutate(`0.5quant` = exp(`0.5quant`))
+  left_join(data_strat %>% select(ARNR, id_space) %>% distinct()) %>%
+  left_join(m1$summary.random$id_space %>%
+              slice(1:nrow(ar21)) %>% 
+              mutate(s1_l = exp(`0.025quant`),
+                     s1_m = exp(`0.5quant`),
+                     s1_u = exp(`0.975quant`)) %>% 
+              select(ID, starts_with("s1")),
+            by = c("id_space" = "ID")) %>%
+  left_join(m1$summary.random$id_space %>%
+              slice((nrow(ar21)+1):(2*nrow(ar21))) %>% 
+              mutate(ID = ID - nrow(ar21),
+                     s2_l = exp(`0.025quant`),
+                     s2_m = exp(`0.5quant`),
+                     s2_u = exp(`0.975quant`)) %>% 
+              select(ID, starts_with("s2")),
+            by = c("id_space" = "ID"))
 
-tm_shape(m1_space) + 
-  tm_fill("0.5quant")
+tm_shape(m1_space) +
+  tm_fill("s1_m")
+
+tm_shape(m1_space) +
+  tm_fill("s2_m")
 ```
+
+## Performance 
+
+```{r}
+marg.variance <- inla.tmarginal(function(x) 1/x,
+                                m1$marginals.hyperpar$"Precision for id_space")
+inla.zmarginal(marg.variance)
+
+rm(marg.variance)
+```
+
+```{r}
+table(m1$cpo$failure > 0)
+sum(-log(m1$cpo$cpo), na.rm = TRUE)
+# m1$cpo$pit
+```
+
+
+<!-- ----------------------------------------------------- -->
+
+# Adjusted modelling
 
 ```{r eval=FALSE, include=FALSE}
-list_marginals <- m1$marginals.fitted.values
-
-marginals <- data.frame(do.call(rbind, list_marginals))
-marginals$ID <- rep(names(list_marginals),
-                    times = sapply(list_marginals, nrow))
+sapply(data_strat, function(x) sum(is.na(x)))
 ```
 
-```{r eval=FALSE, include=FALSE}
-improved_m1 = inla.cpo(m1)
+## Zeroes
 
-m1_fit <- bind_cols(
-  data,
-  improved_m1$summary.fitted.values
-) %>% 
-  mutate(split = ifelse(id_time <= 60, "Pre", "Pand"))
+```{r echo=FALSE}
+frq(data_strat, observed == 0)
 
-ggplot(m1_fit) + 
-  geom_point(aes(x = `0.5quant`, y = observed), alpha = 0.22) + 
-  facet_wrap(vars(split)) +
-  theme_minimal()
-
-m1_fit %>% 
-  filter(ARNAME == "Lugano") %>% 
-  ggplot(aes(x = date)) + 
-  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) +
-  geom_line(aes(y = `0.5quant`)) + 
-  geom_point(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
+ggplot(data_strat) + 
+  geom_histogram(aes(x = observed), binwidth = 1) +
   theme_minimal()
 ```
 
-## Spatial version
+## Model
 
 ```{r}
 f2 <-
@@ -701,63 +388,41 @@ m2_fit_agg %>%
 m2_space <-
   ar21 %>%
   # tg3o_ar %>%
-  left_join(data %>% select(ARNR, id_space) %>% distinct()) %>%
+  left_join(data_strat %>% select(ARNR, id_space) %>% distinct()) %>%
   left_join(m2$summary.random$id_space %>%
               slice(1:nrow(ar21)) %>% 
-              mutate(`0.025quant` = exp(`0.025quant`),
-                     `0.5quant` = exp(`0.5quant`),
-                     `0.975quant` = exp(`0.975quant`)),
+              mutate(s1_l = exp(`0.025quant`),
+                     s1_m = exp(`0.5quant`),
+                     s1_u = exp(`0.975quant`)) %>% 
+              select(ID, starts_with("s1")),
             by = c("id_space" = "ID")) %>%
-  mutate(`0.5quant` = exp(`0.5quant`))
+  left_join(m2$summary.random$id_space %>%
+              slice((nrow(ar21)+1):(2*nrow(ar21))) %>% 
+              mutate(ID = ID - nrow(ar21),
+                     s2_l = exp(`0.025quant`),
+                     s2_m = exp(`0.5quant`),
+                     s2_u = exp(`0.975quant`)) %>% 
+              select(ID, starts_with("s2")),
+            by = c("id_space" = "ID"))
 
 tm_shape(m2_space) +
-  tm_fill("0.5quant")
+  tm_fill("s1_m")
+
+tm_shape(m2_space) +
+  tm_fill("s2_m")
 ```
 
-## Compare 
-
-### Variance
+## Performance 
 
 ```{r}
-marg.variance <- inla.tmarginal(function(x) 1/x,
-                                m1$marginals.hyperpar$"Precision for id_space")
-inla.zmarginal(marg.variance)
-
-
 marg.variance <- inla.tmarginal(function(x) 1/x,
                                 m2$marginals.hyperpar$"Precision for id_space")
 inla.zmarginal(marg.variance)
 
-rm(marg.variance); gc()
-```
-
-### Performance 
-
-```{r}
-dotchart(
-  c(
-    m1$dic$dic,
-    m2$dic$dic
-  ), labels = c(
-    "m1", "m2"
-  )
-)
-
-dotchart(
-  c(
-    m1$waic$waic,
-    m2$waic$waic
-  ), labels = c(
-    "m1", "m2"
-  )
-)
+rm(marg.variance)
 ```
 
 ```{r eval=FALSE, include=FALSE}
-table(m1$cpo$failure > 0)
-sum(-log(m1$cpo$cpo), na.rm = TRUE)
-# m1$cpo$pit
-
 table(m2$cpo$failure > 0)
 sum(-log(m2$cpo$cpo), na.rm = TRUE)
 # m2$cpo$pit

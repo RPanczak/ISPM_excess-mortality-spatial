@@ -32,6 +32,7 @@ admin/
 data/grid/grid_1km.gpkg
 data-raw/swisstopo/SMR1000_2019/
 data/blob/
+results/
 
 # probably doesnt make sense to share it
 *.qgz

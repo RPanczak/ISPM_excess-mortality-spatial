@@ -354,3 +354,17 @@ w_deaths_2015_2021_ar %>%
 ```{r include=FALSE}
 write_rds(w_deaths_2015_2021_ar, "data/BfS/w_deaths_2015_2021_ar.Rds")
 ```
+
+<!-- ----------------------------------------------------- -->
+
+# Groups for stratified modelling 
+
+```{r}
+groups = as_tibble(expand_grid(age = c("<40", "40-49", "50-59", 
+                                       "60-69", "70-79", "80+"),
+                               sex = c("Female", "Male")))
+```
+                               
+```{r include=FALSE}
+write_rds(groups, "data/groups.Rds")
+```

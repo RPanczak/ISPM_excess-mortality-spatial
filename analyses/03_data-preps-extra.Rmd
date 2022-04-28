@@ -547,7 +547,7 @@ population_ar <- population_mid_poi %>%
   dplyr::summarise(population = sum(population_mid_poi)) %>% 
   ungroup()
 
-w_deaths_2015_2021_ar_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_ar.Rds") %>% 
+w_deaths_2015_2021_ar_pop <- read_rds("data/BfS/w_deaths_2015_2021_ar.Rds") %>% 
   left_join(population_ar)
 ```
 
@@ -1157,7 +1157,7 @@ w_deaths_2015_2021_ar_pop %>%
               select(-pop)
   )
 
-write_rds(w_deaths_2015_2021_ar_pop, "data/BfS-closed/w_deaths_2015_2021_ar_pop.Rds")
+write_rds(w_deaths_2015_2021_ar_pop, "data/BfS/w_deaths_2015_2021_ar_pop.Rds")
 ```
 
 ```{r eval=FALSE, include=FALSE}

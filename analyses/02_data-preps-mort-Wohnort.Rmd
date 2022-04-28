@@ -352,5 +352,5 @@ w_deaths_2015_2021_ar %>%
 ```
 
 ```{r include=FALSE}
-write_rds(w_deaths_2015_2021_ar, "data/BfS-closed/w_deaths_2015_2021_ar.Rds")
+write_rds(w_deaths_2015_2021_ar, "data/BfS/w_deaths_2015_2021_ar.Rds")
 ```

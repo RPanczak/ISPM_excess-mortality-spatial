@@ -50,7 +50,7 @@ mu <- Hmisc::markupSpecs$html
 
 <!-- ----------------------------------------------------- -->
 
-# Deaths > population
+# Zeroes
 
 ## AR level
 
@@ -58,16 +58,16 @@ mu <- Hmisc::markupSpecs$html
 w_deaths_2015_2021_ar_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_ar_pop.Rds")
 ```
 
-```{r}
-w_deaths_2015_2021_ar_pop %>%
-  group_by(year) %>%
-  summarise(deaths = sum(deaths))
-
-length(unique(w_deaths_2015_2021_ar_pop$ARNR))
+```{r eval=FALSE, include=FALSE}
+sapply(w_deaths_2015_2021_ar_pop, function(x) sum(is.na(x)))
 ```
 
-```{r}
-frq(w_deaths_2015_2021_ar_pop, deaths > population)
+```{r echo=FALSE}
+frq(w_deaths_2015_2021_ar_pop, deaths == 0)
+
+ggplot(w_deaths_2015_2021_ar_pop) + 
+  geom_histogram(aes(x = deaths), binwidth = 1) +
+  theme_minimal()
 ```
 
 ## Municipality level 
@@ -75,6 +75,40 @@ frq(w_deaths_2015_2021_ar_pop, deaths > population)
 ```{r}
 w_deaths_2015_2021_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_pop.Rds")
 ```
+
+```{r eval=FALSE, include=FALSE}
+sapply(w_deaths_2015_2021_pop, function(x) sum(is.na(x)))
+```
+
+```{r echo=FALSE}
+frq(w_deaths_2015_2021_pop, deaths == 0)
+
+ggplot(w_deaths_2015_2021_pop) + 
+  geom_histogram(aes(x = deaths), binwidth = 1) +
+  theme_minimal()
+```
+
+<!-- ----------------------------------------------------- -->
+
+# Deaths > population
+
+## AR level
+
+```{r}
+length(unique(w_deaths_2015_2021_ar_pop$ARNR))
+```
+
+```{r}
+frq(w_deaths_2015_2021_ar_pop, deaths > population)
+```
+
+```{r}
+w_deaths_2015_2021_ar_pop %>%
+  group_by(year) %>%
+  summarise(deaths = sum(deaths))
+```
+
+## Municipality level 
 
 ```{r}
 length(unique(w_deaths_2015_2021_pop$GMDNR))

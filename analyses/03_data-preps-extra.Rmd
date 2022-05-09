@@ -929,13 +929,13 @@ r19_bu_sep_gem21 <-
 
 # View(r19_bu_sep_gem21)
 
-write_rds(r19_bu_sep_gem21, "data/sep/r19_bu_sep_gem21.rds")
+write_rds(r19_bu_sep_gem21, "data/sep/r19_bu_sep_gem21.Rds")
 ```
 
 ```{r include=FALSE}
 rm(r19_bu); gc()
 
-r19_bu_sep_gem21 <- read_rds("data/sep/r19_bu_sep_gem21.rds") %>% 
+r19_bu_sep_gem21 <- read_rds("data/sep/r19_bu_sep_gem21.Rds") %>% 
   st_drop_geometry()
 ```
 

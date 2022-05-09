@@ -605,7 +605,7 @@ lu_grid_gem <- grid_1km_over %>%
 
 ```{r}
 gc()
-write_rds(lu_grid_gem, "data/blob/lu_grid_gem.rds")
+write_rds(lu_grid_gem, "data/blob/lu_grid_gem.Rds")
 ```
 
 
@@ -619,7 +619,7 @@ st_grid_pop <- lu_grid_gem %>%
 
 ```{r}
 gc()
-write_rds(st_grid_pop, "data/blob/st_grid_pop.rds")
+write_rds(st_grid_pop, "data/blob/st_grid_pop.Rds")
 ```
 
 ## Extrapolate pop by month
@@ -627,7 +627,7 @@ write_rds(st_grid_pop, "data/blob/st_grid_pop.rds")
 ### Data 
 
 ```{r}
-# st_grid_pop <- read_rds("data/blob/st_grid_pop.rds")
+# st_grid_pop <- read_rds("data/blob/st_grid_pop.Rds")
 
 st_grid_pop_pred <- st_grid_pop %>%
   tidyr::expand_grid(month = 1:12) %>%
@@ -636,10 +636,12 @@ st_grid_pop_pred <- st_grid_pop %>%
 ```
 
 ```{r eval=FALSE, include=FALSE}
+# zero pops example
 filter(st_grid_pop_pred, ID == 1, age == "<40", sex == "Female") %>% 
   ggplot(aes(x = year_month, y = pop)) + 
   geom_point()
 
+# max pops example
 filter(st_grid_pop_pred, ID == 4084, age == "<40", sex == "Female") %>% 
   ggplot(aes(x = year_month, y = pop)) + 
   geom_point()
@@ -650,12 +652,12 @@ filter(st_grid_pop_pred, ID == 4084, age == "<40", sex == "Female") %>%
 ```{r}
 st_grid_pop_pred %>% 
   filter(!is.na(pop)) %>% 
-  ggplot(aes(x = pop)) + 
-  geom_histogram()
+  frq(pop == 0)
 
 st_grid_pop_pred %>% 
   filter(!is.na(pop)) %>% 
-  frq(pop == 0)
+  ggplot(aes(x = pop)) + 
+  geom_histogram(binwidth = 10)
 ```
 
 ### GLM 
@@ -819,10 +821,9 @@ results <- inla(formula,
 )
 ```
 
-
 ```{r eval=FALSE}
 gc()
-write_rds(st_grid_pop_pred, file = "data/blob/st_grid_pop_pred.rds")
+write_rds(st_grid_pop_pred, file = "data/blob/st_grid_pop_pred.Rds")
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -909,7 +910,7 @@ stopifnot(length(unique(grid_1km$ID)) *
 ```{r eval=FALSE}
 rm(temp, snc5_deaths)
 gc()
-write_rds(st_grid_deaths_2014_2019, file = "data/blob/st_grid_deaths_2014_2019.rds")
+write_rds(st_grid_deaths_2014_2019, "data/blob/st_grid_deaths_2014_2019.Rds")
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -927,6 +928,7 @@ st_gem_deaths_2020_2021 <-
 
 ```{r}
 source("R/geom_002_deaths_to_grid.R")
+
 st_grid_deaths_2020_2021 <- geom_002_deaths_to_grid(
   deaths_data = st_gem_deaths_2020_2021,
   pop_data = lu_grid_gem,
@@ -942,4 +944,6 @@ st_grid_deaths_2020_2021 <- geom_002_deaths_to_grid(
 st_grid_final <- st_grid_pop %>%
   left_join(st_grid_deaths_2014_2019) %>%
   left_join(st_grid_deaths_2020_2021)
+
+write_rds(st_grid_final, "data/blob/st_grid_final.Rds")
 ```

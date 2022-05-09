@@ -79,7 +79,7 @@ st_se21_sel <- read_rds("data/swisstopo/st_se21_sel.Rds") %>%
 
 ```{r eval=FALSE, include=FALSE}
 origin_statpop <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip",
-  delim = ";", escape_double = FALSE, trim_ws = TRUE
+                             delim = ";", escape_double = FALSE, trim_ws = TRUE
 ) %>%
   mutate_all(as.integer) %>%
   summarise(
@@ -97,7 +97,7 @@ qtm(origin_statpop)
 
 ```{r eval=FALSE, include=FALSE}
 offset_statpop <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip",
-  delim = ";", escape_double = FALSE, trim_ws = TRUE
+                             delim = ";", escape_double = FALSE, trim_ws = TRUE
 ) %>%
   mutate_all(as.integer) %>%
   summarise(
@@ -131,7 +131,7 @@ p_unload(ncdf4)
 offset_meteoswiss
 
 origin_meteoswiss <- st_as_sf(tibble(E = min(E), N = min(N)),
-  coords = c("E", "N")
+                              coords = c("E", "N")
 ) %>%
   st_set_crs(2056)
 
@@ -195,21 +195,21 @@ plot(st_geometry(grid_1km_over))
 ```{r eval=FALSE, include=FALSE}
 # grids
 st_write(grid_1km, "data/grid/grid_1km.gpkg",
-  layer = "grid_1km", delete_dsn = TRUE
+         layer = "grid_1km", delete_dsn = TRUE
 )
 st_write(grid_1km_crop, "data/grid/grid_1km.gpkg",
-  layer = "grid_1km_crop", append = TRUE
+         layer = "grid_1km_crop", append = TRUE
 )
 st_write(grid_1km_over, "data/grid/grid_1km.gpkg",
-  layer = "grid_1km_over", append = TRUE
+         layer = "grid_1km_over", append = TRUE
 )
 
 # admin bound
 st_write(st_gg21, "data/grid/grid_1km.gpkg",
-  layer = "st_gg21", append = TRUE
+         layer = "st_gg21", append = TRUE
 )
 st_write(st_se21_sel, "data/grid/grid_1km.gpkg",
-  layer = "st_se21_sel", append = TRUE
+         layer = "st_se21_sel", append = TRUE
 )
 
 write_rds(grid_1km, "data/grid/grid_1km.Rds")
@@ -237,8 +237,8 @@ Example of Bern
 tm_shape(st_gg21 %>% filter(GMDNR == 351)) +
   tm_borders(col = "darkorchid") +
   tm_shape(st_join(grid_1km,
-    st_gg21 %>% filter(GMDNR == 351),
-    left = FALSE
+                   st_gg21 %>% filter(GMDNR == 351),
+                   left = FALSE
   )) +
   tm_borders(col = "red")
 ```
@@ -253,13 +253,13 @@ Comparing grid of 'regular' cells (green) and cells 'cropped' by outlines of the
 tm_shape(st_gg21 %>% filter(GMDNR == 4651)) +
   tm_borders(col = "darkorchid") +
   tm_shape(st_join(grid_1km,
-    st_gg21 %>% filter(GMDNR == 4651),
-    left = FALSE
+                   st_gg21 %>% filter(GMDNR == 4651),
+                   left = FALSE
   )) +
   tm_borders(col = "forestgreen") +
   tm_shape(st_join(grid_1km_crop,
-    st_gg21 %>% filter(GMDNR == 4651),
-    left = FALSE
+                   st_gg21 %>% filter(GMDNR == 4651),
+                   left = FALSE
   )) +
   tm_borders(col = "red")
 ```
@@ -268,13 +268,13 @@ Comparing grid of 'cropped' cells (red again) with grid integrating community bo
 
 ```{r echo=FALSE}
 tm_shape(st_join(grid_1km_crop,
-  st_gg21 %>% filter(GMDNR == 4651),
-  left = FALSE
+                 st_gg21 %>% filter(GMDNR == 4651),
+                 left = FALSE
 )) +
   tm_borders(col = "red") +
   tm_shape(st_join(grid_1km_over,
-    st_gg21 %>% filter(GMDNR == 4651),
-    left = FALSE
+                   st_gg21 %>% filter(GMDNR == 4651),
+                   left = FALSE
   )) +
   tm_borders(col = "yellow")
 ```
@@ -303,10 +303,10 @@ grid_1km_crop_cent %<>%
   relocate(geometry, .after = last_col())
 
 st_write(grid_1km_cent, "data/grid/grid_1km.gpkg",
-  layer = "grid_1km_cent", append = TRUE
+         layer = "grid_1km_cent", append = TRUE
 )
 st_write(grid_1km_crop_cent, "data/grid/grid_1km.gpkg",
-  layer = "grid_1km_crop_cent", append = TRUE
+         layer = "grid_1km_crop_cent", append = TRUE
 )
 
 write_rds(grid_1km_cent, "data/grid/grid_1km_cent.Rds")
@@ -324,13 +324,13 @@ Example of Bern:
 tm_shape(st_gg21 %>% filter(GMDNR == 351)) +
   tm_borders(col = "darkorchid") +
   tm_shape(st_join(grid_1km,
-    st_gg21 %>% filter(GMDNR == 351),
-    left = FALSE
+                   st_gg21 %>% filter(GMDNR == 351),
+                   left = FALSE
   )) +
   tm_borders(col = "red") +
   tm_shape(st_join(grid_1km_cent,
-    st_gg21 %>% filter(GMDNR == 351),
-    left = FALSE
+                   st_gg21 %>% filter(GMDNR == 351),
+                   left = FALSE
   )) +
   tm_dots()
 ```
@@ -339,29 +339,29 @@ Of course different grids will result in slightly different centroids in areas t
 
 ```{r echo=FALSE}
 tm_shape(st_join(grid_1km,
-  st_gg21 %>% filter(GMDNR == 4651),
-  left = FALSE
+                 st_gg21 %>% filter(GMDNR == 4651),
+                 left = FALSE
 )) +
   tm_borders(col = "red") +
   tm_shape(st_join(grid_1km_crop,
-    st_gg21 %>% filter(GMDNR == 4651),
-    left = FALSE
+                   st_gg21 %>% filter(GMDNR == 4651),
+                   left = FALSE
   )) +
   tm_borders(col = "forestgreen") +
   tm_shape(st_join(grid_1km_cent,
-    st_join(grid_1km,
-      st_gg21 %>% filter(GMDNR == 4651),
-      left = FALSE
-    ),
-    left = FALSE
+                   st_join(grid_1km,
+                           st_gg21 %>% filter(GMDNR == 4651),
+                           left = FALSE
+                   ),
+                   left = FALSE
   )) +
   tm_dots(col = "red") +
   tm_shape(st_join(grid_1km_crop_cent,
-    st_join(grid_1km,
-      st_gg21 %>% filter(GMDNR == 4651),
-      left = FALSE
-    ),
-    left = FALSE
+                   st_join(grid_1km,
+                           st_gg21 %>% filter(GMDNR == 4651),
+                           left = FALSE
+                   ),
+                   left = FALSE
   )) +
   tm_dots(col = "forestgreen")
 ```
@@ -395,9 +395,9 @@ raster::crs(r) <- st_crs(2056)$proj4string
 # nlayers(r)
 
 plot(r[[c(1, 7)]],
-  main = "Monthly temps 2014 - January & July",
-  zlim = c(-20, 25),
-  col = rev(RColorBrewer::brewer.pal(11, "RdBu"))
+     main = "Monthly temps 2014 - January & July",
+     zlim = c(-20, 25),
+     col = rev(RColorBrewer::brewer.pal(11, "RdBu"))
 )
 
 rm(filename, r)
@@ -406,9 +406,9 @@ gc()
 
 ```{r eval=FALSE, include=FALSE}
 plot(r[[1]],
-  main = "TabsM_14 - January",
-  zlim = c(-20, 25),
-  col = rev(RColorBrewer::brewer.pal(11, "RdBu"))
+     main = "TabsM_14 - January",
+     zlim = c(-20, 25),
+     col = rev(RColorBrewer::brewer.pal(11, "RdBu"))
 )
 
 plot(st_geometry(grid_1km_cent), add = TRUE)
@@ -418,25 +418,25 @@ plot(st_geometry(grid_1km_cent), add = TRUE)
 
 ```{r}
 extract_temps <- function(filename, year) {
-
+  
   # r <- raster::stack(filename) # same same
   r <- raster::brick(filename)
   raster::crs(r) <- sf::st_crs(2056)$proj4string
-
+  
   ex <- raster::extract(r, grid_1km_cent, df = TRUE)
   ex <- tibble::as_tibble(ex)
   repeats <- nrow(ex)
-
+  
   ex <- pivot_longer(ex,
-    !ID,
-    names_to = "date_temp",
-    values_to = "temperature"
+                     !ID,
+                     names_to = "date_temp",
+                     values_to = "temperature"
   )
-
+  
   ex$year <- as.integer(year)
   ex$month <- rep(seq(1, 12), repeats)
   ex$date_temp <- NULL
-
+  
   return(ex)
 }
 
@@ -487,7 +487,7 @@ temp_checks %<>%
   mutate(Date = ym(paste(year, month, sep = " ")))
 
 ggplot(temp_checks, aes(Date, temperature,
-  group = Place, col = Place
+                        group = Place, col = Place
 )) +
   geom_line() +
   geom_point() +
@@ -579,16 +579,16 @@ lu_grid_gem <- pe_grid %>%
   group_by(year, sex, age, ID, ID2, area, area2, GMDNR, GMDNAME, KTNR, KTNAME) %>%
   summarise(pop = sum(n), .groups = "drop") %>%
   dplyr::arrange(year, ID, ID2, sex, age)
-rm(pe_grid)
-gc()
+
+rm(pe_grid); gc()
 ```
 
 ## Expand grid for combinations with 0
 
 ```{r}
 lu_grid_gem <- grid_1km_over %>%
-  st_drop_geometry() %>%
-  as_tibble() %>%
+  sf::st_drop_geometry() %>%
+  dplyr::as_tibble() %>%
   dplyr::select(ID, ID2, area, area2, GMDNR, GMDNAME, KTNR, KTNAME) %>%
   tidyr::expand_grid(
     year = unique(lu_grid_gem$year),
@@ -597,14 +597,15 @@ lu_grid_gem <- grid_1km_over %>%
   ) %>%
   dplyr::arrange(year, ID, ID2, sex, age) %>%
   dplyr::left_join(lu_grid_gem) %>%
-  dplyr::mutate(pop = if_else(is.na(pop), as.integer(0), pop))
+  dplyr::mutate(pop = if_else(is.na(pop), as.integer(0), pop)) %>% 
+  dplyr::mutate(year = as.integer(year))
 
 # filter(lu_grid_gem,GMDNR==4651,age=="<40",sex=="Female",year==2018) %>% view()
 ```
 
-```{r eval=FALSE}
+```{r}
 gc()
-write_rds(lu_grid_gem, file = "data/blob/lu_grid_gem.rds")
+write_rds(lu_grid_gem, "data/blob/lu_grid_gem.rds")
 ```
 
 
@@ -616,25 +617,208 @@ st_grid_pop <- lu_grid_gem %>%
   dplyr::summarise(pop = sum(pop), .groups = "drop")
 ```
 
-```{r eval=FALSE}
+```{r}
 gc()
-write_rds(st_grid_pop, file = "data/blob/st_grid_pop.rds")
+write_rds(st_grid_pop, "data/blob/st_grid_pop.rds")
 ```
 
 ## Extrapolate pop by month
 
-```{r eval=FALSE}
+### Data 
+
+```{r}
+# st_grid_pop <- read_rds("data/blob/st_grid_pop.rds")
+
 st_grid_pop_pred <- st_grid_pop %>%
   tidyr::expand_grid(month = 1:12) %>%
   dplyr::mutate(year_month = year + month / 12) %>%
   dplyr::mutate(pop = if_else(month == 12, pop, NA_integer_))
-
-# TODO: predict population by month 2014-2021
-
-# m1 = glm(pop ~ age + sex + year_month, data=st_grid_pop_pred, family = poisson(link="log"))
-# m2 = lme4::glmer(pop ~ age + sex + year_month + (1|ID), data=st_grid_pop_pred, family = poisson(link="log"))
-# m3 = lme4::glmer(pop ~ age + sex + year_month + (year_month|ID), data=st_grid_pop_pred, family = poisson(link="log"))
 ```
+
+```{r eval=FALSE, include=FALSE}
+filter(st_grid_pop_pred, ID == 1, age == "<40", sex == "Female") %>% 
+  ggplot(aes(x = year_month, y = pop)) + 
+  geom_point()
+
+filter(st_grid_pop_pred, ID == 4084, age == "<40", sex == "Female") %>% 
+  ggplot(aes(x = year_month, y = pop)) + 
+  geom_point()
+```
+
+### Zeroes 
+
+```{r}
+st_grid_pop_pred %>% 
+  filter(!is.na(pop)) %>% 
+  ggplot(aes(x = pop)) + 
+  geom_histogram()
+
+st_grid_pop_pred %>% 
+  filter(!is.na(pop)) %>% 
+  frq(pop == 0)
+```
+
+### GLM 
+
+```{r}
+m1 = glm(pop ~ age + sex + year_month, 
+         data = st_grid_pop_pred, 
+         family = poisson(link = "log"))
+
+st_grid_pop_pred$m1 = as.integer(predict(m1, 
+                                         st_grid_pop_pred, 
+                                         type = "response"))
+```
+
+```{r}
+# st_grid_pop_pred %>% 
+#   ggplot(aes(x = year_month, y = m1)) + 
+#   geom_point(alpha = 0.1)
+
+filter(st_grid_pop_pred, ID == 1, age == "<40", sex == "Female") %>% 
+  ggplot(aes(x = year_month)) + 
+  geom_point(aes(y = m1)) + 
+  geom_point(aes(y = pop), colour = "red") 
+
+filter(st_grid_pop_pred, ID == 4084, age == "<40", sex == "Female") %>% 
+  ggplot(aes(x = year_month)) + 
+  geom_point(aes(y = m1)) + 
+  geom_point(aes(y = pop), colour = "red") 
+```
+
+### GLMER 1
+
+```{r}
+m2 = lme4::glmer(pop ~ age + sex + year_month + (1 | ID), 
+                 data = st_grid_pop_pred, 
+                 family = poisson(link = "log"))
+
+st_grid_pop_pred$m2 = as.integer(predict(m2, st_grid_pop_pred, type = "response"))
+```
+
+```{r}
+# st_grid_pop_pred %>% 
+#   ggplot(aes(x = year_month, y = m1)) + 
+#   geom_point(alpha = 0.1)
+
+filter(st_grid_pop_pred, ID == 1, age == "<40", sex == "Female") %>% 
+  ggplot(aes(x = year_month)) + 
+  geom_point(aes(y = m1)) + 
+  geom_point(aes(y = pop), colour = "red") 
+
+filter(st_grid_pop_pred, ID == 4084, age == "<40", sex == "Female") %>% 
+  ggplot(aes(x = year_month)) + 
+  geom_point(aes(y = m1)) + 
+  geom_point(aes(y = pop), colour = "red") 
+```
+
+### GLMER 2
+
+```{r}
+m3 = lme4::glmer(pop ~ age + sex + year_month + (year_month | ID), 
+                 data = st_grid_pop_pred, 
+                 family = poisson(link = "log"))
+
+st_grid_pop_pred$m3 = as.integer(predict(m3, st_grid_pop_pred, type = "response"))
+```
+
+### INLA 
+
+```{r}
+library(INLA)
+
+st_grid_pop_pred %<>% 
+  mutate(id_year = year - 2013,
+         id_age = as.integer(as.factor(age)))
+
+hyper.iid <- list(theta = list(prior = "pc.prec", param = c(1, 0.01)))
+control.family <- inla.set.control.family.default()
+threads = parallel::detectCores()
+```
+
+#### Stratified 
+
+```{r}
+data_stratified <- st_grid_pop_pred %>% 
+  filter(age == "<40", sex == "Female")
+
+formula <-
+  pop ~  
+  f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
+  # f(month, model = "seasonal", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, season.length = 12) +
+  f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE) +
+  # f(ID, model = "bym2", graph = "data/nb/ar21_wm_q.adj", scale.model = TRUE, constr = TRUE, hyper = hyper.bym)
+  # temp solution to save time
+  f(ID, model = "iid", constr = TRUE, hyper = hyper.iid)
+
+results <- inla(formula,
+                data = st_grid_pop_pred,
+                family = "Poisson",
+                # family = "zeroinflatedpoisson0",
+                # family = "zeroinflatedpoisson1",
+                # family = "zeroinflatednbinomial0",
+                # family = "zeroinflatednbinomial1",
+                # verbose = TRUE,
+                control.family = control.family,
+                control.compute = list(config = TRUE, 
+                                       # return.marginals.predictor = TRUE,
+                                       # cpo = TRUE, 
+                                       dic = TRUE, waic = TRUE),
+                control.mode = list(restart = TRUE),
+                num.threads = threads,
+                control.predictor = list(compute = TRUE, link = 1),
+                control.inla = list(
+                  strategy = "simplified.laplace", # default
+                  # strategy = "adaptive",  
+                  # strategy = "gaussian",  
+                  # strategy = "laplace", #npoints = 21, 
+                  int.strategy = "ccd" # default
+                  # int.strategy = "grid", diff.logdens = 4
+                )
+)
+```
+
+#### Adjusted
+
+```{r}
+formula <-
+  pop ~ sex + 
+  f(id_age, model = "iid", hyper = hyper.iid, constr = TRUE) +
+  f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
+  # f(month, model = "seasonal", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, season.length = 12) +
+  f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE) +
+  # f(ID, model = "bym2", graph = "data/nb/ar21_wm_q.adj", scale.model = TRUE, constr = TRUE, hyper = hyper.bym)
+  # temp solution to save time
+  f(ID, model = "iid", constr = TRUE, hyper = hyper.iid)
+
+
+results <- inla(formula,
+                data = st_grid_pop_pred,
+                family = "Poisson",
+                # family = "zeroinflatedpoisson0",
+                # family = "zeroinflatedpoisson1",
+                # family = "zeroinflatednbinomial0",
+                # family = "zeroinflatednbinomial1",
+                # verbose = TRUE,
+                control.family = control.family,
+                control.compute = list(config = TRUE, 
+                                       # return.marginals.predictor = TRUE,
+                                       # cpo = TRUE, 
+                                       dic = TRUE, waic = TRUE),
+                control.mode = list(restart = TRUE),
+                num.threads = threads,
+                control.predictor = list(compute = TRUE, link = 1),
+                control.inla = list(
+                  strategy = "simplified.laplace", # default
+                  # strategy = "adaptive",  
+                  # strategy = "gaussian",  
+                  # strategy = "laplace", #npoints = 21, 
+                  int.strategy = "ccd" # default
+                  # int.strategy = "grid", diff.logdens = 4
+                )
+)
+```
+
 
 ```{r eval=FALSE}
 gc()
@@ -659,8 +843,8 @@ snc5_deaths <- read_dta("data/BfS-closed/SNC/deaths.dta") %>%
     sex = if_else(sex == "1", "Female", "Male"),
     sex = factor(sex),
     age = cut(age_death,
-      breaks = c(0, 40, seq(50, 80, 10), 120), right = FALSE,
-      labels = c("<40", "40-49", "50-59", "60-69", "70-79", "80+")
+              breaks = c(0, 40, seq(50, 80, 10), 120), right = FALSE,
+              labels = c("<40", "40-49", "50-59", "60-69", "70-79", "80+")
     ),
     month = month(dod)
   ) %>%
@@ -694,8 +878,8 @@ View(st_drop_geometry(snc5_deaths))
 
 ```{r eval=FALSE}
 temp <- st_join(snc5_deaths,
-  grid_1km,
-  join = st_intersects
+                grid_1km,
+                join = st_intersects
 ) %>%
   st_drop_geometry() %>%
   group_by(ID, year, month, sex, age) %>%
@@ -716,10 +900,10 @@ st_grid_deaths_2014_2019 <-
   mutate(deaths = as.integer(deaths))
 
 stopifnot(length(unique(grid_1km$ID)) *
-  length(unique(temp$year)) *
-  length(unique(temp$month)) *
-  length(levels(temp$age)) *
-  length(levels(temp$sex)) == nrow(st_grid_deaths_2014_2019))
+            length(unique(temp$year)) *
+            length(unique(temp$month)) *
+            length(levels(temp$age)) *
+            length(levels(temp$sex)) == nrow(st_grid_deaths_2014_2019))
 ```
 
 ```{r eval=FALSE}

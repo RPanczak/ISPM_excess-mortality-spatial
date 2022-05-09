@@ -450,28 +450,64 @@ rm(temp_checks); gc()
 
 # Gridded population data
 
-## Population
+## Population 2014-2020
+
+STATPOP data, state of 31st Dec each year.
 
 ```{r, eval=FALSE}
-source("R/geom_001_pe_to_grid.R")
 grid_1km_over <- read_rds("data/grid/grid_1km_over.Rds")
+source("R/geom_001_pe_to_grid.R")
 
 gc()
-r19_pe_grid = geom_001_pe_to_grid("data/STATPOP/r19_pe.dta")
-write_rds(r19_pe_grid, "data/STATPOP/r19_pe_grid.Rds")
-rm(r19_pe_grid)
-gc()
+r20_pe_grid = geom_001_pe_to_grid("data/BfS-closed/STATPOP/r20_pe.dta")
+write_rds(r20_pe_grid, "data/BfS-closed/STATPOP/r20_pe_grid.Rds")
+rm(r20_pe_grid); gc()
 
-r18_pe_grid = geom_001_pe_to_grid("data/STATPOP/r18_pe.dta")
-write_rds(r18_pe_grid, "data/STATPOP/r18_pe_grid.Rds")
-rm(r18_pe_grid)
 gc()
+r19_pe_grid = geom_001_pe_to_grid("data/BfS-closed/STATPOP/r19_pe.dta")
+write_rds(r19_pe_grid, "data/BfS-closed/STATPOP/r19_pe_grid.Rds")
+rm(r19_pe_grid); gc()
+
+gc()
+r18_pe_grid = geom_001_pe_to_grid("data/BfS-closed/STATPOP/r18_pe.dta")
+write_rds(r18_pe_grid, "data/BfS-closed/STATPOP/r18_pe_grid.Rds")
+rm(r18_pe_grid); gc()
+
+gc()
+r17_pe_grid = geom_001_pe_to_grid("data/BfS-closed/STATPOP/r17_pe.dta")
+write_rds(r17_pe_grid, "data/BfS-closed/STATPOP/r17_pe_grid.Rds")
+rm(r17_pe_grid); gc()
+
+gc()
+r16_pe_grid = geom_001_pe_to_grid("data/BfS-closed/STATPOP/r16_pe.dta")
+write_rds(r16_pe_grid, "data/BfS-closed/STATPOP/r16_pe_grid.Rds")
+rm(r16_pe_grid); gc()
+
+gc()
+r15_pe_grid = geom_001_pe_to_grid("data/BfS-closed/STATPOP/r15_pe.dta")
+write_rds(r15_pe_grid, "data/BfS-closed/STATPOP/r15_pe_grid.Rds")
+rm(r15_pe_grid); gc()
+
+gc()
+r14_pe_grid = geom_001_pe_to_grid("data/BfS-closed/STATPOP/r14_pe.dta")
+write_rds(r14_pe_grid, "data/BfS-closed/STATPOP/r14_pe_grid.Rds")
+rm(r14_pe_grid); gc()
 ```
 
 ```{r}
-pe_grid = bind_rows(read_rds("data/STATPOP/r19_pe_grid.Rds") %>% 
+pe_grid = bind_rows(read_rds("data/BfS-closed/STATPOP/r20_pe_grid.Rds") %>% 
                       st_drop_geometry(),
-                    read_rds("data/STATPOP/r18_pe_grid.Rds") %>% 
+                    read_rds("data/BfS-closed/STATPOP/r19_pe_grid.Rds") %>% 
+                      st_drop_geometry(),
+                    read_rds("data/BfS-closed/STATPOP/r18_pe_grid.Rds") %>% 
+                      st_drop_geometry(),
+                    read_rds("data/BfS-closed/STATPOP/r17_pe_grid.Rds") %>% 
+                      st_drop_geometry(),
+                    read_rds("data/BfS-closed/STATPOP/r16_pe_grid.Rds") %>% 
+                      st_drop_geometry(),
+                    read_rds("data/BfS-closed/STATPOP/r15_pe_grid.Rds") %>% 
+                      st_drop_geometry(),
+                    read_rds("data/BfS-closed/STATPOP/r14_pe_grid.Rds") %>% 
                       st_drop_geometry())
 ```
 
@@ -547,7 +583,7 @@ write_rds(st_grid_pop_pred, file="data/blob/st_grid_pop_pred.rds")
 
 # Gridded deaths 2014-2019
 
-### SNC data 
+## SNC data 
 
 ```{r}
 snc5_deaths <- read_dta("data/BfS-closed/SNC/deaths.dta") %>% 
@@ -583,7 +619,7 @@ snc5_deaths %>%
 View(st_drop_geometry(snc5_deaths))
 ```
 
-### Aggregate deaths by ID until 2019
+## Aggregate deaths by ID until 2019
 
 ```{r eval=FALSE}
 temp <- st_join(snc5_deaths, 
@@ -637,8 +673,9 @@ st_grid_deaths_2020_2021 = geom_002_deaths_to_grid(deaths_data=st_gem_deaths_202
                                                    n_iter=50) # choose number of replications
 ```
 
+<!-- ----------------------------------------------------- -->
 
-# Join all
+# Final dataset
 
 ```{r eval=FALSE}
 st_grid_final = st_grid_pop %>%

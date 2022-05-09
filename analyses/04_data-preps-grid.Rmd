@@ -23,9 +23,11 @@ options(scipen = 999)
 options(max.print = "75")
 
 library(pacman)
-p_load(tidyverse, lubridate, magrittr, scales, haven,  
-       DT, 
-       sf, tmap)
+p_load(
+  tidyverse, lubridate, magrittr, scales, haven,
+  DT,
+  sf, tmap
+)
 
 tmap_mode("view")
 
@@ -41,12 +43,14 @@ conflicted::conflict_scout()
 ```{r knit-setup, include = FALSE}
 knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 
-knitr::opts_chunk$set(cache = FALSE,
-                      prompt = FALSE,
-                      tidy = FALSE,
-                      comment = NA,
-                      message = FALSE,
-                      warning = FALSE)
+knitr::opts_chunk$set(
+  cache = FALSE,
+  prompt = FALSE,
+  tidy = FALSE,
+  comment = NA,
+  message = FALSE,
+  warning = FALSE
+)
 
 knitr::opts_knit$set(width = 75)
 
@@ -62,10 +66,10 @@ mu <- Hmisc::markupSpecs$html
 Used to 'clip' the data to the country outline, 'remove' the area of lakes and introduce the boundaries within grid cells belonging to two different municipalities.   
 
 ```{r}
-st_gg21 <- read_rds("data/swisstopo/st_gg21.Rds") %>% 
+st_gg21 <- read_rds("data/swisstopo/st_gg21.Rds") %>%
   st_transform(2056)
 
-st_se21_sel <- read_rds("data/swisstopo/st_se21_sel.Rds") %>% 
+st_se21_sel <- read_rds("data/swisstopo/st_se21_sel.Rds") %>%
   st_transform(2056)
 ```
 
@@ -74,24 +78,32 @@ st_se21_sel <- read_rds("data/swisstopo/st_se21_sel.Rds") %>%
 <!-- Openly available STATPOP dataset is used to define `offset` (ie. starting point; lowest left corner) for `st_make_grid`.   -->
 
 ```{r eval=FALSE, include=FALSE}
-origin_statpop <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip", 
-                             delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
-  mutate_all(as.integer) %>% 
-  summarise(minX = min(E_KOORD),
-            minY = min(N_KOORD)) %>% 
-  st_as_sf(coords = c("minX", "minY"), 
-           crs = 2056,
-           remove = FALSE)
+origin_statpop <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip",
+  delim = ";", escape_double = FALSE, trim_ws = TRUE
+) %>%
+  mutate_all(as.integer) %>%
+  summarise(
+    minX = min(E_KOORD),
+    minY = min(N_KOORD)
+  ) %>%
+  st_as_sf(
+    coords = c("minX", "minY"),
+    crs = 2056,
+    remove = FALSE
+  )
 
 qtm(origin_statpop)
 ```
 
 ```{r eval=FALSE, include=FALSE}
-offset_statpop <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip", 
-                             delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
-  mutate_all(as.integer) %>% 
-  summarise(minX = min(E_KOORD),
-            minY = min(N_KOORD))
+offset_statpop <- read_delim("data-raw/BfS/ag-b-00.03-vz2020statpop/STATPOP2020.zip",
+  delim = ";", escape_double = FALSE, trim_ws = TRUE
+) %>%
+  mutate_all(as.integer) %>%
+  summarise(
+    minX = min(E_KOORD),
+    minY = min(N_KOORD)
+  )
 ```
 
 One of the meteoswiss datasets is used to define `offset` (ie. starting point; lowest left corner) for `st_make_grid`.  
@@ -101,13 +113,15 @@ Using meteoswiss origin allows us to perfectly align gridded mortality and popul
 ```{r}
 p_load(ncdf4)
 
-TabsD_14 <- nc_open('data-raw/meteoswiss/TabsD_ch01r.swiss.lv95_201401010000_201412310000.nc')
+TabsD_14 <- nc_open("data-raw/meteoswiss/TabsD_ch01r.swiss.lv95_201401010000_201412310000.nc")
 
 E <- ncvar_get(TabsD_14, "E") # X, lon
 N <- ncvar_get(TabsD_14, "N") # Y, lat
 
-offset_meteoswiss <- as_tibble(cbind(minX = as.integer(min(E)), 
-                                     minY = as.integer(min(N))))
+offset_meteoswiss <- as_tibble(cbind(
+  minX = as.integer(min(E)),
+  minY = as.integer(min(N))
+))
 
 p_unload(ncdf4)
 ```
@@ -116,9 +130,10 @@ p_unload(ncdf4)
 # offset_statpop
 offset_meteoswiss
 
-origin_meteoswiss <- st_as_sf(tibble(E = min(E), N = min(N)), 
-                              coords = c("E", "N")) %>%
-  st_set_crs(2056) 
+origin_meteoswiss <- st_as_sf(tibble(E = min(E), N = min(N)),
+  coords = c("E", "N")
+) %>%
+  st_set_crs(2056)
 
 qtm(origin)
 ```
@@ -136,29 +151,33 @@ Lastly, grid integrating municipality boundaries is also created.
 Also, adding ID for each cell (based on row number) and area for each of the iterations.  
 
 ```{r eval=FALSE}
-grid_1km <- st_gg21 %>% 
-  st_make_grid(cellsize = 1000, square = TRUE, 
-               offset = c(offset_meteoswiss$minX, offset_meteoswiss$minY)) %>% 
+grid_1km <- st_gg21 %>%
+  st_make_grid(
+    cellsize = 1000, square = TRUE,
+    offset = c(offset_meteoswiss$minX, offset_meteoswiss$minY)
+  ) %>%
   st_sf() %>%
-  st_cast("POLYGON") %>% 
-  st_filter(st_gg21, join = st_covers)  %>%
-  mutate(ID = row_number()) %>% 
-  relocate(ID) %>% 
+  st_cast("POLYGON") %>%
+  st_filter(st_gg21, join = st_covers) %>%
+  mutate(ID = row_number()) %>%
+  relocate(ID) %>%
   st_transform(2056)
 
 # this one takes some time
-grid_1km_crop <- grid_1km %>% 
-  st_intersection(st_union(st_gg21)) %>% 
-  st_collection_extract("POLYGON") %>% 
-  mutate(area = st_area(.)) %>% 
-  relocate(ID, area) %>%   
+grid_1km_crop <- grid_1km %>%
+  st_intersection(st_union(st_gg21)) %>%
+  st_collection_extract("POLYGON") %>%
+  mutate(area = st_area(.)) %>%
+  relocate(ID, area) %>%
   st_transform(2056)
 
 grid_1km_over <- grid_1km_crop %>%
-  st_intersection(st_gg21)  %>%
-  mutate(ID2 = row_number(),
-         area2 = st_area(.)) %>%
-  relocate(ID, ID2, area, area2) %>% 
+  st_intersection(st_gg21) %>%
+  mutate(
+    ID2 = row_number(),
+    area2 = st_area(.)
+  ) %>%
+  relocate(ID, ID2, area, area2) %>%
   st_transform(2056)
 ```
 
@@ -175,18 +194,23 @@ plot(st_geometry(grid_1km_over))
 
 ```{r eval=FALSE, include=FALSE}
 # grids
-st_write(grid_1km, "data/grid/grid_1km.gpkg", 
-         layer = "grid_1km", delete_dsn = TRUE)
+st_write(grid_1km, "data/grid/grid_1km.gpkg",
+  layer = "grid_1km", delete_dsn = TRUE
+)
 st_write(grid_1km_crop, "data/grid/grid_1km.gpkg",
-         layer = "grid_1km_crop", append = TRUE)
-st_write(grid_1km_over, "data/grid/grid_1km.gpkg", 
-         layer = "grid_1km_over", append = TRUE)
+  layer = "grid_1km_crop", append = TRUE
+)
+st_write(grid_1km_over, "data/grid/grid_1km.gpkg",
+  layer = "grid_1km_over", append = TRUE
+)
 
 # admin bound
-st_write(st_gg21, "data/grid/grid_1km.gpkg", 
-         layer = "st_gg21", append = TRUE)
-st_write(st_se21_sel, "data/grid/grid_1km.gpkg", 
-         layer = "st_se21_sel", append = TRUE)
+st_write(st_gg21, "data/grid/grid_1km.gpkg",
+  layer = "st_gg21", append = TRUE
+)
+st_write(st_se21_sel, "data/grid/grid_1km.gpkg",
+  layer = "st_se21_sel", append = TRUE
+)
 
 write_rds(grid_1km, "data/grid/grid_1km.Rds")
 write_rds(grid_1km_crop, "data/grid/grid_1km_crop.Rds")
@@ -202,19 +226,20 @@ grid_1km_over <- read_rds("data/grid/grid_1km_over.Rds")
 ```{r eval=FALSE, include=FALSE}
 View(st_drop_geometry(grid_1km_over))
 
-grid_1km_over %>% 
-  filter(ID == 15) %>% 
+grid_1km_over %>%
+  filter(ID == 15) %>%
   qtm()
 ```
 
 Example of Bern  
 
 ```{r echo=FALSE}
-tm_shape(st_gg21 %>% filter(GMDNR == 351)) + 
+tm_shape(st_gg21 %>% filter(GMDNR == 351)) +
   tm_borders(col = "darkorchid") +
   tm_shape(st_join(grid_1km,
-                   st_gg21 %>% filter(GMDNR == 351),
-                   left = FALSE)) + 
+    st_gg21 %>% filter(GMDNR == 351),
+    left = FALSE
+  )) +
   tm_borders(col = "red")
 ```
 
@@ -225,15 +250,17 @@ Example of different integration of boundaries of `Gottlieben` municipality.
 Comparing grid of 'regular' cells (green) and cells 'cropped' by outlines of the country and water bodies. Only grid cells that overlay area of municipality are shown (purple):  
 
 ```{r echo=FALSE}
-tm_shape(st_gg21 %>% filter(GMDNR == 4651)) + 
+tm_shape(st_gg21 %>% filter(GMDNR == 4651)) +
   tm_borders(col = "darkorchid") +
   tm_shape(st_join(grid_1km,
-                   st_gg21 %>% filter(GMDNR == 4651),
-                   left = FALSE)) + 
+    st_gg21 %>% filter(GMDNR == 4651),
+    left = FALSE
+  )) +
   tm_borders(col = "forestgreen") +
   tm_shape(st_join(grid_1km_crop,
-                   st_gg21 %>% filter(GMDNR == 4651),
-                   left = FALSE)) + 
+    st_gg21 %>% filter(GMDNR == 4651),
+    left = FALSE
+  )) +
   tm_borders(col = "red")
 ```
 
@@ -241,12 +268,14 @@ Comparing grid of 'cropped' cells (red again) with grid integrating community bo
 
 ```{r echo=FALSE}
 tm_shape(st_join(grid_1km_crop,
-                 st_gg21 %>% filter(GMDNR == 4651),
-                 left = FALSE)) + 
+  st_gg21 %>% filter(GMDNR == 4651),
+  left = FALSE
+)) +
   tm_borders(col = "red") +
   tm_shape(st_join(grid_1km_over,
-                   st_gg21 %>% filter(GMDNR == 4651),
-                   left = FALSE)) + 
+    st_gg21 %>% filter(GMDNR == 4651),
+    left = FALSE
+  )) +
   tm_borders(col = "yellow")
 ```
 
@@ -255,24 +284,30 @@ tm_shape(st_join(grid_1km_crop,
 ```{r}
 grid_1km_cent <- st_centroid(grid_1km)
 
-grid_1km_cent %<>% 
-  mutate(X = st_coordinates(.)[, 1],
-         Y = st_coordinates(.)[, 2]) %>% 
+grid_1km_cent %<>%
+  mutate(
+    X = st_coordinates(.)[, 1],
+    Y = st_coordinates(.)[, 2]
+  ) %>%
   relocate(geometry, .after = last_col())
 ```
 
 ```{r include=FALSE}
 grid_1km_crop_cent <- st_centroid(grid_1km_crop)
 
-grid_1km_crop_cent %<>% 
-  mutate(X = st_coordinates(grid_1km_crop_cent)[, 1],
-         Y = st_coordinates(grid_1km_crop_cent)[, 2]) %>% 
+grid_1km_crop_cent %<>%
+  mutate(
+    X = st_coordinates(grid_1km_crop_cent)[, 1],
+    Y = st_coordinates(grid_1km_crop_cent)[, 2]
+  ) %>%
   relocate(geometry, .after = last_col())
 
-st_write(grid_1km_cent, "data/grid/grid_1km.gpkg", 
-         layer = "grid_1km_cent", append = TRUE)
-st_write(grid_1km_crop_cent, "data/grid/grid_1km.gpkg", 
-         layer = "grid_1km_crop_cent", append = TRUE)
+st_write(grid_1km_cent, "data/grid/grid_1km.gpkg",
+  layer = "grid_1km_cent", append = TRUE
+)
+st_write(grid_1km_crop_cent, "data/grid/grid_1km.gpkg",
+  layer = "grid_1km_crop_cent", append = TRUE
+)
 
 write_rds(grid_1km_cent, "data/grid/grid_1km_cent.Rds")
 write_rds(grid_1km_crop_cent, "data/grid/grid_1km_crop_cent.Rds")
@@ -286,45 +321,54 @@ plot(st_geometry(grid_1km))
 Example of Bern:    
 
 ```{r echo=FALSE}
-tm_shape(st_gg21 %>% filter(GMDNR == 351)) + 
+tm_shape(st_gg21 %>% filter(GMDNR == 351)) +
   tm_borders(col = "darkorchid") +
   tm_shape(st_join(grid_1km,
-                   st_gg21 %>% filter(GMDNR == 351),
-                   left = FALSE)) + 
+    st_gg21 %>% filter(GMDNR == 351),
+    left = FALSE
+  )) +
   tm_borders(col = "red") +
   tm_shape(st_join(grid_1km_cent,
-                   st_gg21 %>% filter(GMDNR == 351),
-                   left = FALSE)) + 
-  tm_dots() 
+    st_gg21 %>% filter(GMDNR == 351),
+    left = FALSE
+  )) +
+  tm_dots()
 ```
 
 Of course different grids will result in slightly different centroids in areas that were modified:  
 
 ```{r echo=FALSE}
 tm_shape(st_join(grid_1km,
-                 st_gg21 %>% filter(GMDNR == 4651),
-                 left = FALSE)) + 
+  st_gg21 %>% filter(GMDNR == 4651),
+  left = FALSE
+)) +
   tm_borders(col = "red") +
   tm_shape(st_join(grid_1km_crop,
-                   st_gg21 %>% filter(GMDNR == 4651),
-                   left = FALSE)) + 
+    st_gg21 %>% filter(GMDNR == 4651),
+    left = FALSE
+  )) +
   tm_borders(col = "forestgreen") +
   tm_shape(st_join(grid_1km_cent,
-                   st_join(grid_1km,
-                           st_gg21 %>% filter(GMDNR == 4651),
-                           left = FALSE),
-                   left = FALSE)) + 
-  tm_dots(col = "red") + 
+    st_join(grid_1km,
+      st_gg21 %>% filter(GMDNR == 4651),
+      left = FALSE
+    ),
+    left = FALSE
+  )) +
+  tm_dots(col = "red") +
   tm_shape(st_join(grid_1km_crop_cent,
-                   st_join(grid_1km,
-                           st_gg21 %>% filter(GMDNR == 4651),
-                           left = FALSE),
-                   left = FALSE)) + 
-  tm_dots(col = "forestgreen") 
+    st_join(grid_1km,
+      st_gg21 %>% filter(GMDNR == 4651),
+      left = FALSE
+    ),
+    left = FALSE
+  )) +
+  tm_dots(col = "forestgreen")
 ```
 
 ```{r include=FALSE}
-rm(grid_1km_crop, grid_1km_crop_cent); gc()
+rm(grid_1km_crop, grid_1km_crop_cent)
+gc()
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -350,19 +394,22 @@ raster::crs(r) <- st_crs(2056)$proj4string
 
 # nlayers(r)
 
-plot(r[[ c(1, 7) ]], 
-     main = "Monthly temps 2014 - January & July",
-     zlim = c(-20, 25), 
-     col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
+plot(r[[c(1, 7)]],
+  main = "Monthly temps 2014 - January & July",
+  zlim = c(-20, 25),
+  col = rev(RColorBrewer::brewer.pal(11, "RdBu"))
+)
 
-rm(filename, r); gc()
+rm(filename, r)
+gc()
 ```
 
 ```{r eval=FALSE, include=FALSE}
-plot(r[[1]], 
-     main = "TabsM_14 - January",
-     zlim = c(-20, 25), 
-     col = rev(RColorBrewer::brewer.pal(11, "RdBu")))
+plot(r[[1]],
+  main = "TabsM_14 - January",
+  zlim = c(-20, 25),
+  col = rev(RColorBrewer::brewer.pal(11, "RdBu"))
+)
 
 plot(st_geometry(grid_1km_cent), add = TRUE)
 ```
@@ -371,27 +418,26 @@ plot(st_geometry(grid_1km_cent), add = TRUE)
 
 ```{r}
 extract_temps <- function(filename, year) {
-  
+
   # r <- raster::stack(filename) # same same
   r <- raster::brick(filename)
   raster::crs(r) <- sf::st_crs(2056)$proj4string
-  
-  ex <- raster::extract(r, grid_1km_cent, df = TRUE) 
+
+  ex <- raster::extract(r, grid_1km_cent, df = TRUE)
   ex <- tibble::as_tibble(ex)
   repeats <- nrow(ex)
-  
+
   ex <- pivot_longer(ex,
-                     !ID,
-                     names_to = "date_temp",
-                     values_to = "temperature"
+    !ID,
+    names_to = "date_temp",
+    values_to = "temperature"
   )
-  
+
   ex$year <- as.integer(year)
   ex$month <- rep(seq(1, 12), repeats)
   ex$date_temp <- NULL
-  
+
   return(ex)
-  
 }
 
 temperature <- bind_rows(
@@ -403,8 +449,8 @@ temperature <- bind_rows(
   extract_temps("data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_201901010000_201912010000.nc", 2019),
   extract_temps("data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_202001010000_202012010000.nc", 2020),
   extract_temps("data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_202101010000_202112010000.nc", 2021)
-) %>% 
-  filter(! (year == 2021 & month > 6))
+) %>%
+  filter(!(year == 2021 & month > 6))
 ```
 
 ```{r include=FALSE}
@@ -417,33 +463,39 @@ write_rds(temperature, "data/meteoswiss/temperature.Rds")
 Data for Lugano & Jungfraujoch.  
 
 ```{r echo=FALSE}
-temp_checks <- 
-  tibble(Place = c("Jungfraujoch", "Lugano"),
-         lon = c(7.980556, 8.9525),
-         lat = c(46.547222, 46.005)) %>% 
-  st_as_sf(coords = c("lon", "lat"), 
-           crs = 4326 , 
-           remove = FALSE) %>% 
+temp_checks <-
+  tibble(
+    Place = c("Jungfraujoch", "Lugano"),
+    lon = c(7.980556, 8.9525),
+    lat = c(46.547222, 46.005)
+  ) %>%
+  st_as_sf(
+    coords = c("lon", "lat"),
+    crs = 4326,
+    remove = FALSE
+  ) %>%
   st_transform(2056)
 
 # qtm(temp_checks)
 
-temp_checks %<>% 
-  st_join(grid_1km) %>% 
-  st_drop_geometry() %>% 
-  select(Place, ID) %>% 
-  left_join(temperature) %>% 
-  select(-ID) %>% 
+temp_checks %<>%
+  st_join(grid_1km) %>%
+  st_drop_geometry() %>%
+  select(Place, ID) %>%
+  left_join(temperature) %>%
+  select(-ID) %>%
   mutate(Date = ym(paste(year, month, sep = " ")))
 
-ggplot(temp_checks, aes(Date, temperature, 
-                        group = Place, col = Place)) +
-  geom_line() + 
-  geom_point() + 
+ggplot(temp_checks, aes(Date, temperature,
+  group = Place, col = Place
+)) +
+  geom_line() +
+  geom_point() +
   theme_light() +
   ylab("Temperature")
 
-rm(temp_checks); gc()
+rm(temp_checks)
+gc()
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -459,65 +511,74 @@ grid_1km_over <- read_rds("data/grid/grid_1km_over.Rds")
 source("R/geom_001_pe_to_grid.R")
 
 gc()
-r20_pe_grid = geom_001_pe_to_grid("data/BfS-closed/STATPOP/r20_pe.dta")
+r20_pe_grid <- geom_001_pe_to_grid("data/BfS-closed/STATPOP/r20_pe.dta")
 write_rds(r20_pe_grid, "data/BfS-closed/STATPOP/r20_pe_grid.Rds")
-rm(r20_pe_grid); gc()
+rm(r20_pe_grid)
+gc()
 
 gc()
-r19_pe_grid = geom_001_pe_to_grid("data/BfS-closed/STATPOP/r19_pe.dta")
+r19_pe_grid <- geom_001_pe_to_grid("data/BfS-closed/STATPOP/r19_pe.dta")
 write_rds(r19_pe_grid, "data/BfS-closed/STATPOP/r19_pe_grid.Rds")
-rm(r19_pe_grid); gc()
+rm(r19_pe_grid)
+gc()
 
 gc()
-r18_pe_grid = geom_001_pe_to_grid("data/BfS-closed/STATPOP/r18_pe.dta")
+r18_pe_grid <- geom_001_pe_to_grid("data/BfS-closed/STATPOP/r18_pe.dta")
 write_rds(r18_pe_grid, "data/BfS-closed/STATPOP/r18_pe_grid.Rds")
-rm(r18_pe_grid); gc()
+rm(r18_pe_grid)
+gc()
 
 gc()
-r17_pe_grid = geom_001_pe_to_grid("data/BfS-closed/STATPOP/r17_pe.dta")
+r17_pe_grid <- geom_001_pe_to_grid("data/BfS-closed/STATPOP/r17_pe.dta")
 write_rds(r17_pe_grid, "data/BfS-closed/STATPOP/r17_pe_grid.Rds")
-rm(r17_pe_grid); gc()
+rm(r17_pe_grid)
+gc()
 
 gc()
-r16_pe_grid = geom_001_pe_to_grid("data/BfS-closed/STATPOP/r16_pe.dta")
+r16_pe_grid <- geom_001_pe_to_grid("data/BfS-closed/STATPOP/r16_pe.dta")
 write_rds(r16_pe_grid, "data/BfS-closed/STATPOP/r16_pe_grid.Rds")
-rm(r16_pe_grid); gc()
+rm(r16_pe_grid)
+gc()
 
 gc()
-r15_pe_grid = geom_001_pe_to_grid("data/BfS-closed/STATPOP/r15_pe.dta")
+r15_pe_grid <- geom_001_pe_to_grid("data/BfS-closed/STATPOP/r15_pe.dta")
 write_rds(r15_pe_grid, "data/BfS-closed/STATPOP/r15_pe_grid.Rds")
-rm(r15_pe_grid); gc()
+rm(r15_pe_grid)
+gc()
 
 gc()
-r14_pe_grid = geom_001_pe_to_grid("data/BfS-closed/STATPOP/r14_pe.dta")
+r14_pe_grid <- geom_001_pe_to_grid("data/BfS-closed/STATPOP/r14_pe.dta")
 write_rds(r14_pe_grid, "data/BfS-closed/STATPOP/r14_pe_grid.Rds")
-rm(r14_pe_grid); gc()
+rm(r14_pe_grid)
+gc()
 ```
 
 ```{r}
-pe_grid = bind_rows(read_rds("data/BfS-closed/STATPOP/r20_pe_grid.Rds") %>% 
-                      st_drop_geometry(),
-                    read_rds("data/BfS-closed/STATPOP/r19_pe_grid.Rds") %>% 
-                      st_drop_geometry(),
-                    read_rds("data/BfS-closed/STATPOP/r18_pe_grid.Rds") %>% 
-                      st_drop_geometry(),
-                    read_rds("data/BfS-closed/STATPOP/r17_pe_grid.Rds") %>% 
-                      st_drop_geometry(),
-                    read_rds("data/BfS-closed/STATPOP/r16_pe_grid.Rds") %>% 
-                      st_drop_geometry(),
-                    read_rds("data/BfS-closed/STATPOP/r15_pe_grid.Rds") %>% 
-                      st_drop_geometry(),
-                    read_rds("data/BfS-closed/STATPOP/r14_pe_grid.Rds") %>% 
-                      st_drop_geometry())
+pe_grid <- bind_rows(
+  read_rds("data/BfS-closed/STATPOP/r20_pe_grid.Rds") %>%
+    st_drop_geometry(),
+  read_rds("data/BfS-closed/STATPOP/r19_pe_grid.Rds") %>%
+    st_drop_geometry(),
+  read_rds("data/BfS-closed/STATPOP/r18_pe_grid.Rds") %>%
+    st_drop_geometry(),
+  read_rds("data/BfS-closed/STATPOP/r17_pe_grid.Rds") %>%
+    st_drop_geometry(),
+  read_rds("data/BfS-closed/STATPOP/r16_pe_grid.Rds") %>%
+    st_drop_geometry(),
+  read_rds("data/BfS-closed/STATPOP/r15_pe_grid.Rds") %>%
+    st_drop_geometry(),
+  read_rds("data/BfS-closed/STATPOP/r14_pe_grid.Rds") %>%
+    st_drop_geometry()
+)
 ```
 
 ## Aggregate by grid/gemeinde
 
 ```{r}
-lu_grid_gem = pe_grid %>% 
-  group_by(year,sex,age,ID,ID2,area,area2,GMDNR,GMDNAME,KTNR,KTNAME) %>% 
-  summarise(pop=sum(n),.groups="drop") %>% 
-  dplyr::arrange(year,ID,ID2,sex,age)
+lu_grid_gem <- pe_grid %>%
+  group_by(year, sex, age, ID, ID2, area, area2, GMDNR, GMDNAME, KTNR, KTNAME) %>%
+  summarise(pop = sum(n), .groups = "drop") %>%
+  dplyr::arrange(year, ID, ID2, sex, age)
 rm(pe_grid)
 gc()
 ```
@@ -525,47 +586,48 @@ gc()
 ## Expand grid for combinations with 0
 
 ```{r}
-lu_grid_gem = grid_1km_over %>% 
-  st_drop_geometry() %>% 
-  as_tibble() %>% 
-  dplyr::select(ID,ID2,area,area2,GMDNR,GMDNAME,KTNR,KTNAME) %>% 
-  tidyr::expand_grid(year=unique(lu_grid_gem$year),
-                     age=unique(lu_grid_gem$age),
-                     sex=unique(lu_grid_gem$sex)) %>% 
-  dplyr::arrange(year,ID,ID2,sex,age) %>% 
+lu_grid_gem <- grid_1km_over %>%
+  st_drop_geometry() %>%
+  as_tibble() %>%
+  dplyr::select(ID, ID2, area, area2, GMDNR, GMDNAME, KTNR, KTNAME) %>%
+  tidyr::expand_grid(
+    year = unique(lu_grid_gem$year),
+    age = unique(lu_grid_gem$age),
+    sex = unique(lu_grid_gem$sex)
+  ) %>%
+  dplyr::arrange(year, ID, ID2, sex, age) %>%
   dplyr::left_join(lu_grid_gem) %>%
-  dplyr::mutate(pop=if_else(is.na(pop),as.integer(0),pop))
+  dplyr::mutate(pop = if_else(is.na(pop), as.integer(0), pop))
 
-# filter(lu_grid_gem,GMDNR==4651,age=="<40",sex=="Female",year==2018) %>% view() 
-
+# filter(lu_grid_gem,GMDNR==4651,age=="<40",sex=="Female",year==2018) %>% view()
 ```
 
 ```{r eval=FALSE}
 gc()
-write_rds(lu_grid_gem, file="data/blob/lu_grid_gem.rds")
+write_rds(lu_grid_gem, file = "data/blob/lu_grid_gem.rds")
 ```
 
 
 ## Aggregate by grid
 
 ```{r}
-st_grid_pop = lu_grid_gem %>% 
-  dplyr::group_by(ID,year,age,sex) %>% 
-  dplyr::summarise(pop=sum(pop),.groups="drop")
+st_grid_pop <- lu_grid_gem %>%
+  dplyr::group_by(ID, year, age, sex) %>%
+  dplyr::summarise(pop = sum(pop), .groups = "drop")
 ```
 
 ```{r eval=FALSE}
 gc()
-write_rds(st_grid_pop, file="data/blob/st_grid_pop.rds")
+write_rds(st_grid_pop, file = "data/blob/st_grid_pop.rds")
 ```
 
 ## Extrapolate pop by month
 
 ```{r eval=FALSE}
-st_grid_pop_pred = st_grid_pop %>% 
-  tidyr::expand_grid(month=1:12) %>% 
-  dplyr::mutate(year_month=year+month/12) %>% 
-  dplyr::mutate(pop=if_else(month==12,pop,NA_integer_))
+st_grid_pop_pred <- st_grid_pop %>%
+  tidyr::expand_grid(month = 1:12) %>%
+  dplyr::mutate(year_month = year + month / 12) %>%
+  dplyr::mutate(pop = if_else(month == 12, pop, NA_integer_))
 
 # TODO: predict population by month 2014-2021
 
@@ -576,7 +638,7 @@ st_grid_pop_pred = st_grid_pop %>%
 
 ```{r eval=FALSE}
 gc()
-write_rds(st_grid_pop_pred, file="data/blob/st_grid_pop_pred.rds")
+write_rds(st_grid_pop_pred, file = "data/blob/st_grid_pop_pred.rds")
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -586,31 +648,40 @@ write_rds(st_grid_pop_pred, file="data/blob/st_grid_pop_pred.rds")
 ## SNC data 
 
 ```{r}
-snc5_deaths <- read_dta("data/BfS-closed/SNC/deaths.dta") %>% 
-  zap_formats() %>% zap_labels() %>% zap_label() %>% 
-  dplyr::select(-geoyear, -dob) %>% 
-  dplyr::rename(year = yod) %>% 
-  mutate(yod = as.integer(year),
-         sex = if_else(sex == "1", "Female", "Male"),
-         sex = factor(sex),
-         age = cut(age_death, 
-                   breaks = c(0, 40, seq(50, 80, 10), 120), right = FALSE, 
-                   labels = c("<40", "40-49", "50-59", "60-69", "70-79", "80+")),
-         month = month(dod)) %>% 
-  relocate(month, .after = year) %>% 
-  dplyr::select(-age_death, -dod) %>% 
-  relocate(age, .after = sex) %>% 
-  st_as_sf(coords = c("geox", "geoy"), 
-           crs = 2056,
-           remove = TRUE)
+snc5_deaths <- read_dta("data/BfS-closed/SNC/deaths.dta") %>%
+  zap_formats() %>%
+  zap_labels() %>%
+  zap_label() %>%
+  dplyr::select(-geoyear, -dob) %>%
+  dplyr::rename(year = yod) %>%
+  mutate(
+    yod = as.integer(year),
+    sex = if_else(sex == "1", "Female", "Male"),
+    sex = factor(sex),
+    age = cut(age_death,
+      breaks = c(0, 40, seq(50, 80, 10), 120), right = FALSE,
+      labels = c("<40", "40-49", "50-59", "60-69", "70-79", "80+")
+    ),
+    month = month(dod)
+  ) %>%
+  relocate(month, .after = year) %>%
+  dplyr::select(-age_death, -dod) %>%
+  relocate(age, .after = sex) %>%
+  st_as_sf(
+    coords = c("geox", "geoy"),
+    crs = 2056,
+    remove = TRUE
+  )
 ```
 
 ```{r eval=FALSE, include=FALSE}
 snc5_deaths %>%
-  st_drop_geometry() %>% 
+  st_drop_geometry() %>%
   group_by(age) %>%
-  summarise(min = min(year),
-            max = max(year))
+  summarise(
+    min = min(year),
+    max = max(year)
+  )
 
 snc5_deaths %>%
   sample_n(100) %>%
@@ -622,35 +693,39 @@ View(st_drop_geometry(snc5_deaths))
 ## Aggregate deaths by ID until 2019
 
 ```{r eval=FALSE}
-temp <- st_join(snc5_deaths, 
-                grid_1km, 
-                join = st_intersects) %>% 
-  st_drop_geometry() %>% 
-  group_by(ID, year, month, sex, age) %>% 
-  summarize(deaths = as.integer(n())) %>% 
-  ungroup() 
+temp <- st_join(snc5_deaths,
+  grid_1km,
+  join = st_intersects
+) %>%
+  st_drop_geometry() %>%
+  group_by(ID, year, month, sex, age) %>%
+  summarize(deaths = as.integer(n())) %>%
+  ungroup()
 
-st_grid_deaths_2014_2019 <-  
-  expand_grid(ID = unique(grid_1km$ID), 
-              year = unique(temp$year),
-              month = unique(temp$month),
-              sex = unique(temp$sex),
-              age = unique(temp$age)) %>% 
-  dplyr::arrange(ID, year, month, sex, age) %>% 
-  left_join(temp) %>% 
-  mutate(deaths = replace_na(deaths, 0)) %>% 
+st_grid_deaths_2014_2019 <-
+  expand_grid(
+    ID = unique(grid_1km$ID),
+    year = unique(temp$year),
+    month = unique(temp$month),
+    sex = unique(temp$sex),
+    age = unique(temp$age)
+  ) %>%
+  dplyr::arrange(ID, year, month, sex, age) %>%
+  left_join(temp) %>%
+  mutate(deaths = replace_na(deaths, 0)) %>%
   mutate(deaths = as.integer(deaths))
 
-stopifnot(length(unique(grid_1km$ID)) * 
-            length(unique(temp$year)) * 
-            length(unique(temp$month)) * 
-            length(levels(temp$age)) * 
-            length(levels(temp$sex)) == nrow(st_grid_deaths_2014_2019))
+stopifnot(length(unique(grid_1km$ID)) *
+  length(unique(temp$year)) *
+  length(unique(temp$month)) *
+  length(levels(temp$age)) *
+  length(levels(temp$sex)) == nrow(st_grid_deaths_2014_2019))
 ```
 
 ```{r eval=FALSE}
-rm(temp, snc5_deaths); gc()
-write_rds(st_grid_deaths_2014_2019, file="data/blob/st_grid_deaths_2014_2019.rds")
+rm(temp, snc5_deaths)
+gc()
+write_rds(st_grid_deaths_2014_2019, file = "data/blob/st_grid_deaths_2014_2019.rds")
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -658,19 +733,21 @@ write_rds(st_grid_deaths_2014_2019, file="data/blob/st_grid_deaths_2014_2019.rds
 # Gemeinde level deaths for 2020-2021 into grid
 
 ```{r}
-st_gem_deaths_2020_2021 =
-  read_rds("data/BfS-closed/w_deaths_2015_2021_pop.Rds") %>% 
-  dplyr::select(GMDNR,GMDNAME,year,month,age,sex,deaths) %>% 
-  dplyr::distinct() %>% 
-  dplyr::filter(year >=2020) 
+st_gem_deaths_2020_2021 <-
+  read_rds("data/BfS-closed/w_deaths_2015_2021_pop.Rds") %>%
+  dplyr::select(GMDNR, GMDNAME, year, month, age, sex, deaths) %>%
+  dplyr::distinct() %>%
+  dplyr::filter(year >= 2020)
 ```
 
 
 ```{r}
 source("R/geom_002_deaths_to_grid.R")
-st_grid_deaths_2020_2021 = geom_002_deaths_to_grid(deaths_data=st_gem_deaths_2020_2021,
-                                                   pop_data=lu_grid_gem,
-                                                   n_iter=50) # choose number of replications
+st_grid_deaths_2020_2021 <- geom_002_deaths_to_grid(
+  deaths_data = st_gem_deaths_2020_2021,
+  pop_data = lu_grid_gem,
+  n_iter = 50
+) # choose number of replications
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -678,9 +755,7 @@ st_grid_deaths_2020_2021 = geom_002_deaths_to_grid(deaths_data=st_gem_deaths_202
 # Final dataset
 
 ```{r eval=FALSE}
-st_grid_final = st_grid_pop %>%
-  left_join(st_grid_deaths_2014_2019) %>% 
+st_grid_final <- st_grid_pop %>%
+  left_join(st_grid_deaths_2014_2019) %>%
   left_join(st_grid_deaths_2020_2021)
-
 ```
-

@@ -55,7 +55,7 @@ mu <- Hmisc::markupSpecs$html
 ## AR level
 
 ```{r}
-w_deaths_2015_2021_ar_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_ar_pop.Rds")
+w_deaths_2015_2021_ar_pop <- read_rds("data/BfS-closed/monthly_deaths/w_deaths_2015_2021_ar_pop.Rds")
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -73,7 +73,7 @@ ggplot(w_deaths_2015_2021_ar_pop) +
 ## Municipality level 
 
 ```{r}
-w_deaths_2015_2021_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_pop.Rds")
+w_deaths_2015_2021_pop <- read_rds("data/BfS-closed/monthly_deaths/w_deaths_2015_2021_pop.Rds")
 ```
 
 ```{r eval=FALSE, include=FALSE}

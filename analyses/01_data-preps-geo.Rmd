@@ -57,17 +57,17 @@ mu <- Hmisc::markupSpecs$html
 
 <!-- ----------------------------------------------------- -->
 
-# Data sources 
+# Data sources
 
 ## BfS geodata 2021 {.tabset}
 
-[Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/administrative-grenzen/generalisierte-gemeindegrenzen.assetdetail.17964056.html).  
+[Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/administrative-grenzen/generalisierte-gemeindegrenzen.assetdetail.17964056.html).
 
-Contains three versions of data:  
+Contains three versions of data:
 
-> "Generalisierte Gemeindegrenzen, Stand 01.01.2021 & 18.04.2021 & 01.07.2021"	
+> "Generalisierte Gemeindegrenzen, Stand 01.01.2021 & 18.04.2021 & 01.07.2021"
 
-**Using `01.07` release.**  
+**Using `01.07` release.**
 
 ```{r eval=FALSE}
 download.file(url = "https://www.bfs.admin.ch/bfsstatic/dam/assets/17964056/master",
@@ -127,7 +127,7 @@ st_write(se21, "data/geo/BfS.gpkg",
          layer = "se21", append = FALSE)
 ```
 
-### Canton 
+### Canton
 
 ```{r echo=FALSE}
 tm_shape(se21, is.master = FALSE) +
@@ -136,7 +136,7 @@ tm_shape(se21, is.master = FALSE) +
   tm_borders()
 ```
 
-### Municipality 
+### Municipality
 
 ```{r echo=FALSE}
 tm_shape(se21, is.master = FALSE) +
@@ -147,13 +147,13 @@ tm_shape(se21, is.master = FALSE) +
 
 ## BfS geodata 2022
 
-[Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/en/home/services/geostat/swiss-federal-statistics-geodata/administrative-boundaries/generalized-boundaries-local-regional-authorities.assetdetail.21224783.html).  
+[Generalisierte Gemeindegrenzen: Geodaten](https://www.bfs.admin.ch/bfs/en/home/services/geostat/swiss-federal-statistics-geodata/administrative-boundaries/generalized-boundaries-local-regional-authorities.assetdetail.21224783.html).
 
-Last update:  
+Last update:
 
-> "08.02.2022"	
+> "08.02.2022"
 
-Might be needed to link to voting datasets.  
+Might be needed to link to voting datasets.
 
 ```{r eval=FALSE}
 download.file(url = "https://www.bfs.admin.ch/bfsstatic/dam/assets/21224783/master",
@@ -178,7 +178,7 @@ gg22 <-
 
 ## Alternative lakes dataset
 
-Coming from Kartengeometrien ThemaKart - Set «PRO» 2019 available [here](https://www.bfs.admin.ch/bfs/de/home/statistiken/kataloge-datenbanken/karten.assetdetail.7546178.html).  
+Coming from Kartengeometrien ThemaKart - Set «PRO» 2019 available [here](https://www.bfs.admin.ch/bfs/de/home/statistiken/kataloge-datenbanken/karten.assetdetail.7546178.html).
 
 ```{r}
 se21_alt <- 
@@ -187,7 +187,7 @@ se21_alt <-
   st_transform(2056)
 ```
 
-That adds few smaller lakes (in blue):  
+That adds few smaller lakes (in blue):
 
 ```{r echo=FALSE}
 tm_shape(se21_alt, is.master = TRUE) +
@@ -207,7 +207,7 @@ st_write(se21_alt, "data/geo/BfS.gpkg",
 
 ### Boundaries
 
-`swissBOUNDARIES3D` data available from [here](https://www.swisstopo.admin.ch/de/geodata/landscape/boundaries3d.html).   
+`swissBOUNDARIES3D` data available from [here](https://www.swisstopo.admin.ch/de/geodata/landscape/boundaries3d.html).
 
 ```{r eval=FALSE}
 download.file(url = "https://data.geo.admin.ch/ch.swisstopo.swissboundaries3d/swissboundaries3d_2021-07/swissboundaries3d_2021-07_2056_5728.shp.zip",
@@ -245,9 +245,9 @@ st_write(st_kt21, "data/geo/swisstopo.gpkg",
          layer = "st_kt21", delete_dsn = TRUE)
 ```
 
-### Lakes 
+### Lakes
 
-Additional dataset of lakes was derived from `swissTLM3D_TLM_STEHENDES_GEWAESSER.shp` layer from `swissTLM3D` [dataset](https://www.swisstopo.admin.ch/de/geodata/landscape/tlm3d.html).  
+Additional dataset of lakes was derived from `swissTLM3D_TLM_STEHENDES_GEWAESSER.shp` layer from `swissTLM3D` [dataset](https://www.swisstopo.admin.ch/de/geodata/landscape/tlm3d.html).
 
 ```{r eval=FALSE}
 # convert lines to polygons, calculate area
@@ -320,13 +320,13 @@ st_write(st_se21_sel, "data/geo/swisstopo.gpkg",
          layer = "st_se21_sel", append = FALSE)
 ```
 
-### Combined 
+### Combined
 
 ```{r include=FALSE}
 st_se21_sel <- read_rds("data/swisstopo/st_se21_sel.Rds") 
 ```
 
-Lakes dataset (selecting only `r nrow(se21_alt)` largest features from ThemaKart dataset overlap!) was then used to erase area of municipalities that extends over lakes. Issue is described in [#48](https://github.com/RPanczak/ISPM_geo-mortality/issues/48).  
+Lakes dataset (selecting only `r nrow(se21_alt)` largest features from ThemaKart dataset overlap!) was then used to erase area of municipalities that extends over lakes. Issue is described in [#48](https://github.com/RPanczak/ISPM_geo-mortality/issues/48).
 
 ```{r warning=FALSE}
 st_gg21 <- 
@@ -364,7 +364,7 @@ unique(st_geometry_type(temp))
 
 ## swisstopo geodata 2022
 
-2022 boundaries might be needed to link to voting patterns.  
+2022 boundaries might be needed to link to voting patterns.
 
 ```{r eval=FALSE}
 download.file(url = "https://data.geo.admin.ch/ch.swisstopo.swissboundaries3d/swissboundaries3d_2022-01/swissboundaries3d_2022-01_2056_5728.shp.zip",
@@ -426,7 +426,7 @@ write_rds(st_gg22, "data/swisstopo/st_gg22.Rds")
 
 ### Resolution
 
-swisstopo files (in blue below) are larger in size (and slower to plot) but offer better resolution and will be used for certain spatial operations (like linking to SEP) whereas BfS data (in red) are smaller in size and faster to plot. Example of municipality Bern:  
+swisstopo files (in blue below) are larger in size (and slower to plot) but offer better resolution and will be used for certain spatial operations (like linking to SEP) whereas BfS data (in red) are smaller in size and faster to plot. Example of municipality Bern:
 
 ```{r echo=FALSE}
 tm_shape(st_gg21 %>% filter(BFS_NUMMER == 351)) +
@@ -440,7 +440,7 @@ tm_shape(st_gg21 %>% filter(BFS_NUMMER == 351)) +
 
 ### Multipart features
 
-BfS originally stores data as `MULTIPOLYGON`. In such case municipality split over several disconnected areas is stored as *single record*. Example of municipality Monthey which consists of four separate areas:  
+BfS originally stores data as `MULTIPOLYGON`. In such case municipality split over several disconnected areas is stored as *single record*. Example of municipality Monthey which consists of four separate areas:
 
 ```{r echo=FALSE}
 gg21 %>% 
@@ -457,7 +457,7 @@ gg21 %>%
   st_cast("POLYGON")
 ```
 
-The same municipality in swisstopo data is stored as **set of** `MULTIPOLYGON` types and is represented by *four separate records* instead of one.  
+The same municipality in swisstopo data is stored as **set of** `MULTIPOLYGON` types and is represented by *four separate records* instead of one.
 
 ```{r echo=FALSE}
 st_gg21 %>% 
@@ -466,18 +466,18 @@ st_gg21 %>%
   plot()
 ```
 
-That might have some implications in terms of spatial operations (maybe contiguity too?). Data can easily be converted between types if needed. 
+That might have some implications in terms of spatial operations (maybe contiguity too?). Data can easily be converted between types if needed.
 
 ### 2021 vs 2022 boundaries
 
-Slightly less municipalities:  
+Slightly less municipalities:
 
 ```{r}
 length(unique(st_gg21$BFS_NUMMER))
 length(unique(st_gg22$GMDNR))
 ```
 
-In 2021 but not in 2022:  
+In 2021 but not in 2022:
 
 ```{r echo=FALSE}
 st_gg21 %>% 
@@ -489,7 +489,7 @@ st_gg21 %>%
   datatable()
 ```
 
-Vice versa:  
+Vice versa:
 
 ```{r echo=FALSE}
 st_gg22 %>% 
@@ -509,42 +509,37 @@ st_gg22 %>%
 
 Two communities in TI *Bissone* & *Melide* are disconnected by Lake Lugano in BfS municipality data:
 
-![No connectivity](../docs/conn1.png)
-In reality communities are indeed connected:
+![No connectivity](../docs/conn1.png) In reality communities are indeed connected:
 
-![IRL](../docs/conn3.png)
-That has been manually corrected in GIS and now looks like:
+![IRL](../docs/conn3.png) That has been manually corrected in GIS and now looks like:
 
-![Connected](../docs/conn2.png)
-Importance of this issue is covered [here](https://doi.org/10.1016/j.sste.2018.04.002).  
+![Connected](../docs/conn2.png) Importance of this issue is covered [here](https://doi.org/10.1016/j.sste.2018.04.002).
 
 ## Disconnected boundaries - Lake Zurich
 
-Freienbach & Rapperswil-Jona are disconnected on the map of boundaries:   
+Freienbach & Rapperswil-Jona are disconnected on the map of boundaries:
 
 ![No connectivity](../docs/conn5.png)
 
-... but connected IRL:  
+... but connected IRL:
 
-![Connectivity](../docs/conn4.png)
-That has been fixed manually in GIS.  
+![Connectivity](../docs/conn4.png) That has been fixed manually in GIS.
 
 ## Spurious connection
 
-Community of Twann-Tüscherz (in red) is connected to Erlach via small part of the St. Peter's Island.  
+Community of Twann-Tüscherz (in red) is connected to Erlach via small part of the St. Peter's Island.
 
-![St. Peter's Island](../docs/conn7.png)
-This connection has been removed.  
+![St. Peter's Island](../docs/conn7.png) This connection has been removed.
 
 ## Non-residential municipalities
 
-Excluding municipalities without residents:  
+Excluding municipalities without residents:
 
-- `Staatswald Galm`  
-- `Comunanza Cadenazzo/Monteceneri`  
-- `Comunanza Capriasca/Lugano`  
+-   `Staatswald Galm`\
+-   `Comunanza Cadenazzo/Monteceneri`\
+-   `Comunanza Capriasca/Lugano`
 
-We should not expect any cases there!  
+We should not expect any cases there!
 
 ```{r eval=FALSE, include=FALSE}
 gg21 %>% 
@@ -596,9 +591,9 @@ stopifnot(
 
 # Labour market areas 2018
 
-## Data sources 
+## Data sources
 
-More info [here](https://www.bfs.admin.ch/bfs/de/home/aktuell/neue-veroeffentlichungen.gnpdetail.2019-0439.html).  
+More info [here](https://www.bfs.admin.ch/bfs/de/home/aktuell/neue-veroeffentlichungen.gnpdetail.2019-0439.html).
 
 ```{r}
 raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx", 
@@ -643,7 +638,7 @@ raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx",
 write_rds(raum, "data/BfS/raum.Rds")
 ```
 
-Number of municipalities that are located within border labour market areas:  
+Number of municipalities that are located within border labour market areas:
 
 ```{r echo=FALSE}
 frq(raum, border)
@@ -651,7 +646,7 @@ frq(raum, border)
 
 ## Preps
 
-List of regions was merged on the basis of municipality number and then these municipalities were aggregated.  
+List of regions was merged on the basis of municipality number and then these municipalities were aggregated.
 
 ```{r eval=FALSE}
 argr21 <- gg21 %>% 
@@ -670,7 +665,7 @@ ar21 <- gg21 %>%
   st_cast("MULTIPOLYGON")
 ```
 
-Dissolving of BfS data via R was not perfect and manual corrections were implemented in QGIS software.  
+Dissolving of BfS data via R was not perfect and manual corrections were implemented in QGIS software.
 
 ```{r eval=FALSE, include=FALSE}
 # corrected manually in GIS so do not overwirte! 
@@ -713,7 +708,7 @@ st_write(ar21, "data/geo/BfS.gpkg",
          layer = "ar21", append = FALSE)
 ```
 
-Dissolve in R using swisstopo data was all fine.  
+Dissolve in R using swisstopo data was all fine.
 
 ```{r}
 # same for swisstopo
@@ -808,7 +803,7 @@ tm_shape(st_se21_sel, is.master = FALSE) +
 
 ## Border regions
 
-Defined on the basis of [this map](https://www.bfs.admin.ch/bfs/de/home/aktuell/neue-veroeffentlichungen.assetdetail.8706500.html). Linked by name of the region since some codes seemed to be out of date? (ie. Basel).  
+Defined on the basis of [this map](https://www.bfs.admin.ch/bfs/de/home/aktuell/neue-veroeffentlichungen.assetdetail.8706500.html). Linked by name of the region since some codes seemed to be out of date? (ie. Basel).
 
 ![Border regions](../docs/border.png)
 
@@ -834,7 +829,7 @@ ar21 %>%
   datatable() 
 ```
 
-The same typology can be applied to municipalities:  
+The same typology can be applied to municipalities:
 
 ```{r echo=FALSE}
 tm_shape(se21, is.master = FALSE) +
@@ -890,11 +885,11 @@ st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME,
 
 # tg3o simplification
 
-## Data 
+## Data
 
-So called 'productive areas', also coming from BfS' *ThemaKart* [product](https://www.bfs.admin.ch/bfs/en/home/statistics/regional-statistics/base-maps/cartographic-bases.assetdetail.21245514.html).  
+So called 'productive areas', also coming from BfS' *ThemaKart* [product](https://www.bfs.admin.ch/bfs/en/home/statistics/regional-statistics/base-maps/cartographic-bases.assetdetail.21245514.html).
 
-Roughly coincides with removing areas of above 2000m asl.  
+Roughly coincides with removing areas of above 2000m asl.
 
 ```{r include=FALSE, results=FALSE}
 tg3o_orig <- 
@@ -930,11 +925,11 @@ tg3o %<>%
 qtm(tg3o)
 ```
 
-Dataset consists of `r scales::number(length(unique(tg3o$GMDNR)), big.mark = ",")` communities. The state is from `2021-01-01` so needs to be updated to July to match the mortality of the data.  
+Dataset consists of `r scales::number(length(unique(tg3o$GMDNR)), big.mark = ",")` communities. The state is from `2021-01-01` so needs to be updated to July to match the mortality of the data.
 
 ## Updating to Jul 2021
 
-Using `Gemeindestand - Stand vom 01.07.2021.xlsx` from [here](https://www.agvchapp.bfs.admin.ch/de/home) we can identify municipalities with changes during the study period.  
+Using `Gemeindestand - Stand vom 01.07.2021.xlsx` from [here](https://www.agvchapp.bfs.admin.ch/de/home) we can identify municipalities with changes during the study period.
 
 ```{r}
 histcomm <- read_xlsx("data-raw/BfS/Mutierte_Gemeinden_20150101_bis_20210701.xlsx", 
@@ -962,7 +957,7 @@ write_rds(histcomm, "data/BfS/histcomm.Rds")
 
 <!-- There were `r length(unique(histcomm$bezirks_num_old))` municipalities with changes recorded in `2015-01-01` - `2021-07-01` period.   -->
 
-The following changes occurred after `2020-01-01` onwards that need to be replicated in tg3o dataset:  
+The following changes occurred after `2020-01-01` onwards that need to be replicated in tg3o dataset:
 
 ```{r echo=FALSE}
 histcomm %>% 
@@ -1085,9 +1080,9 @@ tg3o %>%
 
 Dataset now consists of `r scales::number(length(unique(tg3o$GMDNR)), big.mark = ",")` municipalities.
 
-## AR 
+## AR
 
-Merging to get AR in tg3o layout.  
+Merging to get AR in tg3o layout.
 
 ```{r include=FALSE}
 tg3o_ar <- tg3o %>% 
@@ -1133,9 +1128,9 @@ st_write(tg3o_ar, "data/geo/tg3o.gpkg",
 
 # Spatial connectivity of municipalities
 
-## Traditional 
+## Traditional
 
-Based on queen connectivity between the areas. Uses 'normal' municipality boundaries and connects them irrespectively of mountains.  
+Based on queen connectivity between the areas. Uses 'normal' municipality boundaries and connects them irrespectively of mountains.
 
 ```{r eval=FALSE, include=FALSE}
 # results will differ if not multipart!
@@ -1143,7 +1138,7 @@ Based on queen connectivity between the areas. Uses 'normal' municipality bounda
 #   st_cast("POLYGON")
 ```
 
-### Weights 
+### Weights
 
 ```{r}
 gg21_wm_q <- poly2nb(gg21, queen = TRUE, row.names = gg21$GMDNR)
@@ -1157,7 +1152,7 @@ nb2INLA("data/nb/gg21_wm_q.adj", gg21_wm_q)
 
 ### Region with one neighbour
 
-`2271 Meyriez`  
+`2271 Meyriez`
 
 ```{r echo=FALSE}
 tmap_mode("view")
@@ -1173,7 +1168,7 @@ tm_shape(gg21 %>% st_join(gg21 %>%
 
 ### Region with twelve neighbours (max case)
 
-`5586 Lausanne`  
+`5586 Lausanne`
 
 ```{r echo=FALSE}
 tm_shape(gg21 %>% st_join(gg21 %>% 
@@ -1243,7 +1238,7 @@ plot(gg21_wm_q,
      pch = 19, cex = 0.6, add = TRUE, col = "red")
 ```
 
-Example of `418 Oberburg`. Location:  
+Example of `418 Oberburg`. Location:
 
 ```{r echo=FALSE}
 tm_shape(gg21 %>% st_join(gg21 %>% 
@@ -1255,7 +1250,7 @@ tm_shape(gg21 %>% st_join(gg21 %>%
   tm_fill(col = "red", lwd = 2, alpha = 0.5)
 ```
 
-Connectivity:  
+Connectivity:
 
 ```{r echo=FALSE}
 temp1 <- gg21 %>% 
@@ -1277,7 +1272,7 @@ plot(gg21_wm_q,
 
 ### Connectivity over Zurichsee
 
-`1322 Freienbach` fixed above:  
+`1322 Freienbach` fixed above:
 
 ```{r echo=FALSE}
 tm_shape(gg21_orig %>% 
@@ -1328,7 +1323,7 @@ plot(gg21_wm_q, coordinates(as_Spatial(gg21)),
      pch = 19, cex = 0.6, add = TRUE, col = "red")
 ```
 
-### All together:  
+### All together:
 
 ```{r echo=FALSE}
 tmap_mode("plot")
@@ -1338,7 +1333,7 @@ plot(gg21_wm_q, coordinates(as_Spatial(gg21)),
      pch = 19, cex = 0.6, add = TRUE, col = "red")
 ```
 
-### List 
+### List
 
 ```{r}
 gg21_wm_q_list <- nb2listw(gg21_wm_q, style = "W", zero.policy = TRUE)
@@ -1347,7 +1342,7 @@ write_rds(gg21_wm_q_list, "data/nb/gg21_wm_q_list.Rds")
 
 ## tg3o simplification
 
-Based on queen connectivity between the productive areas. Uses 'tg3o' simplified municipality boundaries so it breaks some connections in the mountainous regions. Few disconnected areas are connected back, mostly when tehre is a train tunnel or a year round road pass connection.    
+Based on queen connectivity between the productive areas. Uses 'tg3o' simplified municipality boundaries so it breaks some connections in the mountainous regions. Few disconnected areas are connected back, mostly when tehre is a train tunnel or a year round road pass connection.
 
 ```{r eval=FALSE, include=FALSE}
 # results will differ if not multipart!
@@ -1355,7 +1350,7 @@ Based on queen connectivity between the productive areas. Uses 'tg3o' simplified
 #   st_cast("POLYGON")
 ```
 
-### Weights 
+### Weights
 
 ```{r include=FALSE}
 tg3o_orig_wm_q <- poly2nb(tg3o_orig, queen = TRUE, row.names = tg3o$GMDNR)
@@ -1397,7 +1392,7 @@ summary(tg3o_wm_q)
 
 ### All together
 
-Original connectivity, notice disconnected 'islands' of polygons:  
+Original connectivity, notice disconnected 'islands' of polygons:
 
 ```{r echo=FALSE}
 plot(as_Spatial(tg3o), col = "lightgrey") 
@@ -1413,7 +1408,7 @@ plot(tg3o_wm_q, coordinates(as_Spatial(tg3o_nb)),
      pch = 19, cex = 0.6, add = TRUE, col = "red")
 ```
 
-Forcing extra connections; clearer when only the differences are shown:  
+Forcing extra connections; clearer when only the differences are shown:
 
 ```{r echo=FALSE}
 diffs <- diffnb(tg3o_wm_q, tg3o_orig_wm_q, verbose = NULL)
@@ -1424,7 +1419,7 @@ plot(diffs, coordinates(as_Spatial(tg3o_nb)),
      points = FALSE, add = TRUE, col = "red")
 ```
 
-### List 
+### List
 
 ```{r}
 tg3o_wm_q_list <- nb2listw(tg3o_wm_q, style = "W", zero.policy = TRUE)
@@ -1435,11 +1430,11 @@ write_rds(tg3o_wm_q_list, "data/nb/tg3o_wm_q_list.Rds")
 
 # Spatial connectivity of AR regions
 
-## Traditional 
+## Traditional
 
-Based on queen connectivity between the areas. Uses 'normal' AR boundaries and connects them irrespectively of mountains.  
+Based on queen connectivity between the areas. Uses 'normal' AR boundaries and connects them irrespectively of mountains.
 
-### Weights 
+### Weights
 
 ```{r}
 ar21_wm_q <- poly2nb(ar21, queen = TRUE, row.names = ar21$ARNR)
@@ -1453,7 +1448,7 @@ nb2INLA("data/nb/ar21_wm_q.adj", ar21_wm_q)
 
 ### Region with one neighbour
 
-`08013 Basel`  
+`08013 Basel`
 
 ```{r echo=FALSE}
 tmap_mode("view")
@@ -1469,7 +1464,7 @@ tm_shape(ar21 %>% st_join(ar21 %>%
 
 ### Region with ten neighbours (max case)
 
-`05060 Solothurn`  
+`05060 Solothurn`
 
 ```{r echo=FALSE}
 tm_shape(ar21 %>% st_join(ar21 %>% 
@@ -1481,7 +1476,7 @@ tm_shape(ar21 %>% st_join(ar21 %>%
   tm_fill(col = "red", lwd = 2, alpha = 0.5)
 ```
 
-### All together:  
+### All together:
 
 ```{r echo=FALSE}
 tmap_mode("plot")
@@ -1491,7 +1486,7 @@ plot(ar21_wm_q, coordinates(as_Spatial(ar21)),
      pch = 19, cex = 0.6, add = TRUE, col = "red")
 ```
 
-### List 
+### List
 
 ```{r}
 ar21_wm_q_list <- nb2listw(ar21_wm_q, style = "W", zero.policy = TRUE)

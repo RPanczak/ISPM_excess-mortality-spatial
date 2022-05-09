@@ -287,8 +287,8 @@ w_deaths_2015_2021_exp %>%
 ```
 
 ```{r include=FALSE}
-# write_rds(w_deaths_2015_2021, "data/BfS-closed/w_deaths_2015_2021.Rds")
-write_rds(w_deaths_2015_2021_exp, "data/BfS-closed/w_deaths_2015_2021_exp.Rds")
+# write_rds(w_deaths_2015_2021, "data/BfS-closed/monthly_deaths/w_deaths_2015_2021.Rds")
+write_rds(w_deaths_2015_2021_exp, "data/BfS-closed/monthly_deaths/w_deaths_2015_2021_exp.Rds")
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -352,7 +352,7 @@ w_deaths_2015_2021_ar %>%
 ```
 
 ```{r include=FALSE}
-write_rds(w_deaths_2015_2021_ar, "data/BfS/w_deaths_2015_2021_ar.Rds")
+write_rds(w_deaths_2015_2021_ar, "data/BfS/monthly_deaths/w_deaths_2015_2021_ar.Rds")
 ```
 
 <!-- ----------------------------------------------------- -->

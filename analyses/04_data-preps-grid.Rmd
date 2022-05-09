@@ -501,7 +501,7 @@ lu_grid_gem = grid_1km_over %>%
   dplyr::mutate(pop=if_else(is.na(pop),as.integer(0),pop))
 
 # filter(lu_grid_gem,GMDNR==4651,age=="<40",sex=="Female",year==2018) %>% view() 
-  
+
 ```
 
 ```{r eval=FALSE}
@@ -543,25 +543,26 @@ gc()
 write_rds(st_grid_pop_pred, file="data/blob/st_grid_pop_pred.rds")
 ```
 
+<!-- ----------------------------------------------------- -->
 
 # Gridded deaths 2014-2019
 
 ### SNC data 
 
 ```{r}
-snc5_deaths <- read_dta("data/SNC/deaths.dta") %>% 
+snc5_deaths <- read_dta("data/BfS-closed/SNC/deaths.dta") %>% 
   zap_formats() %>% zap_labels() %>% zap_label() %>% 
-  dplyr::select(-geoyear, -last_census_seen, -dob) %>% 
+  dplyr::select(-geoyear, -dob) %>% 
   dplyr::rename(year = yod) %>% 
   mutate(yod = as.integer(year),
          sex = if_else(sex == "1", "Female", "Male"),
          sex = factor(sex),
-         age = cut(age_cont, 
+         age = cut(age_death, 
                    breaks = c(0, 40, seq(50, 80, 10), 120), right = FALSE, 
                    labels = c("<40", "40-49", "50-59", "60-69", "70-79", "80+")),
          month = month(dod)) %>% 
   relocate(month, .after = year) %>% 
-  dplyr::select(-age_cont, -dod) %>% 
+  dplyr::select(-age_death, -dod) %>% 
   relocate(age, .after = sex) %>% 
   st_as_sf(coords = c("geox", "geoy"), 
            crs = 2056,
@@ -593,12 +594,6 @@ temp <- st_join(snc5_deaths,
   summarize(deaths = as.integer(n())) %>% 
   ungroup() 
 
-length(unique(grid_1km$ID)) * 
-  length(unique(temp$year)) * 
-  length(unique(temp$month)) * 
-  length(levels(temp$age)) * 
-  length(levels(temp$sex))
-
 st_grid_deaths_2014_2019 <-  
   expand_grid(ID = unique(grid_1km$ID), 
               year = unique(temp$year),
@@ -609,6 +604,12 @@ st_grid_deaths_2014_2019 <-
   left_join(temp) %>% 
   mutate(deaths = replace_na(deaths, 0)) %>% 
   mutate(deaths = as.integer(deaths))
+
+stopifnot(length(unique(grid_1km$ID)) * 
+            length(unique(temp$year)) * 
+            length(unique(temp$month)) * 
+            length(levels(temp$age)) * 
+            length(levels(temp$sex)) == nrow(st_grid_deaths_2014_2019))
 ```
 
 ```{r eval=FALSE}
@@ -616,6 +617,7 @@ rm(temp, snc5_deaths); gc()
 write_rds(st_grid_deaths_2014_2019, file="data/blob/st_grid_deaths_2014_2019.rds")
 ```
 
+<!-- ----------------------------------------------------- -->
 
 # Gemeinde level deaths for 2020-2021 into grid
 

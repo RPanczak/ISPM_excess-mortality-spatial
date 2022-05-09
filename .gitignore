@@ -31,7 +31,6 @@ admin/
 # large files; lfs doesnt want to work
 data/grid/grid_1km.gpkg
 data-raw/swisstopo/SMR1000_2019/
-data/blob/
 results/
 
 # probably doesnt make sense to share it
@@ -39,9 +38,6 @@ results/
 
 # TBC if possible to share custom data
 data-raw/BfS-closed/
+
 data-raw/meteoswiss
 data/meteoswiss
-data-raw/SNC
-data-raw/STATPOP
-data-raw/meteoswiss
-data/sep/r19_bu_sep_gem21.rds

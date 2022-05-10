@@ -197,6 +197,8 @@ population %>%
 
 For each age, sex, nationality stratum, for each municipality separately, linear & Poisson models were fitted using the 2014-2019 data; then prediction was made for 2020 & 2021 years. The gist of this operation was to exclude the effect of pandemic from the population counts in years affected.   
 
+### Linear model
+
 ```{r}
 population_ext_lm <- population %>% 
   filter(year != 2020) %>% 
@@ -217,9 +219,21 @@ population_ext_lm <- population %>%
   relocate(year)
 ```
 
-```{r eval=FALSE, include=FALSE}
+Summary of values:  
+
+```{r echo=FALSE}
 summary(population_ext_lm$population_ext_lm)
 ```
+
+**Note:** *minus values!*  
+
+```{r echo=FALSE}
+frq(population_ext_lm, population_ext_lm < 0)
+```
+
+### Poisson model
+
+Similar as above but this time with Poisson model:  
 
 ```{r}
 population_ext_poi <- population %>% 
@@ -239,9 +253,26 @@ population_ext_poi <- population %>%
   relocate(year)
 ```
 
-```{r eval=FALSE, include=FALSE}
-# 4 NAs!
+Summary of values:  
+
+```{r echo=FALSE}
 summary(population_ext_poi$population_ext_poi)
+```
+
+**Note:** *4 NAs!*  
+
+```{r echo=FALSE}
+population %>% 
+  filter(GMDNR %in% c(4232) & sex == "Male" & age == "80+")
+
+population_ext_poi %>% 
+  filter(GMDNR %in% c(4232) & sex == "Male" & age == "80+")
+
+population %>% 
+  filter(GMDNR %in% c(389) & sex == "Male" & age == "80+")
+
+population_ext_poi %>% 
+  filter(GMDNR %in% c(389) & sex == "Male" & age == "80+")
 ```
 
 ### Results in large municipality {.tabset}
@@ -278,7 +309,7 @@ population %>%
 
 For small municipality we might end up with sth more wiggly. 
 
-#### Linear model (small) 
+#### Linear model
 
 ```{r echo=FALSE, warning=FALSE}
 population %>% 
@@ -291,7 +322,7 @@ population %>%
   facet_wrap(age~sex, scales = "free")
 ```
 
-#### Poisson model (small) 
+#### Poisson model 
 
 ```{r echo=FALSE, warning=FALSE}
 population %>% 
@@ -471,7 +502,7 @@ Prepared population file is merged to deaths dataset prepared in `02.Rmd`.
 Non-existent population count `communityXyearXageXsexXnationality` strata are assumed to mean 0 pops.  
 
 ```{r}
-w_deaths_2015_2021_pop <- read_rds("data/BfS-closed/w_deaths_2015_2021_exp.Rds") %>% 
+w_deaths_2015_2021_pop <- read_rds("data/BfS-closed/monthly_deaths/w_deaths_2015_2021_exp.Rds") %>% 
   left_join(
     bind_rows(population, 
               population %>% 
@@ -511,7 +542,7 @@ surplus %>%
 
 ```{r eval=FALSE, include=FALSE}
 # missing checks
-w_deaths_2015_2021_exp <- read_rds("data/BfS-closed/w_deaths_2015_2021_exp.Rds")
+w_deaths_2015_2021_exp <- read_rds("data/BfS-closed/monthly_deaths/w_deaths_2015_2021_exp.Rds")
 
 missing1 <- w_deaths_2015_2021_exp %>% 
   anti_join(population) %>% 
@@ -547,7 +578,7 @@ population_ar <- population_mid_poi %>%
   dplyr::summarise(population = sum(population_mid_poi)) %>% 
   ungroup()
 
-w_deaths_2015_2021_ar_pop <- read_rds("data/BfS/w_deaths_2015_2021_ar.Rds") %>% 
+w_deaths_2015_2021_ar_pop <- read_rds("data/BfS/monthly_deaths/w_deaths_2015_2021_ar.Rds") %>% 
   left_join(population_ar)
 ```
 

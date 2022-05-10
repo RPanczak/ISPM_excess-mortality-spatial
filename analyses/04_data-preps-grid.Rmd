@@ -622,36 +622,39 @@ gc()
 write_rds(st_grid_pop, "data/blob/st_grid_pop.Rds")
 ```
 
-## Extrapolate pop by month
+## Extrapolate pop after 2019
 
 ### Data 
 
 ```{r}
-# st_grid_pop <- read_rds("data/blob/st_grid_pop.Rds")
+st_grid_pop <- read_rds("data/blob/st_grid_pop.Rds")
 
-st_grid_pop_pred <- bind_rows(
+st_grid_pop_pred <- dplyr::bind_rows(
   
   st_grid_pop %>%
     dplyr::filter(year != 2020),
   
   st_grid_pop %>% 
     dplyr::select(-year) %>% 
-    distinct() %>% 
+    dplyr::distinct() %>% 
     tidyr::expand_grid(year = 2020:2022) %>% 
-    mutate(pop = NA_integer_)
+    dplyr::mutate(pop = NA_integer_)
 ) %>% 
-  arrange(ID, year, age, sex)
+  dplyr::arrange(ID, year, age, sex) %>%   
+  dplyr::mutate(id_year = year - 2013,
+         id_age = as.integer(as.factor(age)))
+
 ```
 
 ```{r eval=FALSE, include=FALSE}
 # zero pops example
 filter(st_grid_pop_pred, ID == 1, age == "<40", sex == "Female") %>% 
-  ggplot(aes(x = year_month, y = pop)) + 
+  ggplot(aes(x = year, y = pop)) + 
   geom_point()
 
 # max pops example
 filter(st_grid_pop_pred, ID == 4084, age == "<40", sex == "Female") %>% 
-  ggplot(aes(x = year_month, y = pop)) + 
+  ggplot(aes(x = year, y = pop)) + 
   geom_point()
 ```
 
@@ -737,10 +740,6 @@ st_grid_pop_pred$m3 = as.integer(predict(m3, st_grid_pop_pred, type = "response"
 ```{r}
 library(INLA)
 
-st_grid_pop_pred %<>% 
-  mutate(id_year = year - 2013,
-         id_age = as.integer(as.factor(age)))
-
 hyper.iid <- list(theta = list(prior = "pc.prec", param = c(1, 0.01)))
 control.family <- inla.set.control.family.default()
 threads = parallel::detectCores()
@@ -753,16 +752,16 @@ data_stratified <- st_grid_pop_pred %>%
   filter(age == "<40", sex == "Female")
 
 formula <-
-  pop ~  
-  f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
+  pop ~ year +
+  # f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
   # f(ID, model = "bym2", graph = "data/nb/ar21_wm_q.adj", scale.model = TRUE, constr = TRUE, hyper = hyper.bym)
   # temp solution to save time
   f(ID, model = "iid", constr = TRUE, hyper = hyper.iid)
 
 results <- inla(formula,
-                data = st_grid_pop_pred,
-                family = "Poisson",
-                # family = "zeroinflatedpoisson0",
+                data = data_stratified,
+                # family = "Poisson",
+                family = "zeroinflatedpoisson0",
                 # family = "zeroinflatedpoisson1",
                 # family = "zeroinflatednbinomial0",
                 # family = "zeroinflatednbinomial1",

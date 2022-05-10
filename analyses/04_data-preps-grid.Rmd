@@ -629,10 +629,18 @@ write_rds(st_grid_pop, "data/blob/st_grid_pop.Rds")
 ```{r}
 # st_grid_pop <- read_rds("data/blob/st_grid_pop.Rds")
 
-st_grid_pop_pred <- st_grid_pop %>%
-  tidyr::expand_grid(month = 1:12) %>%
-  dplyr::mutate(year_month = year + month / 12) %>%
-  dplyr::mutate(pop = if_else(month == 12, pop, NA_integer_))
+st_grid_pop_pred <- bind_rows(
+  
+  st_grid_pop %>%
+    dplyr::filter(year != 2020),
+  
+  st_grid_pop %>% 
+    dplyr::select(-year) %>% 
+    distinct() %>% 
+    tidyr::expand_grid(year = 2020:2022) %>% 
+    mutate(pop = NA_integer_)
+) %>% 
+  arrange(ID, year, age, sex)
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -747,8 +755,6 @@ data_stratified <- st_grid_pop_pred %>%
 formula <-
   pop ~  
   f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
-  # f(month, model = "seasonal", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, season.length = 12) +
-  f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE) +
   # f(ID, model = "bym2", graph = "data/nb/ar21_wm_q.adj", scale.model = TRUE, constr = TRUE, hyper = hyper.bym)
   # temp solution to save time
   f(ID, model = "iid", constr = TRUE, hyper = hyper.iid)
@@ -760,7 +766,7 @@ results <- inla(formula,
                 # family = "zeroinflatedpoisson1",
                 # family = "zeroinflatednbinomial0",
                 # family = "zeroinflatednbinomial1",
-                # verbose = TRUE,
+                verbose = TRUE,
                 control.family = control.family,
                 control.compute = list(config = TRUE, 
                                        # return.marginals.predictor = TRUE,
@@ -787,8 +793,6 @@ formula <-
   pop ~ sex + 
   f(id_age, model = "iid", hyper = hyper.iid, constr = TRUE) +
   f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
-  # f(month, model = "seasonal", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, season.length = 12) +
-  f(month, model = "rw1", hyper = hyper.iid, constr = TRUE, scale.model = TRUE, cyclic = TRUE) +
   # f(ID, model = "bym2", graph = "data/nb/ar21_wm_q.adj", scale.model = TRUE, constr = TRUE, hyper = hyper.bym)
   # temp solution to save time
   f(ID, model = "iid", constr = TRUE, hyper = hyper.iid)
@@ -801,7 +805,7 @@ results <- inla(formula,
                 # family = "zeroinflatedpoisson1",
                 # family = "zeroinflatednbinomial0",
                 # family = "zeroinflatednbinomial1",
-                # verbose = TRUE,
+                verbose = TRUE,
                 control.family = control.family,
                 control.compute = list(config = TRUE, 
                                        # return.marginals.predictor = TRUE,

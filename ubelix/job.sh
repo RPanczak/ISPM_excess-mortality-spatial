@@ -7,4 +7,4 @@
 #SBATCH --mail-type=end,fail
 
 module load R 
-Rscript analyses/06-01_model-ar.R
+Rscript ~/ISPM_geo-mortality/analyses/06-01_model-ar.R

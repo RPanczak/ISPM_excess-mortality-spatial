@@ -16,7 +16,7 @@ data
 formula = y ~ 1+z
 formula
 
-result = inla(formula, family = "gaussian", data = data)
+result = inla(formula, family = "gaussian", data = data, verbose = TRUE)
 
 summary(result)
 

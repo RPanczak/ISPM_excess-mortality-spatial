@@ -3,7 +3,7 @@
 #SBATCH --cpus-per-task=32
 #SBATCH --mem-per-cpu=2G
 #SBATCH --time=48:00:00
-#SBATCH --mail-user=r.panczak@gmail.com
+#SBATCH --mail-user=radoslaw.panczak@ispm.unibe.ch
 #SBATCH --mail-type=end,fail
 
 module load R 

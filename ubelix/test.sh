@@ -6,5 +6,5 @@
 #SBATCH --mail-user=radoslaw.panczak@ispm.unibe.ch
 #SBATCH --mail-type=end,fail
 
-module load R nodejs
+module load GCC R 
 Rscript ubelix/test.R

@@ -53,7 +53,8 @@ for(j in 1:nrow(groups)){
   
   data_strat <- data %>% 
     filter(age == groups[j, ]$age & sex == groups[j, ]$sex) %>% 
-    select(-age, -sex, -id_age)
+    select(-age, -sex, -id_age) %>% 
+    as.data.frame()
   
   model_strat <- inla(formula_strat,
                       data = data_strat,

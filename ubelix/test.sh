@@ -6,5 +6,5 @@
 #SBATCH --mail-user=radoslaw.panczak@ispm.unibe.ch
 #SBATCH --mail-type=end,fail
 
-module load R 
+module load R nodejs
 Rscript ~/ISPM_geo-mortality/ubelix/test.R

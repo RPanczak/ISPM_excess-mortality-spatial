@@ -1,5 +1,7 @@
 library(INLA)
 
+getwd()
+
 n = 100; a = 1; b = 1; tau = 100
 z = rnorm(n)
 eta = a + b*z
@@ -14,3 +16,5 @@ formula = y ~ 1+z
 result = inla(formula, family = "gaussian", data = data)
 
 summary(result)
+
+getwd()

@@ -82,13 +82,13 @@ for(j in 1:nrow(groups)){
   )
   
   name <- paste(groups[j, ]$age, groups[j, ]$sex)
-  results[[name]] <- model_strat
+  ar_strat_iid[[name]] <- model_strat
   
   rm(data_strat, model_strat); gc()
   
 }
 
-write_rds(results, "results/ar_strat_iid.Rds")
+write_rds(ar_strat_iid, file = "results/ar_strat_iid.Rds")
 
 ### Adjusted modelling
 
@@ -106,30 +106,30 @@ formula_all <-
   f(id_space, model = "iid", constr = TRUE, hyper = hyper.iid)
 
 
-results_all <- inla(formula_all,
-                    data = data,
-                    family = "Poisson",
-                    # family = "zeroinflatedpoisson0",
-                    # family = "zeroinflatedpoisson1",
-                    # family = "zeroinflatednbinomial0",
-                    # family = "zeroinflatednbinomial1",
-                    # verbose = TRUE,
-                    control.family = control.family,
-                    control.compute = list(config = TRUE, 
-                                           # return.marginals.predictor = TRUE,
-                                           # cpo = TRUE, 
-                                           dic = TRUE, waic = TRUE),
-                    control.mode = list(restart = TRUE),
-                    num.threads = threads,
-                    control.predictor = list(compute = TRUE, link = 1),
-                    control.inla = list(
-                      strategy = "simplified.laplace", # default
-                      # strategy = "adaptive",  
-                      # strategy = "gaussian",  
-                      # strategy = "laplace", #npoints = 21, 
-                      int.strategy = "ccd" # default
-                      # int.strategy = "grid", diff.logdens = 4
-                    )
+ar_all_iid <- inla(formula_all,
+                   data = data,
+                   family = "Poisson",
+                   # family = "zeroinflatedpoisson0",
+                   # family = "zeroinflatedpoisson1",
+                   # family = "zeroinflatednbinomial0",
+                   # family = "zeroinflatednbinomial1",
+                   # verbose = TRUE,
+                   control.family = control.family,
+                   control.compute = list(config = TRUE, 
+                                          # return.marginals.predictor = TRUE,
+                                          # cpo = TRUE, 
+                                          dic = TRUE, waic = TRUE),
+                   control.mode = list(restart = TRUE),
+                   num.threads = threads,
+                   control.predictor = list(compute = TRUE, link = 1),
+                   control.inla = list(
+                     strategy = "simplified.laplace", # default
+                     # strategy = "adaptive",  
+                     # strategy = "gaussian",  
+                     # strategy = "laplace", #npoints = 21, 
+                     int.strategy = "ccd" # default
+                     # int.strategy = "grid", diff.logdens = 4
+                   )
 )
 
-write_rds(results_all, "results/ar_all_iid.Rds")
+write_rds(ar_all_iid, "results/ar_all_iid.Rds")

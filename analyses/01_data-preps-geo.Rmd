@@ -256,7 +256,7 @@ Additional dataset of lakes was derived from `swissTLM3D_TLM_STEHENDES_GEWAESSER
 # "NAME" = 'Bodensee | Lac de Constance | Lago di Costanza | Lai da Constanza'
 
 st_se21 <- 
-  st_read("data-raw/swisstopo/swisstlm3d_2021-04_2056_5728.shp/swissTLM3D_TLM_STEHENDES_GEWAESSER.shp",
+  st_read("data-raw/swisstopo/swisstlm3d_2021-04_2056_5728/swissTLM3D_TLM_STEHENDES_GEWAESSER.shp",
           as_tibble = TRUE) %>% 
   st_zm(drop = TRUE, what = "ZM") %>% 
   filter(OBJEKTART == "See") %>% 
@@ -271,7 +271,7 @@ st_se21 <-
   relocate(geometry, .after = last_col())
 
 st_see21_insel <- 
-  st_read("data-raw/swisstopo/swisstlm3d_2021-04_2056_5728.shp/swissTLM3D_TLM_STEHENDES_GEWAESSER.shp",
+  st_read("data-raw/swisstopo/swisstlm3d_2021-04_2056_5728/swissTLM3D_TLM_STEHENDES_GEWAESSER.shp",
           as_tibble = TRUE) %>% 
   st_zm(drop = TRUE, what = "ZM") %>% 
   filter(OBJEKTART == "Seeinsel") %>% 

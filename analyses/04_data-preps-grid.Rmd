@@ -53,8 +53,6 @@ knitr::opts_chunk$set(
 )
 
 knitr::opts_knit$set(width = 75)
-
-mu <- Hmisc::markupSpecs$html
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -113,7 +111,7 @@ Using meteoswiss origin allows us to perfectly align gridded mortality and popul
 ```{r}
 p_load(ncdf4)
 
-TabsD_14 <- nc_open("data-raw/meteoswiss/TabsD_ch01r.swiss.lv95_201401010000_201412310000.nc")
+TabsD_14 <- nc_open("data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_201401010000_201412010000.nc")
 
 E <- ncvar_get(TabsD_14, "E") # X, lon
 N <- ncvar_get(TabsD_14, "N") # Y, lat
@@ -135,7 +133,7 @@ origin_meteoswiss <- st_as_sf(tibble(E = min(E), N = min(N)),
 ) %>%
   st_set_crs(2056)
 
-qtm(origin)
+qtm(origin_meteoswiss)
 ```
 
 ## Grid 
@@ -182,35 +180,15 @@ grid_1km_over <- grid_1km_crop %>%
 ```
 
 ```{r eval=FALSE, include=FALSE}
-View(st_drop_geometry(grid_1km))
-plot(st_geometry(grid_1km))
-
-View(st_drop_geometry(grid_1km_crop))
-plot(st_geometry(grid_1km_crop))
-
-View(st_drop_geometry(grid_1km_over))
-plot(st_geometry(grid_1km_over))
-```
-
-```{r eval=FALSE, include=FALSE}
 # grids
-st_write(grid_1km, "data/grid/grid_1km.gpkg",
-         layer = "grid_1km", delete_dsn = TRUE
-)
-st_write(grid_1km_crop, "data/grid/grid_1km.gpkg",
-         layer = "grid_1km_crop", append = TRUE
-)
-st_write(grid_1km_over, "data/grid/grid_1km.gpkg",
-         layer = "grid_1km_over", append = TRUE
-)
+st_write(grid_1km, "data/grid/grid_1km.gpkg", layer = "grid_1km", delete_dsn = TRUE)
+st_write(grid_1km_crop, "data/grid/grid_1km.gpkg", layer = "grid_1km_crop", append = TRUE)
+st_write(grid_1km_over, "data/grid/grid_1km.gpkg", layer = "grid_1km_over", append = TRUE)
 
 # admin bound
-st_write(st_gg21, "data/grid/grid_1km.gpkg",
-         layer = "st_gg21", append = TRUE
+st_write(st_gg21, "data/grid/grid_1km.gpkg", layer = "st_gg21", append = TRUE
 )
-st_write(st_se21_sel, "data/grid/grid_1km.gpkg",
-         layer = "st_se21_sel", append = TRUE
-)
+st_write(st_se21_sel, "data/grid/grid_1km.gpkg", layer = "st_se21_sel", append = TRUE)
 
 write_rds(grid_1km, "data/grid/grid_1km.Rds")
 write_rds(grid_1km_crop, "data/grid/grid_1km_crop.Rds")
@@ -224,6 +202,15 @@ grid_1km_over <- read_rds("data/grid/grid_1km_over.Rds")
 ```
 
 ```{r eval=FALSE, include=FALSE}
+View(st_drop_geometry(grid_1km))
+plot(st_geometry(grid_1km))
+
+View(st_drop_geometry(grid_1km_crop))
+plot(st_geometry(grid_1km_crop))
+
+View(st_drop_geometry(grid_1km_over))
+plot(st_geometry(grid_1km_over))
+
 View(st_drop_geometry(grid_1km_over))
 
 grid_1km_over %>%
@@ -302,12 +289,8 @@ grid_1km_crop_cent %<>%
   ) %>%
   relocate(geometry, .after = last_col())
 
-st_write(grid_1km_cent, "data/grid/grid_1km.gpkg",
-         layer = "grid_1km_cent", append = TRUE
-)
-st_write(grid_1km_crop_cent, "data/grid/grid_1km.gpkg",
-         layer = "grid_1km_crop_cent", append = TRUE
-)
+st_write(grid_1km_cent, "data/grid/grid_1km.gpkg", layer = "grid_1km_cent", append = FALSE)
+st_write(grid_1km_crop_cent, "data/grid/grid_1km.gpkg", layer = "grid_1km_crop_cent", append = FALSE)
 
 write_rds(grid_1km_cent, "data/grid/grid_1km_cent.Rds")
 write_rds(grid_1km_crop_cent, "data/grid/grid_1km_crop_cent.Rds")
@@ -367,8 +350,7 @@ tm_shape(st_join(grid_1km,
 ```
 
 ```{r include=FALSE}
-rm(grid_1km_crop, grid_1km_crop_cent)
-gc()
+rm(grid_1km_crop, grid_1km_crop_cent); gc()
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -400,8 +382,7 @@ plot(r[[c(1, 7)]],
      col = rev(RColorBrewer::brewer.pal(11, "RdBu"))
 )
 
-rm(filename, r)
-gc()
+rm(filename, r); gc()
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -416,7 +397,7 @@ plot(st_geometry(grid_1km_cent), add = TRUE)
 
 ## Extract
 
-```{r}
+```{r eval=FALSE}
 extract_temps <- function(filename, year) {
   
   # r <- raster::stack(filename) # same same
@@ -494,8 +475,7 @@ ggplot(temp_checks, aes(Date, temperature,
   theme_light() +
   ylab("Temperature")
 
-rm(temp_checks)
-gc()
+rm(temp_checks); gc()
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -511,64 +491,57 @@ grid_1km_over <- read_rds("data/grid/grid_1km_over.Rds")
 source("R/geom_001_pe_to_grid.R")
 
 gc()
-r20_pe_grid <- geom_001_pe_to_grid("data/BfS-closed/STATPOP/r20_pe.dta")
+r20_pe_grid <- geom_001_pe_to_grid("data-raw/BfS-closed/STATPOP/statpop2020_220098p.zip")
 write_rds(r20_pe_grid, "data/BfS-closed/STATPOP/r20_pe_grid.Rds")
-rm(r20_pe_grid)
-gc()
+rm(r20_pe_grid); gc()
 
 gc()
-r19_pe_grid <- geom_001_pe_to_grid("data/BfS-closed/STATPOP/r19_pe.dta")
+r19_pe_grid <- geom_001_pe_to_grid("data-raw/BfS-closed/STATPOP/statpop2019_220098p.zip")
 write_rds(r19_pe_grid, "data/BfS-closed/STATPOP/r19_pe_grid.Rds")
-rm(r19_pe_grid)
-gc()
+rm(r19_pe_grid); gc()
 
 gc()
-r18_pe_grid <- geom_001_pe_to_grid("data/BfS-closed/STATPOP/r18_pe.dta")
+r18_pe_grid <- geom_001_pe_to_grid("data-raw/BfS-closed/STATPOP/statpop2018_220098p.zip")
 write_rds(r18_pe_grid, "data/BfS-closed/STATPOP/r18_pe_grid.Rds")
-rm(r18_pe_grid)
-gc()
+rm(r18_pe_grid); gc()
 
 gc()
-r17_pe_grid <- geom_001_pe_to_grid("data/BfS-closed/STATPOP/r17_pe.dta")
+r17_pe_grid <- geom_001_pe_to_grid("data-raw/BfS-closed/STATPOP/statpop2017_220098p.zip")
 write_rds(r17_pe_grid, "data/BfS-closed/STATPOP/r17_pe_grid.Rds")
-rm(r17_pe_grid)
-gc()
+rm(r17_pe_grid); gc()
 
 gc()
-r16_pe_grid <- geom_001_pe_to_grid("data/BfS-closed/STATPOP/r16_pe.dta")
+r16_pe_grid <- geom_001_pe_to_grid("data-raw/BfS-closed/STATPOP/statpop2016_220098p.zip")
 write_rds(r16_pe_grid, "data/BfS-closed/STATPOP/r16_pe_grid.Rds")
-rm(r16_pe_grid)
-gc()
+rm(r16_pe_grid); gc()
 
 gc()
-r15_pe_grid <- geom_001_pe_to_grid("data/BfS-closed/STATPOP/r15_pe.dta")
+r15_pe_grid <- geom_001_pe_to_grid("data-raw/BfS-closed/STATPOP/statpop2014_220098p.zip")
 write_rds(r15_pe_grid, "data/BfS-closed/STATPOP/r15_pe_grid.Rds")
-rm(r15_pe_grid)
-gc()
+rm(r15_pe_grid); gc()
 
 gc()
-r14_pe_grid <- geom_001_pe_to_grid("data/BfS-closed/STATPOP/r14_pe.dta")
+r14_pe_grid <- geom_001_pe_to_grid("data-raw/BfS-closed/STATPOP/statpop2013_220098p.zip")
 write_rds(r14_pe_grid, "data/BfS-closed/STATPOP/r14_pe_grid.Rds")
-rm(r14_pe_grid)
-gc()
+rm(r14_pe_grid); gc()
 ```
 
-```{r}
+```{r include=FALSE}
 pe_grid <- bind_rows(
   read_rds("data/BfS-closed/STATPOP/r20_pe_grid.Rds") %>%
-    st_drop_geometry(),
+    st_drop_geometry() %>% select(-egid),
   read_rds("data/BfS-closed/STATPOP/r19_pe_grid.Rds") %>%
-    st_drop_geometry(),
+    st_drop_geometry() %>% select(-egid),
   read_rds("data/BfS-closed/STATPOP/r18_pe_grid.Rds") %>%
-    st_drop_geometry(),
+    st_drop_geometry() %>% select(-egid),
   read_rds("data/BfS-closed/STATPOP/r17_pe_grid.Rds") %>%
-    st_drop_geometry(),
+    st_drop_geometry() %>% select(-egid),
   read_rds("data/BfS-closed/STATPOP/r16_pe_grid.Rds") %>%
-    st_drop_geometry(),
+    st_drop_geometry() %>% select(-egid),
   read_rds("data/BfS-closed/STATPOP/r15_pe_grid.Rds") %>%
-    st_drop_geometry(),
+    st_drop_geometry() %>% select(-egid),
   read_rds("data/BfS-closed/STATPOP/r14_pe_grid.Rds") %>%
-    st_drop_geometry()
+    st_drop_geometry() %>% select(-egid)
 )
 ```
 
@@ -579,7 +552,9 @@ lu_grid_gem <- pe_grid %>%
   group_by(year, sex, age, ID, ID2, area, area2, GMDNR, GMDNAME, KTNR, KTNAME) %>%
   summarise(pop = sum(n), .groups = "drop") %>%
   dplyr::arrange(year, ID, ID2, sex, age)
+```
 
+```{r include=FALSE}
 rm(pe_grid); gc()
 ```
 
@@ -607,7 +582,6 @@ lu_grid_gem <- grid_1km_over %>%
 gc()
 write_rds(lu_grid_gem, "data/blob/lu_grid_gem.Rds")
 ```
-
 
 ## Aggregate by grid
 
@@ -754,7 +728,6 @@ data_stratified <- st_grid_pop_pred %>%
 formula <-
   pop ~ year +
   # f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
-  # f(ID, model = "bym2", graph = "data/nb/ar21_wm_q.adj", scale.model = TRUE, constr = TRUE, hyper = hyper.bym)
   # temp solution to save time
   f(ID, model = "iid", constr = TRUE, hyper = hyper.iid)
 
@@ -786,6 +759,8 @@ results <- inla(formula,
 ```
 
 #### Adjusted
+
+FIXME: year via iid? above then too!
 
 ```{r}
 formula <-
@@ -942,6 +917,8 @@ st_grid_deaths_2020_2021 <- geom_002_deaths_to_grid(
 <!-- ----------------------------------------------------- -->
 
 # Final dataset
+
+FIXME probably into long format?
 
 ```{r eval=FALSE}
 st_grid_final <- st_grid_pop %>%

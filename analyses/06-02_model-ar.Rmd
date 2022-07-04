@@ -158,7 +158,7 @@ model_strat_fit_agg %>%
   theme_minimal()
 ```
 
-## Space effect 
+## Region effect 
 
 ```{r}
 model_strat_space <-

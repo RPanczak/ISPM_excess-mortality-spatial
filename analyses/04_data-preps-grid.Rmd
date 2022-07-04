@@ -484,7 +484,7 @@ rm(temp_checks); gc()
 
 ## Population 2014-2020
 
-STATPOP data, state of 31st Dec each year.
+STATPOP data, state of 31st Dec each year. Aggregating individual level data to building level, spatial join to grid.  
 
 ```{r, eval=FALSE}
 grid_1km_over <- read_rds("data/grid/grid_1km_over.Rds")
@@ -516,17 +516,17 @@ write_rds(r16_pe_grid, "data/BfS-closed/STATPOP/r16_pe_grid.Rds")
 rm(r16_pe_grid); gc()
 
 gc()
-r15_pe_grid <- geom_001_pe_to_grid("data-raw/BfS-closed/STATPOP/statpop2014_220098p.zip")
+r15_pe_grid <- geom_001_pe_to_grid("data-raw/BfS-closed/STATPOP/statpop2015_220098p.zip")
 write_rds(r15_pe_grid, "data/BfS-closed/STATPOP/r15_pe_grid.Rds")
 rm(r15_pe_grid); gc()
 
 gc()
-r14_pe_grid <- geom_001_pe_to_grid("data-raw/BfS-closed/STATPOP/statpop2013_220098p.zip")
+r14_pe_grid <- geom_001_pe_to_grid("data-raw/BfS-closed/STATPOP/statpop2014_220098p.zip")
 write_rds(r14_pe_grid, "data/BfS-closed/STATPOP/r14_pe_grid.Rds")
 rm(r14_pe_grid); gc()
 ```
 
-```{r include=FALSE}
+```{r eval=FALSE}
 pe_grid <- bind_rows(
   read_rds("data/BfS-closed/STATPOP/r20_pe_grid.Rds") %>%
     st_drop_geometry() %>% select(-egid),
@@ -545,9 +545,9 @@ pe_grid <- bind_rows(
 )
 ```
 
-## Aggregate by grid/gemeinde
+## Aggregate by grid/municipality
 
-```{r}
+```{r, eval=FALSE}
 lu_grid_gem <- pe_grid %>%
   group_by(year, sex, age, ID, ID2, area, area2, GMDNR, GMDNAME, KTNR, KTNAME) %>%
   summarise(pop = sum(n), .groups = "drop") %>%
@@ -560,7 +560,7 @@ rm(pe_grid); gc()
 
 ## Expand grid for combinations with 0
 
-```{r}
+```{r, eval=FALSE}
 lu_grid_gem <- grid_1km_over %>%
   sf::st_drop_geometry() %>%
   dplyr::as_tibble() %>%
@@ -578,22 +578,26 @@ lu_grid_gem <- grid_1km_over %>%
 # filter(lu_grid_gem,GMDNR==4651,age=="<40",sex=="Female",year==2018) %>% view()
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 gc()
 write_rds(lu_grid_gem, "data/blob/lu_grid_gem.Rds")
 ```
 
 ## Aggregate by grid
 
-```{r}
+```{r, eval=FALSE}
 st_grid_pop <- lu_grid_gem %>%
   dplyr::group_by(ID, year, age, sex) %>%
   dplyr::summarise(pop = sum(pop), .groups = "drop")
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 gc()
 write_rds(st_grid_pop, "data/blob/st_grid_pop.Rds")
+```
+
+```{r include=FALSE}
+st_grid_pop <- read_rds("data/blob/st_grid_pop.Rds")
 ```
 
 ## Extrapolate pop after 2019
@@ -601,8 +605,6 @@ write_rds(st_grid_pop, "data/blob/st_grid_pop.Rds")
 ### Data 
 
 ```{r}
-st_grid_pop <- read_rds("data/blob/st_grid_pop.Rds")
-
 st_grid_pop_pred <- dplyr::bind_rows(
   
   st_grid_pop %>%

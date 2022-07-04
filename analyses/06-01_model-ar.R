@@ -22,7 +22,6 @@ data <-
 
 groups <- read_rds("data/groups.Rds")
 
-
 ### INLA setup
 
 # priors

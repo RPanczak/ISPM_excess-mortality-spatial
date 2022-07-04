@@ -592,7 +592,7 @@ w_deaths_2015_2021_ar_pop <- read_rds("data/BfS/monthly_deaths/w_deaths_2015_202
 
 ```{r include=FALSE}
 # prepared in 01.Rmd
-gg21 <- read_rds("data/BfS/gg21.Rds") %>% select(GMDNR)
+gg21 <- read_rds("data/BfS/gg21.Rds") %>% select(GMDNR, GMDNAME)
 se21 <- read_rds("data/BfS/se21.Rds") %>% select(GMDNR, GMDNAME)
 kt21 <- read_rds("data/BfS/kt21.Rds") %>% select(KTNR, KTNAME)
 
@@ -819,7 +819,7 @@ sep3 <- read_rds("../SNC_Swiss-SEP2/FINAL/RDS/ssep3_user_geo.Rds") %>%
 #                                      "10th - highest")))
 ```
 
-Using `r number(nrow(sep3), big.mark = ",")` n'hoods from version 3.0 (hence slightly unequal size of deciles!):  
+Using `r number(nrow(sep3), big.mark = ",")` n'hoods from version 3.0:  
 
 ```{r echo=FALSE}
 sep3 %>% 
@@ -832,30 +832,48 @@ This is aggregated to the level of `r scales::number(length(unique(st_gg21$GMDNR
 ## STATPOP
 
 ```{r}
-r19_bu_orig <- read_dta("../SNC_core/data-raw/statpop/r19_bu_orig.dta") %>% 
-  zap_label() %>% zap_formats()
+statpop2020 <- read_delim("data-raw/BfS-closed/STATPOP/statpop2020_220098p.zip", 
+                          delim = ";", escape_double = FALSE, 
+                          col_types = cols(STATYEAR = col_integer(), 
+                                           SEX = col_integer(), 
+                                           TYPEOFRESIDENCE = col_integer(), 
+                                           POPULATIONTYPE = col_integer(), 
+                                           AGE = col_integer(), 
+                                           CLASSAGEFIVEYEARS = col_integer(), 
+                                           NATIONALITYCATEGORY = col_integer(), 
+                                           MAINRESIDENCECATEGORY = col_integer(), 
+                                           GEOCOORDE = col_integer(), 
+                                           GEOCOORDN = col_integer(), 
+                                           INDIC_EGID = col_integer(), 
+                                           statdate = col_date(format = "%d/%m/%Y")), 
+                          trim_ws = TRUE) %>% 
+  remove_empty(c("rows", "cols")) %>% clean_names()  
 
-r19_bu <- r19_bu_orig %>% 
-  select(r19_egid_snc, r19_comm, r19_gdename,
-         r19_ecoord, r19_ncoord,
-         r19_nrpers_main) %>% 
-  # select(r19_nrpers_total, r19_nrpers_perm) %>% 
-  # filter(!is.na(r19_ncoord)) %>% 
-  # filter(!is.na(r19_ecoord)) %>% 
-  filter(r19_nrpers_main > 0) %>% 
-  st_as_sf(coords = c("r19_ecoord", "r19_ncoord"), 
+statpop2020_agg <- statpop2020 %>% 
+  rename(egid = federalbuildingid) %>% 
+  filter(typeofresidence == 1) %>% 
+  filter(populationtype == 1) %>% 
+  filter(mainresidencecategory == 1) %>% 
+  filter(indic_egid == 1) %>% 
+  select(-statyear, -statdate, 
+         -typeofresidence, -populationtype, -mainresidencecategory,
+         -indic_egid) %>% 
+  group_by(egid, geocoorde, geocoordn) %>% 
+  summarise(pop = n()) %>% 
+  ungroup() %>% 
+  st_as_sf(coords = c("geocoorde", "geocoordn"), 
            crs = 2056,
            remove = TRUE)
 ```
 
-Using data from `STATPOP` **2019**.  
+Using data from `STATPOP` **2020**.  
 
-Used dataset consists of `r scales::number(nrow(r19_bu), big.mark = ",")` buildings with at least one person registered inside. Variable `r19_nrpers_main` was used for this estimate.^[Slightly different populations would be obtained with different conceptual models of *residential populations* by using either `r19_nrpers_total` or `r19_nrpers_perm` variables!] Population of CH estimated from this dataset is `r scales::number(sum(r19_bu$r19_nrpers_main), big.mark = ",")`.   
+Dataset consists of `r scales::number(nrow(statpop2020), big.mark = ",")` individuals and `r scales::number(nrow(statpop2020_agg), big.mark = ",")` buildings. We selected individuals with type of residence *Hauptwohnsitz*, population type *Ständige Wohnbevölkerung*, main residency category *Nur ein Hauptwohnsitz* and with valid EGID building ID.  
 
 The nearest building with SSEP was assigned for each of these building. The point dataset was then overlaid with community boundaries and summary measures of population based index were created and population level SEP was aggregated by community. 
 
 ```{r include=FALSE}
-rm(r19_bu_orig); gc()
+rm(statpop2020); gc()
 ```
 
 ## 'nhood based averages for communities
@@ -883,7 +901,6 @@ ssep3_gem_21_neigh <- ssep3_gem_21 %>%
   st_drop_geometry() %>% 
   group_by(GMDNR) %>% 
   summarise(n = n(),
-            # ssep3_mean = mean(ssep3),
             ssep3_median = median(ssep3)) %>% 
   ungroup() 
 
@@ -898,11 +915,11 @@ ssep3_gem_21_neigh_geo <- inner_join(gg21, ssep3_gem_21_neigh) %>%
                                             "6", "7", "8", "9", 
                                             "10th - highest")))
 
-write_rds(ssep3_gem_21_neigh_geo, "data/sep/ssep3_gem_21_neigh_geo.rds")
+write_rds(ssep3_gem_21_neigh_geo, "data/BfS-closed/SEP/ssep3_gem_21_neigh_geo.rds")
 ```
 
 ```{r include=FALSE}
-ssep3_gem_21_neigh_geo <- read_rds("data/sep/ssep3_gem_21_neigh_geo.rds")
+ssep3_gem_21_neigh_geo <- read_rds("data/BfS-closed/SEP/ssep3_gem_21_neigh_geo.rds")
 ```
 
 Watch out for small n! Here some examples with communities below 20 n'hoods
@@ -916,13 +933,15 @@ ssep3_gem_21_neigh_geo %>%
   filter(n < 20) %>%
   arrange(n) %>% 
   datatable(rownames = FALSE, options = list(dom = 't'))
-
-# ssep3_gem_21_neigh_geo %>% 
-#   filter(n < 20) %>%
-#   qtm(borders = "red", fill = "red")
 ```
 
-Final map using median index - bubbles scaled to number of 'nhoods.
+```{r eval=FALSE, include=FALSE}
+ssep3_gem_21_neigh_geo %>%
+  filter(n < 20) %>%
+  qtm(borders = "red", fill = "red")
+```
+
+Final map using median index - bubbles scaled to number of 'nhoods within community.
 
 ```{r include=FALSE}
 tmap_mode("view")
@@ -944,40 +963,36 @@ tm_shape(ssep3_gem_21_neigh_geo) +
 
 ```{r eval=FALSE}
 # join to sep3
-r19_bu_sep <- st_join(r19_bu, sep3, join = st_nearest_feature)
+statpop2020_agg_sep <- st_join(statpop2020_agg, sep3, join = st_nearest_feature)
 
 # fails for unknown and unsolved reasons
-# nearest <- st_nearest_feature(r19_bu, sep3)
-# r19_bu_sep$dist3 <- st_distance(r19_bu_sep, sep3[nearest, ], by_element = TRUE)
-# rm(nearest, r19_bu); gc()
-# 
-# summary(r19_bu_sep$dist3)
+nearest <- st_nearest_feature(statpop2020_agg, sep3)
+statpop2020_agg_sep$dist3 <- st_distance(statpop2020_agg_sep, sep3[nearest, ], by_element = TRUE)
+rm(nearest, statpop2020_agg); gc()
+summary(statpop2020_agg_sep$dist3)
 
-r19_bu_sep_gem21 <- 
-  st_join(r19_bu_sep, st_gg21, join = st_intersects) %>%  
-  relocate(r19_egid_snc, gisid, r19_nrpers_main,
+statpop2020_agg_sep_gem21 <- 
+  st_join(statpop2020_agg_sep, st_gg21, join = st_intersects) %>%  
+  relocate(egid, gisid, pop,
            ssep3, ssep3_d,
-           GMDNR, r19_comm, r19_gdename) 
+           GMDNR) 
 
-# View(r19_bu_sep_gem21)
-
-write_rds(r19_bu_sep_gem21, "data/sep/r19_bu_sep_gem21.Rds")
+write_rds(statpop2020_agg_sep_gem21, "data/BfS-closed/SEP/statpop2020_agg_sep_gem21.Rds")
 ```
 
 ```{r include=FALSE}
-rm(r19_bu); gc()
+rm(statpop2020_agg); gc()
 
-r19_bu_sep_gem21 <- read_rds("data/sep/r19_bu_sep_gem21.Rds") %>% 
+statpop2020_agg_sep_gem21 <- read_rds("data/BfS-closed/SEP/statpop2020_agg_sep_gem21.Rds") %>% 
   st_drop_geometry()
 ```
 
 ```{r}
-ssep3_gem_21_pop <- r19_bu_sep_gem21 %>% 
-  select(GMDNR, ssep3, r19_nrpers_main) %>% 
-  uncount(r19_nrpers_main) %>% 
+ssep3_gem_21_pop <- statpop2020_agg_sep_gem21 %>% 
+  select(GMDNR, ssep3, pop) %>% 
+  uncount(pop) %>% 
   group_by(GMDNR) %>% 
   summarise(pop = n(),
-            # ssep3_mean = mean(ssep3),
             ssep3_median = median(ssep3)) %>% 
   ungroup() 
 
@@ -995,10 +1010,10 @@ ssep3_gem_21_pop_geo <- left_join(st_gg21, ssep3_gem_21_pop) %>%
                                             "6", "7", "8", "9", 
                                             "10th - highest")))
 
-write_rds(ssep3_gem_21_pop_geo, "data/sep/ssep3_gem_21_pop_geo.rds")
+write_rds(ssep3_gem_21_pop_geo, "data/BfS-closed/SEP/ssep3_gem_21_pop_geo.rds")
 ```
 
-Final map using median index - bubbles scaled to number of people (2019)  
+Final map using median index - bubbles scaled to number of people (STATPOP 2020)  
 
 ```{r eval=FALSE, include=FALSE}
 frq(ssep3_gem_21_pop_geo$median_ssep3_d)
@@ -1020,14 +1035,13 @@ ar_21 <- read_rds("data/swisstopo/st_ar21.Rds") %>%
 ```
 
 ```{r}
-ssep3_ar_21_pop <- r19_bu_sep_gem21 %>% 
-  select(GMDNR, ssep3, r19_nrpers_main) %>% 
+ssep3_ar_21_pop <- statpop2020_agg_sep_gem21 %>% 
+  select(GMDNR, ssep3, pop) %>% 
   left_join(raum) %>% 
   select(-GMDNR) %>% 
-  uncount(r19_nrpers_main) %>% 
+  uncount(pop) %>% 
   group_by(ARNR) %>% 
   summarise(pop = n(),
-            # ssep3_mean = mean(ssep3),
             ssep3_median = median(ssep3)) %>% 
   ungroup() 
 
@@ -1045,11 +1059,11 @@ ssep3_ar_21_pop_geo <- left_join(ar_21, ssep3_ar_21_pop) %>%
                                             "6", "7", "8", "9", 
                                             "10th - highest")))
 
-write_rds(ssep3_ar_21_pop_geo, "data/sep/ssep3_ar_21_pop_geo.rds")
+write_rds(ssep3_ar_21_pop_geo, "data/BfS-closed/SEP/ssep3_ar_21_pop_geo.rds")
 ```
 
 ```{r include=FALSE}
-rm(r19_bu_sep_gem21); gc()
+rm(statpop2020_agg_sep_gem21); gc()
 ```
 
 Final map using median index - bubbles scaled to number of people (2019)  
@@ -1177,7 +1191,7 @@ w_deaths_2015_2021_pop %<>%
               select(-GMDNAME, -KTNAME, -BZNR, -BZNAME)
   )
 
-write_rds(w_deaths_2015_2021_pop, "data/BfS-closed/w_deaths_2015_2021_pop.Rds")
+write_rds(w_deaths_2015_2021_pop, "data/BfS-closed/monthly_deaths/w_deaths_2015_2021_pop.Rds")
 
 w_deaths_2015_2021_ar_pop %>% 
   left_join(

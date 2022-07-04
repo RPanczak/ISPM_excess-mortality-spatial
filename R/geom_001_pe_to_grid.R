@@ -24,6 +24,7 @@ geom_001_pe_to_grid = function(path) {
     filter(mainresidencecategory == 1) %>% 
     filter(indic_egid == 1) %>% 
     dplyr::select(-statyear, -statdate, 
+                  - classagefiveyears, -nationalitycategory,
                   -typeofresidence, -populationtype, -mainresidencecategory,
                   -indic_egid) %>% 
     mutate(

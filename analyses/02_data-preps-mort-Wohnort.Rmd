@@ -209,7 +209,7 @@ w_deaths_2015_2021 %>%
 
 ## Filling with zeroes
 
-All possible combinations of `year, month, canton, municipality, age, sex & nationality` are used and then empty strata are filled with zeroes.  
+All possible combinations of `year, month, canton, municipality, age & sex` are used and then empty strata are filled with zeroes.  
 
 This expansion also includes municipalities with zero deaths described above.  
 
@@ -243,7 +243,7 @@ w_deaths_2015_2021_exp <-
   filter( !(year == 2021 & month > 6))
 ```
 
-That obviously increases the size of the dataset from `r number(nrow(w_deaths_2015_2021), big.mark = ",")` to `r number(nrow(w_deaths_2015_2021_exp), big.mark = ",")` (*ie.* 2,163 municipalities each with 2,016 data points * 7 years * 12 months * 6 age groups * 2 sexes * 2 nationality cats).  
+That obviously increases the size of the dataset from `r number(nrow(w_deaths_2015_2021), big.mark = ",")` to `r number(nrow(w_deaths_2015_2021_exp), big.mark = ",")` (*ie.* 2,163 municipalities each with 2,016 data points * 7 years * 12 months * 6 age groups * 2 sexes).  
 
 Needless to say that creates large amount of zero cells:
 

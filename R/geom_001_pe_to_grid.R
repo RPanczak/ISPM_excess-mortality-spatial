@@ -18,12 +18,13 @@ geom_001_pe_to_grid = function(path) {
                                       statdate = col_date(format = "%d/%m/%Y")), 
                      trim_ws = TRUE) %>% 
     janitor::remove_empty(c("rows", "cols")) %>% janitor::clean_names() %>% 
-    rename(egid = federalbuildingid) %>% 
+    rename(egid = federalbuildingid,
+           year = statyear) %>% 
     filter(typeofresidence == 1) %>% 
     filter(populationtype == 1) %>% 
     filter(mainresidencecategory == 1) %>% 
     filter(indic_egid == 1) %>% 
-    dplyr::select(-statyear, -statdate, 
+    dplyr::select(-statdate, 
                   - classagefiveyears, -nationalitycategory,
                   -typeofresidence, -populationtype, -mainresidencecategory,
                   -indic_egid) %>% 
@@ -33,7 +34,7 @@ geom_001_pe_to_grid = function(path) {
       age = cut(age, 
                 breaks = c(0, 40, seq(50, 80, 10), 120), right = FALSE, 
                 labels = c("<40", "40-49", "50-59", "60-69", "70-79", "80+"))) %>% 
-    group_by(egid, geocoorde, geocoordn) %>% 
+    group_by(egid, sex, age, geocoorde, geocoordn) %>% 
     summarise(n = n()) %>% 
     ungroup() %>% 
     st_as_sf(coords = c("geocoorde", "geocoordn"), 

@@ -588,7 +588,7 @@ w_deaths_2015_2021_ar_pop <- read_rds("data/BfS/monthly_deaths/w_deaths_2015_202
 
 2020 population counts (*ignoring age structure*) were used to derive cartograms.  
 
-## Communities
+## Communities 1
 
 ```{r include=FALSE}
 # prepared in 01.Rmd
@@ -599,9 +599,7 @@ kt21 <- read_rds("data/BfS/kt21.Rds") %>% select(KTNR, KTNAME)
 st_gg21 <- read_rds("data/swisstopo/st_gg21.Rds") %>% 
   st_transform(crs = 2056) %>% 
   select(-GEM_TEIL)
-```
 
-```{r eval=FALSE}
 carto_data <- 
   gg21 %>% 
   left_join(
@@ -610,8 +608,11 @@ carto_data <-
       group_by(GMDNR) %>% 
       summarise(population = sum(population)) %>% 
       ungroup()
-  ) 
+  ) %>% 
+  relocate(geometry, .after = last_col())
+```
 
+```{r eval=FALSE}
 carto_data %>% 
   select(-BZNR, -KTNR) %>% 
   st_write("data/carto/in_gg21.shp", delete_dsn = TRUE)

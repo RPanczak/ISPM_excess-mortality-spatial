@@ -6,5 +6,7 @@
 #SBATCH --mail-user=radoslaw.panczak@ispm.unibe.ch
 #SBATCH --mail-type=end,fail
 
-module load GCC R 
+ml vital-it
+ml R/3.6.1
+ 
 Rscript ~/ISPM_geo-mortality/ubelix/test.R

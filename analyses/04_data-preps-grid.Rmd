@@ -564,8 +564,7 @@ lu_grid_gem <- pe_grid %>%
 ```
 
 ```{r include=FALSE}
-rm(pe_grid)
-gc()
+rm(pe_grid); gc()
 ```
 
 ## Expand grid for combinations with 0
@@ -623,7 +622,7 @@ st_grid_pop <- read_rds("data/blob/st_grid_pop.Rds")
 
 FIXME: check year_month definition!
 
-### Data 
+### Data for modelling
 
 ```{r}
 st_grid_pop_pred <- dplyr::bind_rows(
@@ -661,7 +660,7 @@ filter(st_grid_pop_pred, ID == 4084, age == "<40", sex == "Female") %>%
 
 ### Zeroes 
 
-```{r}
+```{r echo=FALSE}
 st_grid_pop_pred %>%
   filter(!is.na(pop)) %>%
   frq(pop == 0)
@@ -803,7 +802,6 @@ formula <- pop ~
   # f(ID, model = "bym2", graph = "data/nb/ar21_wm_q.adj", scale.model = TRUE, constr = TRUE, hyper = hyper.bym)
   # temp solution to save time
   f(ID, model = "iid", constr = TRUE, hyper = hyper.iid)
-
 
 results <- inla(formula,
                 data = st_grid_pop_pred,

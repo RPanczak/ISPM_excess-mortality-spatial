@@ -2,7 +2,7 @@
 title: "Spatial analyses of 2020-21 excess mortality in CH"
 subtitle: "Grid & grided data preparation"
 pagetitle: "Spatial Excess: grid"
-author: "Radek Panczak & Garyfallos Konstantinoudis"
+author: "Radek Panczak, Garyfallos Konstantinoudis & Julien Riou"
 date: "`r Sys.Date()`"
 output:
   rmdformats::robobook:
@@ -381,7 +381,7 @@ plot(r[[c(1, 7)]],
      col = rev(RColorBrewer::brewer.pal(11, "RdBu"))
 )
 
-rm(filename, r); gc()
+rm(filename, r)
 ```
 
 **Note:** *there is known, unsolved issue with projection of meteoswiss' nc files!*  
@@ -397,6 +397,8 @@ plot(st_geometry(grid_1km_cent), add = TRUE)
 ```
 
 ## Extract
+
+Extract function  
 
 ```{r eval=FALSE}
 extract_temps <- function(filename, year) {
@@ -421,7 +423,11 @@ extract_temps <- function(filename, year) {
   
   return(ex)
 }
+```
 
+Combining years:  
+
+```{r eval=FALSE}
 temperature <- bind_rows(
   extract_temps("data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_201401010000_201412010000.nc", 2014),
   extract_temps("data-raw/meteoswiss/TabsM_ch01r.swiss.lv95_201501010000_201512010000.nc", 2015),
@@ -479,9 +485,10 @@ ggplot(temp_checks, aes(Date, temperature,
   geom_point() +
   theme_light() +
   ylab("Temperature")
+```
 
-rm(temp_checks)
-gc()
+```{r include=FALSE}
+rm(temp_checks); gc()
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -561,15 +568,16 @@ st_grid_deaths_2014_2019 <-
   mutate(deaths = as.integer(deaths))
 ```
 
-```{r eval=FALSE}
+```{r eval=FALSE, include=FALSE}
 stopifnot(length(unique(grid_1km$ID)) *
             length(unique(temp$year)) *
             length(unique(temp$month)) *
             length(levels(temp$age)) *
             length(levels(temp$sex)) == nrow(st_grid_deaths_2014_2019))
 
-write_rds(st_grid_deaths_2014_2019, "data/blob/st_grid_deaths_2014_2019.Rds")
 rm(temp, snc5_deaths); gc()
+
+write_rds(st_grid_deaths_2014_2019, "data/blob/st_grid_deaths_2014_2019.Rds")
 ```
 
 ```{r include=FALSE}
@@ -578,54 +586,31 @@ st_grid_deaths_2014_2019 <- read_rds("data/blob/st_grid_deaths_2014_2019.Rds")
 
 <!-- ----------------------------------------------------- -->
 
-# Gridded deaths 2020-2021
-
-Redistributing municipality level deaths for 2020-2021 into grid.  
-
-```{r eval=FALSE}
-st_gem_deaths_2020_2021 <-
-  read_rds("data/BfS-closed/monthly_deaths/w_deaths_2015_2021_pop.Rds") %>%
-  dplyr::select(GMDNR, GMDNAME, year, month, age, sex, deaths) %>%
-  dplyr::distinct() %>%
-  dplyr::filter(year >= 2020)
-```
-
-```{r eval=FALSE}
-source("R/geom_002_deaths_to_grid.R")
-
-st_grid_deaths_2020_2021 <- geom_002_deaths_to_grid(
-  deaths_data = st_gem_deaths_2020_2021,
-  pop_data = lu_grid_gem,
-  n_iter = 50 # choose number of replications
-) 
-```
-
-```{r eval=FALSE, include=FALSE}
-write_rds(st_grid_deaths_2020_2021, "data/blob/st_grid_deaths_2020_2021.Rds")
-```
-
-```{r include=FALSE}
-st_grid_deaths_2020_2021 <- read_rds("data/blob/st_grid_deaths_2020_2021.Rds")
-```
-
-<!-- ----------------------------------------------------- -->
-
 # Gridded population data 2014-2020
+
+## Function 
+
+Defined in `geom_001_pe_to_grid.R`.  
+
+```{r, eval=FALSE}
+source("R/geom_001_pe_to_grid.R")
+```
 
 ## Sources 
 
 STATPOP data, state of 31st Dec each year. Aggregating individual level data to building level, spatial join to grid.  
 
-```{r, eval=FALSE}
-grid_1km_over <- read_rds("data/grid/grid_1km_over.Rds")
-source("R/geom_001_pe_to_grid.R")
+Example of most recent data:  
 
+```{r, eval=FALSE}
 gc()
 r20_pe_grid <- geom_001_pe_to_grid("data-raw/BfS-closed/STATPOP/statpop2020_220098p.zip")
 write_rds(r20_pe_grid, "data/BfS-closed/STATPOP/r20_pe_grid.Rds")
 rm(r20_pe_grid)
 gc()
+```
 
+```{r, eval=FALSE, include=FALSE}
 gc()
 r19_pe_grid <- geom_001_pe_to_grid("data-raw/BfS-closed/STATPOP/statpop2019_220098p.zip")
 write_rds(r19_pe_grid, "data/BfS-closed/STATPOP/r19_pe_grid.Rds")
@@ -662,6 +647,8 @@ write_rds(r14_pe_grid, "data/BfS-closed/STATPOP/r14_pe_grid.Rds")
 rm(r14_pe_grid)
 gc()
 ```
+
+Combining together:  
 
 ```{r eval=FALSE}
 pe_grid <- bind_rows(
@@ -744,235 +731,11 @@ st_grid_pop <- read_rds("data/blob/st_grid_pop.Rds")
 
 <!-- ----------------------------------------------------- -->
 
-# Extrapolated population after 2019
+# Gridded deaths 2020-2021
 
-FIXME: check year_month definition!
+Redistributing municipality level deaths for 2020-2021 into grid.  
 
-## Data for modelling
+Done using `04-02_grid-deaths.R` script on HPC.  
 
-```{r}
-st_grid_pop_pred <- dplyr::bind_rows(
-  st_grid_pop %>%
-    dplyr::filter(year != 2020),
-  st_grid_pop %>%
-    dplyr::select(-year) %>%
-    dplyr::distinct() %>%
-    tidyr::expand_grid(year = 2020:2022) %>%
-    dplyr::mutate(pop = NA_integer_)
-) %>%
-  dplyr::arrange(ID, year, age, sex) %>%
-  dplyr::mutate(
-    # year_month = year + ,
-    id_year = year - 2013,
-    id_age = as.integer(as.factor(age))
-  )
-```
 
-```{r include=FALSE}
-write_rds(st_grid_pop_pred, "data/blob/st_grid_pop_pred.Rds")
-```
 
-```{r eval=FALSE, include=FALSE}
-# zero pops example
-filter(st_grid_pop_pred, ID == 1, age == "<40", sex == "Female") %>%
-  ggplot(aes(x = year, y = pop)) +
-  geom_point()
-
-# max pops example
-filter(st_grid_pop_pred, ID == 4084, age == "<40", sex == "Female") %>%
-  ggplot(aes(x = year, y = pop)) +
-  geom_point()
-```
-
-## Zeroes 
-
-```{r echo=FALSE}
-st_grid_pop_pred %>%
-  filter(!is.na(pop)) %>%
-  frq(pop == 0)
-
-st_grid_pop_pred %>%
-  filter(!is.na(pop)) %>%
-  ggplot(aes(x = pop)) +
-  geom_histogram(binwidth = 10)
-```
-
-## GLM 
-
-```{r}
-m1 <- glm(pop ~ age + sex + year_month,
-          data = st_grid_pop_pred,
-          family = poisson(link = "log")
-)
-
-st_grid_pop_pred$m1 <- as.integer(predict(m1,
-                                          st_grid_pop_pred,
-                                          type = "response"
-))
-```
-
-```{r}
-# st_grid_pop_pred %>%
-#   ggplot(aes(x = year_month, y = m1)) +
-#   geom_point(alpha = 0.1)
-
-filter(st_grid_pop_pred, ID == 1, age == "<40", sex == "Female") %>%
-  ggplot(aes(x = year_month)) +
-  geom_point(aes(y = m1)) +
-  geom_point(aes(y = pop), colour = "red")
-
-filter(st_grid_pop_pred, ID == 4084, age == "<40", sex == "Female") %>%
-  ggplot(aes(x = year_month)) +
-  geom_point(aes(y = m1)) +
-  geom_point(aes(y = pop), colour = "red")
-```
-
-## GLMER 1
-
-```{r}
-m2 <- lme4::glmer(pop ~ age + sex + year_month + (1 | ID),
-                  data = st_grid_pop_pred,
-                  family = poisson(link = "log")
-)
-
-st_grid_pop_pred$m2 <- as.integer(predict(m2, st_grid_pop_pred, type = "response"))
-```
-
-```{r}
-# st_grid_pop_pred %>%
-#   ggplot(aes(x = year_month, y = m1)) +
-#   geom_point(alpha = 0.1)
-
-filter(st_grid_pop_pred, ID == 1, age == "<40", sex == "Female") %>%
-  ggplot(aes(x = year_month)) +
-  geom_point(aes(y = m1)) +
-  geom_point(aes(y = pop), colour = "red")
-
-filter(st_grid_pop_pred, ID == 4084, age == "<40", sex == "Female") %>%
-  ggplot(aes(x = year_month)) +
-  geom_point(aes(y = m1)) +
-  geom_point(aes(y = pop), colour = "red")
-```
-
-## GLMER 2
-
-```{r}
-m3 <- lme4::glmer(pop ~ age + sex + year_month + (year_month | ID),
-                  data = st_grid_pop_pred,
-                  family = poisson(link = "log")
-)
-
-st_grid_pop_pred$m3 <- as.integer(predict(m3, st_grid_pop_pred, type = "response"))
-```
-
-## INLA 
-
-```{r}
-library(INLA)
-
-hyper.iid <- list(theta = list(prior = "pc.prec", param = c(1, 0.01)))
-control.family <- inla.set.control.family.default()
-threads <- parallel::detectCores()
-```
-
-### Stratified 
-
-```{r}
-data_stratified <- st_grid_pop_pred %>%
-  filter(age == "<40", sex == "Female")
-
-formula <- pop ~ 
-  year +
-  # f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
-  # temp solution to save time
-  f(ID, model = "iid", constr = TRUE, hyper = hyper.iid)
-
-results <- inla(formula,
-                data = data_stratified,
-                # family = "Poisson",
-                family = "zeroinflatedpoisson0",
-                # family = "zeroinflatedpoisson1",
-                # family = "zeroinflatednbinomial0",
-                # family = "zeroinflatednbinomial1",
-                verbose = TRUE,
-                control.family = control.family,
-                control.compute = list(
-                  config = TRUE,
-                  # return.marginals.predictor = TRUE,
-                  # cpo = TRUE,
-                  dic = TRUE, waic = TRUE
-                ),
-                control.mode = list(restart = TRUE),
-                num.threads = threads,
-                control.predictor = list(compute = TRUE, link = 1),
-                control.inla = list(
-                  strategy = "simplified.laplace", # default
-                  # strategy = "adaptive",
-                  # strategy = "gaussian",
-                  # strategy = "laplace", #npoints = 21,
-                  int.strategy = "ccd" # default
-                  # int.strategy = "grid", diff.logdens = 4
-                )
-)
-```
-
-### Adjusted
-
-FIXME: year via iid? above then too!
-
-```{r}
-formula <- pop ~ 
-  sex +
-  f(id_age, model = "iid", hyper = hyper.iid, constr = TRUE) +
-  f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
-  # f(ID, model = "bym2", graph = "data/nb/ar21_wm_q.adj", scale.model = TRUE, constr = TRUE, hyper = hyper.bym)
-  # temp solution to save time
-  f(ID, model = "iid", constr = TRUE, hyper = hyper.iid)
-
-results <- inla(formula,
-                data = st_grid_pop_pred,
-                family = "Poisson",
-                # family = "zeroinflatedpoisson0",
-                # family = "zeroinflatedpoisson1",
-                # family = "zeroinflatednbinomial0",
-                # family = "zeroinflatednbinomial1",
-                verbose = TRUE,
-                control.family = control.family,
-                control.compute = list(
-                  config = TRUE,
-                  # return.marginals.predictor = TRUE,
-                  # cpo = TRUE,
-                  dic = TRUE, waic = TRUE
-                ),
-                control.mode = list(restart = TRUE),
-                num.threads = threads,
-                control.predictor = list(compute = TRUE, link = 1),
-                control.inla = list(
-                  strategy = "simplified.laplace", # default
-                  # strategy = "adaptive",
-                  # strategy = "gaussian",
-                  # strategy = "laplace", #npoints = 21,
-                  int.strategy = "ccd" # default
-                  # int.strategy = "grid", diff.logdens = 4
-                )
-)
-```
-
-```{r eval=FALSE}
-gc()
-write_rds(st_grid_pop_pred, file = "data/blob/st_grid_pop_pred.Rds")
-```
-
-<!-- ----------------------------------------------------- -->
-
-# Final dataset
-
-FIXME: probably into long format?
-
-```{r eval=FALSE}
-st_grid_final <- st_grid_pop %>%
-  left_join(st_grid_deaths_2014_2019) %>%
-  left_join(st_grid_deaths_2020_2021)
-
-write_rds(st_grid_final, "data/blob/st_grid_final.Rds")
-```

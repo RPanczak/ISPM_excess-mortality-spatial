@@ -742,7 +742,6 @@ Done using `04-02_grid-deaths.R` script on HPC.
 # Extrapolated population after 2019
 
 FIXME: check year_month definition!
-FIXME: check if 2022 really needed?
 
 ## Data for modelling
 
@@ -751,9 +750,8 @@ st_grid_pop_exp <- dplyr::bind_rows(
   st_grid_pop %>%
     dplyr::filter(year != 2020),
   st_grid_pop %>%
-    dplyr::select(-year) %>%
-    dplyr::distinct() %>%
-    tidyr::expand_grid(year = 2020:2022) %>%
+    dplyr::filter(year >= 2018) %>%
+    dplyr::mutate(year = year + 2) %>% 
     dplyr::mutate(pop = NA_integer_)
 ) %>%
   dplyr::arrange(ID, year, age, sex) %>%
@@ -766,6 +764,16 @@ st_grid_pop_exp <- dplyr::bind_rows(
 
 ```{r include=FALSE}
 write_rds(st_grid_pop_exp, "data/blob/st_grid_pop_exp.Rds")
+```
+
+FIXME: something is off here
+
+```{r eval=FALSE, include=FALSE}
+table(st_grid_pop$year)
+table(st_grid_pop_exp$year)
+
+length(unique(st_grid_pop$ID))
+length(unique(st_grid_pop_exp$ID))
 ```
 
 ## Examples 

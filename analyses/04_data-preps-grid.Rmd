@@ -843,6 +843,8 @@ write_rds(st_grid_pop_pred, file = "data/blob/st_grid_pop_pred.Rds")
 
 ## SNC data 
 
+Prepared in `/Stata/mort_2014-2020.do`.  
+
 ```{r}
 snc5_deaths <- read_dta("data/BfS-closed/SNC/deaths.dta") %>%
   zap_formats() %>%
@@ -919,14 +921,15 @@ stopifnot(length(unique(grid_1km$ID)) *
 ```
 
 ```{r eval=FALSE}
-rm(temp, snc5_deaths)
-gc()
+rm(temp, snc5_deaths); gc()
 write_rds(st_grid_deaths_2014_2019, "data/blob/st_grid_deaths_2014_2019.Rds")
 ```
 
 <!-- ----------------------------------------------------- -->
 
-# Gemeinde level deaths for 2020-2021 into grid
+# Gridded deaths 2020-2021
+
+Redistributing municipality level deaths for 2020-2021 into grid.  
 
 ```{r}
 st_gem_deaths_2020_2021 <-
@@ -945,6 +948,10 @@ st_grid_deaths_2020_2021 <- geom_002_deaths_to_grid(
   pop_data = lu_grid_gem,
   n_iter = 50 # choose number of replications
 ) 
+```
+
+```{r include=FALSE}
+write_rds(st_grid_deaths_2020_2021, "data/blob/st_grid_deaths_2020_2021.Rds")
 ```
 
 <!-- ----------------------------------------------------- -->

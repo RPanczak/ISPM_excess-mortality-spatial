@@ -737,5 +737,74 @@ Redistributing municipality level deaths for 2020-2021 into grid.
 
 Done using `04-02_grid-deaths.R` script on HPC.  
 
+<!-- ----------------------------------------------------- -->
 
+# Extrapolated population after 2019
 
+FIXME: check year_month definition!
+FIXME: check if 2022 really needed?
+
+## Data for modelling
+
+```{r}
+st_grid_pop_exp <- dplyr::bind_rows(
+  st_grid_pop %>%
+    dplyr::filter(year != 2020),
+  st_grid_pop %>%
+    dplyr::select(-year) %>%
+    dplyr::distinct() %>%
+    tidyr::expand_grid(year = 2020:2022) %>%
+    dplyr::mutate(pop = NA_integer_)
+) %>%
+  dplyr::arrange(ID, year, age, sex) %>%
+  dplyr::mutate(
+    # year_month = year + ,
+    id_year = year - 2013,
+    id_age = as.integer(as.factor(age))
+  )
+```
+
+```{r include=FALSE}
+write_rds(st_grid_pop_exp, "data/blob/st_grid_pop_exp.Rds")
+```
+
+## Examples 
+
+Zero pops example:  
+
+```{r echo=FALSE}
+filter(st_grid_pop_exp, ID == 1, age == "<40", sex == "Female") %>%
+  ggplot(aes(x = year, y = pop)) +
+  geom_point()
+```
+
+Max pops example:  
+
+```{r echo=FALSE}
+filter(st_grid_pop_exp, ID == 4084, age == "<40", sex == "Female") %>%
+  ggplot(aes(x = year, y = pop)) +
+  geom_point()
+```
+
+## Zeroes 
+
+Frequency:  
+
+```{r echo=FALSE}
+st_grid_pop_exp %>%
+  filter(!is.na(pop)) %>%
+  frq(pop == 0)
+```
+
+Distribution:  
+
+```{r echo=FALSE}
+st_grid_pop_exp %>%
+  filter(!is.na(pop)) %>%
+  ggplot(aes(x = pop)) +
+  geom_histogram(binwidth = 10)
+```
+
+## Processing 
+
+Done using `04-03_grid-pops.R` script on HPC.  

@@ -5,7 +5,7 @@ library(dplyr)
 library(tidyr)
 library(tibble)
 
-# pop bt grid
+# pop by grid
 lu_grid_gem <- read_rds("data/blob/lu_grid_gem.Rds")
 
 # monthly data by municipality

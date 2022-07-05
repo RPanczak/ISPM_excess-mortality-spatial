@@ -9,4 +9,4 @@
 ml vital-it
 ml R/3.6.1
  
-Rscript ~/ISPM_geo-mortality/ubelix/test.R
+Rscript ~/ISPM_excess-mortality-spatial/ubelix/test_inla.R

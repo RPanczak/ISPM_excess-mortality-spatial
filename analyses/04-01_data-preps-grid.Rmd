@@ -766,8 +766,6 @@ st_grid_pop_exp <- dplyr::bind_rows(
 write_rds(st_grid_pop_exp, "data/blob/st_grid_pop_exp.Rds")
 ```
 
-FIXME: something is off here
-
 ```{r eval=FALSE, include=FALSE}
 table(st_grid_pop$year)
 table(st_grid_pop_exp$year)

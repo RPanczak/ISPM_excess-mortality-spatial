@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="grid-deaths"
+#SBATCH --job-name="gr-deaths"
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=16G
 #SBATCH --time=24:00:00

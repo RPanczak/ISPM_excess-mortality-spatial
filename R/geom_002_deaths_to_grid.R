@@ -31,10 +31,10 @@ geom_002_deaths_to_grid <- function(deaths_data, pop_data, n_iter) {
   imputed_data <- imputed_data$dist_deaths %>%
     tibble::as_tibble() %>%
     dplyr::rename_with(~ gsub("V", "dist_deaths_", .x)) %>%
-    bind_cols(merged_data, .)
+    dplyr::bind_cols(merged_data, .)
   # aggregate by ID
   imputed_data_grid <- imputed_data %>%
     dplyr::group_by(year, month, ID, age, sex) %>%
-    dplyr::summarise(across(c(starts_with("dist_deaths"), pop), ~ sum(.x)))
+    dplyr::summarise(across(c(tidyselect::starts_with("dist_deaths"), pop), ~ sum(.x)))
   return(imputed_data_grid)
 }

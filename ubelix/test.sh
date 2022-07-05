@@ -7,4 +7,4 @@
 #SBATCH --mail-type=end,fail
 
 module load GCC R 
-Rscript ubelix/test.R
+Rscript ~/ISPM_geo-mortality/ubelix/test.R

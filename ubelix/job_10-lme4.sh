@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="lme4 1"
+#SBATCH --job-name="lme4 0"
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=2G
 #SBATCH --time=00:10:00

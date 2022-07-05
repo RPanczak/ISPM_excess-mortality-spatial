@@ -930,7 +930,7 @@ write_rds(st_grid_deaths_2014_2019, "data/blob/st_grid_deaths_2014_2019.Rds")
 
 ```{r}
 st_gem_deaths_2020_2021 <-
-  read_rds("data/BfS-closed/w_deaths_2015_2021_pop.Rds") %>%
+  read_rds("data/BfS-closed/monthly_deaths/w_deaths_2015_2021_pop.Rds") %>%
   dplyr::select(GMDNR, GMDNAME, year, month, age, sex, deaths) %>%
   dplyr::distinct() %>%
   dplyr::filter(year >= 2020)
@@ -943,8 +943,8 @@ source("R/geom_002_deaths_to_grid.R")
 st_grid_deaths_2020_2021 <- geom_002_deaths_to_grid(
   deaths_data = st_gem_deaths_2020_2021,
   pop_data = lu_grid_gem,
-  n_iter = 50
-) # choose number of replications
+  n_iter = 50 # choose number of replications
+) 
 ```
 
 <!-- ----------------------------------------------------- -->

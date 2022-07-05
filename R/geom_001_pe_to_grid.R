@@ -34,7 +34,7 @@ geom_001_pe_to_grid = function(path) {
       age = cut(age, 
                 breaks = c(0, 40, seq(50, 80, 10), 120), right = FALSE, 
                 labels = c("<40", "40-49", "50-59", "60-69", "70-79", "80+"))) %>% 
-    group_by(egid, sex, age, geocoorde, geocoordn) %>% 
+    group_by(year, egid, sex, age, geocoorde, geocoordn) %>% 
     summarise(n = n()) %>% 
     ungroup() %>% 
     st_as_sf(coords = c("geocoorde", "geocoordn"), 

@@ -10,7 +10,7 @@ lu_grid_gem <- read_rds("data/blob/lu_grid_gem.Rds")
 
 # monthly data by municipality
 st_gem_deaths_2020_2021 <-
-  read_rds("data/BfS-closed/monthly_deaths/w_deaths_2015_2021_pop.Rds") %>%
+  read_rds("data/BfS-closed/monthly_deaths/w_deaths_2015_2021_exp.Rds") %>%
   select(GMDNR, GMDNAME, year, month, age, sex, deaths) %>%
   distinct() %>%
   filter(year >= 2020)

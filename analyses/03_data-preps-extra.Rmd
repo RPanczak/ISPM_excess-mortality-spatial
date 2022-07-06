@@ -23,11 +23,13 @@ options(scipen = 999)
 options(max.print = "75")
 
 library(pacman)
-p_load(haven, readxl,
-       tidyverse, magrittr, janitor, scales, lubridate, 
-       DT, 
-       sf, tmap,
-       swissdd)
+p_load(
+  haven, readxl,
+  tidyverse, magrittr, janitor, scales, lubridate,
+  DT,
+  sf, tmap,
+  swissdd
+)
 
 import::from("sjmisc", "frq")
 ```
@@ -41,14 +43,556 @@ conflicted::conflict_scout()
 ```{r knit-setup, include = FALSE}
 knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 
-knitr::opts_chunk$set(cache = FALSE,
-                      prompt = FALSE,
-                      tidy = FALSE,
-                      comment = NA,
-                      message = FALSE,
-                      warning = FALSE)
+knitr::opts_chunk$set(
+  cache = FALSE,
+  prompt = FALSE,
+  tidy = FALSE,
+  comment = NA,
+  message = FALSE,
+  warning = FALSE
+)
 
 knitr::opts_knit$set(width = 75)
+```
+
+<!-- ----------------------------------------------------- -->
+
+# Population
+
+Data extracted from [`px-x-0103010000_201`](https://www.pxweb.bfs.admin.ch/pxweb/de/px-x-0103010000_201/-/px-x-0103010000_201.px/):
+
+> Ständige und nichtständige Wohnbevölkerung nach institutionellen Gliederungen, Staatsangehörigkeit (Kategorie), Geburtsort, Geschlecht und Altersklasse
+
+Important info from footnotes:
+
+> *Letzte Änderungen: Neuer Datensatz (Jahr 2020)*
+> *Stand der Datenbank: Juni 2021*
+> *Stichtag: 31. Dezember*
+> **Raumbezug: Gemeinden / 18.10.2020**
+> *Datenquelle: Statistik der Bevölkerung und der Haushalte STATPOP*
+> *Definition der ständigen Wohnbevölkerung*
+
+## Community codes
+
+Community mutations data after `2021-01-01` from @Cordula are integrated into the data and pops are recalculated using these new codes to match mortality.  
+
+```{r}
+histcomm <- read_rds("data/BfS/histcomm.Rds") %>%
+  filter(datum_der_aufnahme >= ymd("2021-01-01")) %>%
+  select(bfs_gde_num_old, bfs_gde_num_new, gemeindename_new)
+```
+
+```{r eval=FALSE, include=FALSE}
+datatable(histcomm)
+```
+
+```{r eval=FALSE, include=FALSE}
+histcomm_14 <- read_excel("data-raw/BfS/Gemeindestand - Stand vom 01.07.2021.xlsx",
+                          col_types = c(
+                            "numeric", "text", "skip",
+                            "skip", "numeric", "text", "text"
+                          )
+) %>%
+  remove_empty(c("rows", "cols")) %>%
+  clean_names() %>%
+  mutate(datum_der_aufnahme = ymd(datum_der_aufnahme)) %>%
+  filter(datum_der_aufnahme >= ymd("2014-01-01") &
+           datum_der_aufnahme < ymd("2015-01-01")) %>%
+  arrange(desc(datum_der_aufnahme), gemeindename)
+```
+
+## Data preps
+Data aggregated to age groups as in deaths dataset.  
+
+```{r}
+population <- read_xlsx("data-raw/BfS/px-x-0103010000_201.xlsx",
+                        col_types = c(
+                          "numeric",
+                          "skip", "numeric", "text", "skip",
+                          "skip", "skip", "text", "skip", "skip",
+                          "skip", "text", "numeric", "numeric",
+                          "numeric", "numeric", "numeric",
+                          "numeric", "numeric", "numeric",
+                          "numeric", "numeric", "numeric",
+                          "numeric", "numeric", "numeric",
+                          "numeric", "numeric", "numeric",
+                          "numeric", "numeric", "numeric",
+                          "numeric"
+                        ),
+                        skip = 1
+) %>%
+  remove_empty(c("rows", "cols")) %>%
+  clean_names() %>%
+  rename(
+    year = x1,
+    GMDNR = x2,
+    GMDNAME = x3
+  ) %>%
+  mutate(
+    sex = if_else(x5 == "Frau", "Female", "Male"),
+    nationality = if_else(x4 == "Schweiz", "Swiss", "Foreigner"),
+    year = as.integer(year)
+  ) %>%
+  select(-x4, -x5) %>%
+  relocate(sex, .after = GMDNAME) %>%
+  relocate(nationality, .after = sex) %>%
+  mutate(GMDNAME = word(GMDNAME, 2, -1)) %>%
+  fill(year, GMDNR, GMDNAME, nationality) %>%
+  mutate(`<40` = x0_4_jahre + x5_9_jahre + x10_14_jahre + x15_19_jahre +
+           x20_24_jahre + x25_29_jahre + x30_34_jahre + x35_39_jahre) %>%
+  select(
+    -x0_4_jahre, -x5_9_jahre, -x10_14_jahre, -x15_19_jahre,
+    -x20_24_jahre, -x25_29_jahre, -x30_34_jahre, -x35_39_jahre
+  ) %>%
+  mutate(`40-49` = x40_44_jahre + x45_49_jahre) %>%
+  mutate(`50-59` = x50_54_jahre + x55_59_jahre) %>%
+  mutate(`60-69` = x60_64_jahre + x65_69_jahre) %>%
+  mutate(`70-79` = x70_74_jahre + x75_79_jahre) %>%
+  select(
+    -x40_44_jahre, -x45_49_jahre, -x50_54_jahre, -x55_59_jahre,
+    -x60_64_jahre, -x65_69_jahre, -x70_74_jahre, -x75_79_jahre
+  ) %>%
+  mutate(`80+` = x80_84_jahre + x85_89_jahre + x90_94_jahre +
+           x95_99_jahre + x100_jahre_und_mehr) %>%
+  select(
+    -x80_84_jahre, -x85_89_jahre, -x90_94_jahre,
+    -x95_99_jahre, -x100_jahre_und_mehr
+  ) %>%
+  pivot_longer(
+    cols = `<40`:`80+`,
+    names_to = "age", values_to = "population"
+  ) %>%
+  left_join(histcomm, by = c("GMDNR" = "bfs_gde_num_old")) %>%
+  mutate(
+    GMDNR = if_else(!is.na(bfs_gde_num_new), bfs_gde_num_new, GMDNR),
+    GMDNAME = if_else(!is.na(gemeindename_new), gemeindename_new, GMDNAME)
+  ) %>%
+  select(-bfs_gde_num_new, -gemeindename_new) %>%
+  # group_by(year, GMDNR, GMDNAME, sex, nationality, age) %>%
+  group_by(year, GMDNR, GMDNAME, sex, age) %>%
+  summarise(population = as.integer(sum(population))) %>%
+  ungroup() %>%
+  # arrange(year, GMDNR, sex, nationality, age)
+  arrange(year, GMDNR, sex, age)
+```
+
+```{r include=FALSE}
+rm(histcomm); gc()
+```
+
+Yearly totals (**on 31st Dec**!):  
+
+```{r echo=FALSE}
+population %>%
+  group_by(year) %>%
+  summarise(population = sum(population)) %>%
+  mutate(population = as.character(number(population, big.mark = ",")))
+```
+
+Age (40 plus!) distributions over years  
+
+```{r echo=FALSE}
+population %>%
+  filter(age != "<40") %>%
+  group_by(year, age, sex) %>%
+  summarise(population = sum(population)) %>%
+  ungroup() %>%
+  ggplot(aes(x = age, y = population, fill = as.factor(year))) +
+  geom_col(position = "dodge") +
+  scale_fill_viridis_d()
+```
+
+## Predicting 2020 & 2021 pops
+
+```{r eval=FALSE, include=FALSE}
+# smallest pops
+population %>%
+  filter(year == 2020) %>%
+  group_by(GMDNR) %>%
+  summarize(
+    population = sum(population),
+    GMDNAME = first(GMDNAME)
+  ) %>%
+  ungroup() %>%
+  arrange(population)
+# arrange(desc(population))
+```
+
+### Linear model
+
+```{r}
+population_ext_lm <- population %>%
+  filter(year != 2020) %>%
+  # filter(GMDNR == 261 | GMDNR == 389) %>%
+  # group_by(GMDNR, age, sex, nationality) %>%
+  group_by(GMDNR, age, sex) %>%
+  # do(broom::tidy(lm(population ~ year, data = .))) %>%
+  # do(broom::augment(lm(population ~ year, data = .))) %>%
+  do(lm(population ~ year, data = .) %>%
+       predict(., newdata = tibble(year = c(as.integer(2020), as.integer(2021)))) %>%
+       tibble(
+         year = c(as.integer(2020), as.integer(2021)),
+         population_ext_lm = .
+       )) %>%
+  ungroup() %>%
+  mutate(population_ext_lm = as.integer(round(population_ext_lm))) %>%
+  # arrange(year, GMDNR, sex, nationality, age) %>%
+  arrange(year, GMDNR, sex, age) %>%
+  relocate(year)
+```
+
+Summary of values:  
+
+```{r echo=FALSE}
+summary(population_ext_lm$population_ext_lm)
+```
+
+**Note:** *minus values!*  
+
+```{r echo=FALSE}
+frq(population_ext_lm, population_ext_lm < 0)
+```
+
+### Poisson model
+
+Similar as above but this time with Poisson model:  
+
+```{r}
+population_ext_poi <- population %>%
+  filter(year != 2020) %>%
+  # filter(GMDNR == 261 | GMDNR == 389) %>%
+  # group_by(GMDNR, age, sex, nationality) %>%
+  group_by(GMDNR, age, sex) %>%
+  do(glm(population ~ year, data = ., family = "poisson") %>%
+       predict(., newdata = tibble(year = c(as.integer(2020), as.integer(2021))), type = "response") %>%
+       tibble(
+         year = c(as.integer(2020), as.integer(2021)),
+         population_ext_poi = .
+       )) %>%
+  ungroup() %>%
+  mutate(population_ext_poi = as.integer(round(population_ext_poi))) %>%
+  # arrange(year, GMDNR, sex, nationality, age) %>%
+  arrange(year, GMDNR, sex, age) %>%
+  relocate(year)
+```
+
+Summary of values:  
+
+```{r echo=FALSE}
+summary(population_ext_poi$population_ext_poi)
+```
+
+**Note:** *4 NAs!*  
+
+```{r echo=FALSE}
+population %>%
+  filter(GMDNR %in% c(4232) & sex == "Male" & age == "80+")
+population_ext_poi %>%
+  filter(GMDNR %in% c(4232) & sex == "Male" & age == "80+")
+
+population %>%
+  filter(GMDNR %in% c(389) & sex == "Male" & age == "80+")
+population_ext_poi %>%
+  filter(GMDNR %in% c(389) & sex == "Male" & age == "80+")
+```
+
+### Results in large municipality {.tabset}
+
+Results for large municipality are fine.    
+
+#### Linear model
+
+```{r echo=FALSE, warning=FALSE}
+population %>%
+  filter(GMDNR == 261 & (age == "80+" | age == "<40")) %>%
+  bind_rows(population_ext_lm %>%
+              filter(GMDNR == 261 & (age == "80+" | age == "<40"))) %>%
+  ggplot(aes(x = year)) +
+  geom_point(aes(y = population)) +
+  geom_point(aes(y = population_ext_lm), color = "red") +
+  facet_wrap(age ~ sex, scales = "free")
+```
+
+#### Poisson model
+
+```{r echo=FALSE, warning=FALSE}
+population %>%
+  filter(GMDNR == 261 & (age == "80+" | age == "<40")) %>%
+  bind_rows(population_ext_poi %>%
+              filter(GMDNR == 261 & (age == "80+" | age == "<40"))) %>%
+  ggplot(aes(x = year)) +
+  geom_point(aes(y = population)) +
+  geom_point(aes(y = population_ext_poi), color = "red") +
+  facet_wrap(age ~ sex, scales = "free")
+```
+
+### Results in small municipality {.tabset}
+
+For small municipality we might end up with sth more wiggly. 
+
+#### Linear model
+
+```{r echo=FALSE, warning=FALSE}
+population %>%
+  filter(GMDNR == 389 & (age == "80+" | age == "<40")) %>%
+  bind_rows(population_ext_lm %>%
+              filter(GMDNR == 389 & (age == "80+" | age == "<40"))) %>%
+  ggplot(aes(x = year)) +
+  geom_point(aes(y = population)) +
+  geom_point(aes(y = population_ext_lm), color = "red") +
+  facet_wrap(age ~ sex, scales = "free")
+```
+
+#### Poisson model 
+
+```{r echo=FALSE, warning=FALSE}
+population %>%
+  filter(GMDNR == 389 & (age == "80+" | age == "<40")) %>%
+  bind_rows(population_ext_poi %>%
+              filter(GMDNR == 389 & (age == "80+" | age == "<40"))) %>%
+  ggplot(aes(x = year)) +
+  geom_point(aes(y = population)) +
+  geom_point(aes(y = population_ext_poi), color = "red") +
+  facet_wrap(age ~ sex, scales = "free")
+```
+
+**Note lack of prediction for 2020 & 2021 for oldest males!**  
+
+There are two municipalities with missing predictions for oldest males:  
+
+```{r echo=FALSE}
+(problems <- population_ext_poi %>%
+   filter(is.na(population_ext_poi)) %>%
+   select(GMDNR, age, sex) %>%
+   left_join(population %>%
+               select(GMDNR, GMDNAME) %>%
+               distinct()) %>%
+   distinct())
+```
+
+```{r eval=FALSE, include=FALSE}
+population %>%
+  bind_rows(population_ext_poi) %>%
+  filter(
+    GMDNR %in% problems$GMDNR,
+    age %in% problems$age,
+    sex %in% problems$sex
+  ) %>%
+  arrange(GMDNR, sex, age, year) %>%
+  View()
+
+population %>%
+  bind_rows(population_ext_lm) %>%
+  filter(
+    GMDNR %in% problems$GMDNR,
+    age %in% problems$age,
+    sex %in% problems$sex
+  ) %>%
+  arrange(GMDNR, sex, age, year) %>%
+  View()
+```
+
+## Getting mid-year pops {.tabset}
+
+For each age, sex, nationality stratum, for each municipality separately, simple mean of the two years of data is used to estimate the middle point. In such case we use, for instance data from 31st Dec 2014 and 31st Dec 2015 to estimate population mid-2015.   
+
+```{r}
+data <- population %>%
+  filter(year < 2020) %>%
+  bind_rows(population_ext_lm) %>%
+  # 2020 replaced by estimates from lm extrapol
+  mutate(population = if_else(year >= 2020,
+                              population_ext_lm, population
+  )) %>%
+  select(-population_ext_lm)
+
+for (i in 2014:2020) {
+  result <- data %>%
+    filter(year >= i & year <= i + 1) %>%
+    # filter(GMDNR == 261 | GMDNR == 389) %>%
+    # group_by(GMDNR, age, sex, nationality) %>%
+    group_by(GMDNR, age, sex) %>%
+    summarise(population_mid_lm = mean(population)) %>%
+    ungroup() %>%
+    mutate(
+      year = as.integer(i + 1),
+      population_mid_lm = as.integer(round(population_mid_lm))
+    ) %>%
+    # arrange(year, GMDNR, sex, nationality, age)
+    arrange(year, GMDNR, sex, age)
+  
+  if (i == 2014) {
+    population_mid_lm <- result
+  } else {
+    population_mid_lm <- bind_rows(population_mid_lm, result)
+  }
+}
+```
+
+```{r include=FALSE}
+# repeated for poi results
+data <- population %>%
+  filter(year < 2020) %>%
+  bind_rows(population_ext_poi) %>%
+  # 2020 replaced by estimates from lm extrapol
+  mutate(population = if_else(year >= 2020,
+                              population_ext_poi, population
+  )) %>%
+  # replacing two missing strata with lm estimates
+  left_join(population_ext_lm) %>%
+  mutate(population = if_else(year >= 2020 & is.na(population_ext_poi),
+                              population_ext_lm, population
+  )) %>%
+  select(-population_ext_poi, -population_ext_lm)
+
+for (i in 2014:2020) {
+  result <- data %>%
+    filter(year >= i & year <= i + 1) %>%
+    # filter(GMDNR == 261 | GMDNR == 389) %>%
+    # group_by(GMDNR, age, sex, nationality) %>%
+    group_by(GMDNR, age, sex) %>%
+    summarise(population_mid_poi = mean(population)) %>%
+    ungroup() %>%
+    mutate(
+      year = as.integer(i + 1),
+      population_mid_poi = as.integer(round(population_mid_poi))
+    ) %>%
+    # arrange(year, GMDNR, sex, nationality, age)
+    arrange(year, GMDNR, sex, age)
+  
+  if (i == 2014) {
+    population_mid_poi <- result
+  } else {
+    population_mid_poi <- bind_rows(population_mid_poi, result)
+  }
+}
+```
+
+```{r include=FALSE}
+rm(i, data, result)
+
+population_mid_lm %<>%
+  # arrange(year, GMDNR, sex, nationality, age) %>%
+  arrange(year, GMDNR, sex, age) %>%
+  relocate(year)
+
+population_mid_poi %<>%
+  # arrange(year, GMDNR, sex, nationality, age) %>%
+  arrange(year, GMDNR, sex, age) %>%
+  relocate(year)
+```
+
+### Large municipality 
+
+Again, results for large municipality are fine:  
+
+```{r echo=FALSE, warning=FALSE}
+population %>%
+  filter(year < 2020) %>%
+  bind_rows(population_ext_lm) %>%
+  mutate(population = if_else(year >= 2020, population_ext_lm, population)) %>%
+  select(-population_ext_lm) %>%
+  filter(GMDNR == 261 & age == "80+") %>%
+  bind_rows(population_mid_lm %>%
+              filter(GMDNR == 261 & age == "80+") %>%
+              mutate(year = year - .5)) %>%
+  ggplot(aes(x = year)) +
+  geom_point(aes(y = population)) +
+  geom_point(aes(y = population_mid_lm), color = "red") +
+  facet_wrap(~sex, scales = "free")
+```
+
+### Small municipality 
+
+Again, for small municipality we might end up with sth more wiggly.  
+
+```{r echo=FALSE, warning=FALSE}
+population %>%
+  filter(year < 2020) %>%
+  bind_rows(population_ext_lm) %>%
+  mutate(population = if_else(year >= 2020, population_ext_lm, population)) %>%
+  select(-population_ext_lm) %>%
+  filter(GMDNR == 389 & age == "80+") %>%
+  bind_rows(population_mid_lm %>%
+              filter(GMDNR == 389 & age == "80+") %>%
+              mutate(year = year - .5)) %>%
+  ggplot(aes(x = year)) +
+  geom_point(aes(y = population)) +
+  geom_point(aes(y = population_mid_lm), color = "red") +
+  facet_wrap(~sex, scales = "free")
+```
+
+## Deaths <-> population link
+
+Prepared population file is merged to deaths dataset prepared in `02.Rmd`.  
+
+**We use file based on place of residence.**  
+
+Non-existent population count `communityXyearXageXsexXnationality` strata are assumed to mean 0 pops.  
+
+```{r}
+w_deaths_2015_2021_pop <- read_rds("data/BfS-closed/monthly_deaths/w_deaths_2015_2021_exp.Rds") %>%
+  left_join(
+    bind_rows(
+      population,
+      population %>%
+        filter(year == 2020) %>%
+        mutate(year = 2021)
+    )
+  ) %>%
+  replace_na(list(population = 0)) %>%
+  left_join(population_mid_lm) %>%
+  replace_na(list(population_mid_lm = 0)) %>%
+  left_join(population_mid_poi) %>%
+  replace_na(list(population_mid_poi = 0))
+```
+
+```{r eval=FALSE, include=FALSE}
+summary(w_deaths_2015_2021_pop$population)
+summary(w_deaths_2015_2021_pop$population_mid_lm)
+summary(w_deaths_2015_2021_pop$population_mid_poi)
+```
+
+## Deaths > population problem
+
+```{r}
+surplus <- w_deaths_2015_2021_pop %>%
+  filter(deaths > population) %>%
+  arrange(GMDNR, date) %>%
+  mutate(difference = population - deaths)
+```
+
+There are `r number(nrow(surplus))` strata from `r number(length(unique(surplus$GMDNR)))`  communities where count of deaths is larger than count of population. The difference is in range of 1-2 and refers to very small counts of deaths/pops.   
+
+```{r echo=FALSE}
+surplus %>%
+  select(-GMDNR, -date, -border, -starts_with("AR")) %>%
+  datatable()
+```
+
+```{r eval=FALSE, include=FALSE}
+# missing checks
+w_deaths_2015_2021_exp <- read_rds("data/BfS-closed/monthly_deaths/w_deaths_2015_2021_exp.Rds")
+
+missing1 <- w_deaths_2015_2021_exp %>%
+  anti_join(population) %>%
+  select(GMDNAME) %>%
+  distinct()
+
+missing2 <- population %>%
+  filter(year > 2014) %>%
+  anti_join(w_deaths_2015_2021_exp) %>%
+  select(GMDNAME) %>%
+  distinct()
+
+rm(w_deaths_2015_2021_exp, missing1, missing2)
+gc()
+```
+
+```{r include=FALSE}
+rm(surplus); gc()
+
+write_rds(w_deaths_2015_2021_pop, "data/BfS-closed/monthly_deaths/w_deaths_2015_2021_pop.Rds")
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -70,22 +614,24 @@ st_gg22 <- read_rds("data/swisstopo/st_gg22.Rds")
 ### Data 
 
 ```{r}
-covid_jun <- get_nationalvotes(votedates = "2021-06-13", 
-                               geolevel = "municipality") %>% 
-  filter(name == "Bundesgesetz über die gesetzlichen Grundlagen für Verordnungen des Bundesrates zur Bewältigung der Covid-19-Epidemie (Covid-19-Gesetz)") %>% 
+covid_jun <- get_nationalvotes(
+  votedates = "2021-06-13",
+  geolevel = "municipality"
+) %>%
+  filter(name == "Bundesgesetz über die gesetzlichen Grundlagen für Verordnungen des Bundesrates zur Bewältigung der Covid-19-Epidemie (Covid-19-Gesetz)") %>%
   select(-name, -id)
 ```
 
 ```{r echo=FALSE, include=FALSE}
-# Votes from abroad are excluded. 
-# covid_jun %>% 
-#   filter(str_detect(mun_name, fixed("Ausland")) | str_detect(mun_name, fixed("l'étranger"))) %>% 
+# Votes from abroad are excluded.
+# covid_jun %>%
+#   filter(str_detect(mun_name, fixed("Ausland")) | str_detect(mun_name, fixed("l'étranger"))) %>%
 #   select(mun_name, jaStimmenAbsolut, jaStimmenInProzent)
 
-covid_jun %<>% 
-  filter(! str_detect(mun_name, fixed("Ausland"))) %>% 
-  filter(! str_detect(mun_name, fixed("l'étranger"))) %>% 
-  mutate(GMDNR = as.numeric(mun_id)) %>% 
+covid_jun %<>%
+  filter(!str_detect(mun_name, fixed("Ausland"))) %>%
+  filter(!str_detect(mun_name, fixed("l'étranger"))) %>%
+  mutate(GMDNR = as.numeric(mun_id)) %>%
   relocate(GMDNR)
 ```
 
@@ -94,8 +640,10 @@ Dataset consists of `r scales::number(length(unique(covid_jun$mun_id)), big.mark
 ### Results preview
 
 ```{r echo=FALSE}
-plot_nationalvotes(votedate = "2021-06-13", 
-                   vote_id = 6430, geolevel = "municipality")
+plot_nationalvotes(
+  votedate = "2021-06-13",
+  vote_id = 6430, geolevel = "municipality"
+)
 ```
 
 ### Link to municipalities
@@ -103,16 +651,16 @@ plot_nationalvotes(votedate = "2021-06-13",
 Using `GMDNR` / `mun_id` for deterministic linkage.  
 
 ```{r}
-covid_jun_gem <- st_gg22 %>%  
+covid_jun_gem <- st_gg22 %>%
   left_join(covid_jun)
 ```
 
 There are few communities that exist on the map but do not exist in the voting dataset:   
 
 ```{r echo=FALSE}
-covid_jun_gem %>% 
-  st_drop_geometry() %>% 
-  filter(is.na(jaStimmenInProzent)) %>% 
+covid_jun_gem %>%
+  st_drop_geometry() %>%
+  filter(is.na(jaStimmenInProzent)) %>%
   select(GMDNR, GMDNAME)
 ```
 
@@ -128,22 +676,24 @@ write_rds(covid_jun_gem, "data/voting/covid_jun_gem.Rds")
 ### Data 
 
 ```{r}
-covid_nov <- get_nationalvotes(votedates = "2021-11-28", 
-                               geolevel = "municipality") %>% 
-  filter(name == "Änderung des Bundesgesetzes über die gesetzlichen Grundlagen für Verordnungen des Bundesrates zur Bewältigung der Covid-19-Epidemie (Covid-19-Gesetz) (Härtefälle, Arbeitslosenversicherung, familienergänzende Kinderbetreuung, Kulturschaffende, Veranstaltungen)") %>% 
+covid_nov <- get_nationalvotes(
+  votedates = "2021-11-28",
+  geolevel = "municipality"
+) %>%
+  filter(name == "Änderung des Bundesgesetzes über die gesetzlichen Grundlagen für Verordnungen des Bundesrates zur Bewältigung der Covid-19-Epidemie (Covid-19-Gesetz) (Härtefälle, Arbeitslosenversicherung, familienergänzende Kinderbetreuung, Kulturschaffende, Veranstaltungen)") %>%
   select(-name, -id)
 ```
 
 ```{r echo=FALSE, include=FALSE}
-# Votes from abroad are excluded. 
-# covid_nov %>% 
-#   filter(str_detect(mun_name, fixed("Ausland")) | str_detect(mun_name, fixed("l'étranger"))) %>% 
+# Votes from abroad are excluded.
+# covid_nov %>%
+#   filter(str_detect(mun_name, fixed("Ausland")) | str_detect(mun_name, fixed("l'étranger"))) %>%
 #   select(mun_name, jaStimmenAbsolut, jaStimmenInProzent)
 
-covid_nov %<>% 
-  filter(! str_detect(mun_name, fixed("Ausland"))) %>% 
-  filter(! str_detect(mun_name, fixed("l'étranger"))) %>% 
-  mutate(GMDNR = as.numeric(mun_id)) %>% 
+covid_nov %<>%
+  filter(!str_detect(mun_name, fixed("Ausland"))) %>%
+  filter(!str_detect(mun_name, fixed("l'étranger"))) %>%
+  mutate(GMDNR = as.numeric(mun_id)) %>%
   relocate(GMDNR)
 ```
 
@@ -152,8 +702,10 @@ Dataset consists of `r scales::number(length(unique(covid_nov$mun_id)), big.mark
 ### Results preview
 
 ```{r echo=FALSE}
-plot_nationalvotes(votedate = "2021-11-28", 
-                   vote_id = 6500, geolevel = "municipality")
+plot_nationalvotes(
+  votedate = "2021-11-28",
+  vote_id = 6500, geolevel = "municipality"
+)
 ```
 
 ### Link to municipalities
@@ -161,16 +713,16 @@ plot_nationalvotes(votedate = "2021-11-28",
 Using `GMDNR` / `mun_id` for deterministic linkage.  
 
 ```{r}
-covid_nov_gem <- st_gg22 %>%  
+covid_nov_gem <- st_gg22 %>%
   left_join(covid_nov)
 ```
 
 There are again few communities that exist on the map but do not exist in the voting dataset:  
 
 ```{r echo=FALSE}
-covid_nov_gem %>% 
-  st_drop_geometry() %>% 
-  filter(is.na(jaStimmenInProzent)) %>% 
+covid_nov_gem %>%
+  st_drop_geometry() %>%
+  filter(is.na(jaStimmenInProzent)) %>%
   select(GMDNR, GMDNAME)
 ```
 

@@ -725,6 +725,11 @@ gc()
 write_rds(st_grid_pop, "data/blob/st_grid_pop.Rds")
 ```
 
+```{r eval=FALSE, include=FALSE}
+# sanity check
+st_grid_pop_exp %>% filter(year == 2020) %>% summarise(pop = sum(pop))
+```
+
 ```{r include=FALSE}
 st_grid_pop <- read_rds("data/blob/st_grid_pop.Rds")
 ```

@@ -354,6 +354,382 @@ rm(grid_1km_crop, grid_1km_crop_cent); gc()
 
 <!-- ----------------------------------------------------- -->
 
+# Gridded Swiss-SEP
+
+```{r}
+sep3 <- read_rds("../SNC_Swiss-SEP2/FINAL/RDS/ssep3_user_geo.Rds") %>%
+  select(gisid, ssep3, ssep3_d) %>% 
+  st_transform(crs = 2056)
+```
+
+Using `r number(nrow(sep3), big.mark = ",")` n'hoods from version 3.0:  
+
+```{r echo=FALSE}
+sep3 %>% 
+  st_drop_geometry() %>% 
+  frq(ssep3_d)
+```
+
+This dataset is aggregated to the level of `r scales::number(length(unique(grid_1km$ID)), big.mark = ",")` grid cells.  
+
+## STATPOP
+
+```{r}
+statpop2020 <- read_delim("data-raw/BfS-closed/STATPOP/statpop2020_220098p.zip", 
+                          delim = ";", escape_double = FALSE, 
+                          col_types = cols(STATYEAR = col_integer(), 
+                                           SEX = col_integer(), 
+                                           TYPEOFRESIDENCE = col_integer(), 
+                                           POPULATIONTYPE = col_integer(), 
+                                           AGE = col_integer(), 
+                                           CLASSAGEFIVEYEARS = col_integer(), 
+                                           NATIONALITYCATEGORY = col_integer(), 
+                                           MAINRESIDENCECATEGORY = col_integer(), 
+                                           GEOCOORDE = col_integer(), 
+                                           GEOCOORDN = col_integer(), 
+                                           INDIC_EGID = col_integer(), 
+                                           statdate = col_date(format = "%d/%m/%Y")), 
+                          trim_ws = TRUE) %>% 
+  janitor::remove_empty(c("rows", "cols")) %>% janitor::clean_names()  
+
+statpop2020_agg <- statpop2020 %>% 
+  rename(egid = federalbuildingid) %>% 
+  filter(typeofresidence == 1) %>% 
+  filter(populationtype == 1) %>% 
+  filter(mainresidencecategory == 1) %>% 
+  filter(indic_egid == 1) %>% 
+  select(-statyear, -statdate, 
+         -typeofresidence, -populationtype, -mainresidencecategory,
+         -indic_egid) %>% 
+  group_by(egid, geocoorde, geocoordn) %>% 
+  summarise(pop = n()) %>% 
+  ungroup() %>% 
+  st_as_sf(coords = c("geocoorde", "geocoordn"), 
+           crs = 2056,
+           remove = TRUE)
+```
+
+Using data from `STATPOP` **2020**.  
+
+Dataset consists of `r scales::number(nrow(statpop2020), big.mark = ",")` individuals and `r scales::number(nrow(statpop2020_agg), big.mark = ",")` buildings. We selected individuals with type of residence *Hauptwohnsitz*, population type *Ständige Wohnbevölkerung*, main residency category *Nur ein Hauptwohnsitz* and with valid EGID building ID.  
+
+The nearest building with SSEP was assigned for each of these building. The point dataset was then overlaid with community boundaries and summary measures of population based index were created and population level SEP was aggregated by community. 
+
+```{r include=FALSE}
+rm(statpop2020); gc()
+```
+
+## Grid based averages
+
+```{r eval=FALSE}
+ssep3_grid_1km <- 
+  st_join(sep3, 
+          grid_1km, 
+          join = st_intersects) 
+
+ssep3_neigh <- ssep3_grid_1km %>% 
+  st_drop_geometry() %>% 
+  group_by(ID) %>% 
+  summarise(n = n(),
+            ssep3_median = median(ssep3)) %>% 
+  ungroup() 
+
+ssep3_neigh_grid <- left_join(grid_1km, ssep3_neigh) %>% 
+  # filter(!is.na(ssep3_median)) %>% 
+  mutate(median_ssep3_d = ntile(ssep3_median, 10)) %>% 
+  mutate(median_ssep3_d = factor(median_ssep3_d,
+                                 levels = 1:10,
+                                 labels = c("1st - lowest", 
+                                            "2", "3", "4", 
+                                            "5th decile", 
+                                            "6", "7", "8", "9", 
+                                            "10th - highest"))) %>% 
+  relocate(geometry, .after = last_col()) %>% 
+  mutate(n = ifelse(is.na(n), 0, n))
+
+write_rds(ssep3_neigh_grid, "data/BfS-closed/SEP/ssep3_neigh_grid.rds")
+```
+
+```{r include=FALSE}
+ssep3_neigh_grid <- read_rds("data/BfS-closed/SEP/ssep3_neigh_grid.rds")
+```
+
+Distribution of number of neighbourhoods (ie. points with SEP) per grid cell:  
+
+```{r echo=FALSE}
+ggplot(ssep3_neigh_grid) + 
+  geom_histogram(aes(x = n), binwidth = 10)
+```
+
+Final map using median index:  
+
+```{r include=FALSE}
+tmap_mode("view")
+```
+
+```{r eval=FALSE, include=FALSE}
+frq(ssep3_neigh_grid$median_ssep3_d)
+```
+
+```{r echo=FALSE}
+ssep3_neigh_grid %>%
+  filter(n > 0) %>% 
+  qtm(borders = NULL, fill = "median_ssep3_d", fill.palette = "div")
+```
+
+## Population based averages
+
+```{r eval=FALSE}
+# join to sep3
+ssep3_pop <- st_join(statpop2020_agg, sep3, join = st_nearest_feature)
+
+# takes some time
+# nearest <- st_nearest_feature(statpop2020_agg, sep3)
+# ssep3_pop$dist3 <- st_distance(ssep3_pop, sep3[nearest, ], by_element = TRUE)
+# rm(nearest, statpop2020_agg); gc()
+# summary(ssep3_pop$dist3)
+
+ssep3_pop <- 
+  st_join(ssep3_pop, grid_1km, join = st_intersects) %>%  
+  relocate(egid, gisid, pop,
+           ssep3, ssep3_d,
+           ID) 
+
+write_rds(ssep3_pop, "data/BfS-closed/SEP/ssep3_pop.Rds")
+```
+
+```{r include=FALSE}
+rm(statpop2020_agg); gc()
+
+ssep3_pop <- read_rds("data/BfS-closed/SEP/ssep3_pop.Rds") %>% 
+  st_drop_geometry()
+```
+
+```{r}
+ssep3_pop_grid <- ssep3_pop %>% 
+  select(ID, ssep3, pop) %>% 
+  uncount(pop) %>% 
+  group_by(ID) %>% 
+  summarise(pop = n(),
+            ssep3_median = median(ssep3)) %>% 
+  ungroup() 
+
+ssep3_pop_grid <- left_join(grid_1km, ssep3_pop_grid) %>% 
+  # filter(!is.na(ssep3_median)) %>% 
+  mutate(median_ssep3_d = ntile(ssep3_median, 10)) %>% 
+  mutate(median_ssep3_d = factor(median_ssep3_d,
+                                 levels = 1:10,
+                                 labels = c("1st - lowest", 
+                                            "2", "3", "4", 
+                                            "5th decile", 
+                                            "6", "7", "8", "9", 
+                                            "10th - highest"))) %>% 
+  relocate(geometry, .after = last_col()) %>% 
+  mutate(n = ifelse(is.na(pop), 0, pop))
+
+write_rds(ssep3_pop_grid, "data/BfS-closed/SEP/ssep3_pop_grid.rds")
+```
+
+Final map using median index - bubbles scaled to number of people (STATPOP 2020)  
+
+```{r eval=FALSE, include=FALSE}
+frq(ssep3_pop_grid$median_ssep3_d)
+```
+
+```{r echo=FALSE}
+ssep3_pop_grid %>% 
+  tm_shape() +
+  tm_dots(size = "pop", col = "median_ssep3_d", palette = "RdYlGn",
+          scale = .5,  shape = 19)
+```
+
+Final map using median index:  
+
+```{r eval=FALSE, include=FALSE}
+frq(ssep3_pop_grid$median_ssep3_d)
+```
+
+```{r echo=FALSE}
+ssep3_pop_grid %>%
+  filter(pop > 0) %>% 
+  qtm(borders = NULL, fill = "median_ssep3_d", fill.palette = "div")
+```
+
+## Comparing two solutions 
+
+### Bland-Altman 1
+
+```{r}
+p_load(blandr)
+
+compare <- 
+  full_join(
+    ssep3_neigh_grid %>% 
+      # filter(n > 0) %>% 
+      st_drop_geometry() %>% 
+      select(ID, ssep3_median) %>% 
+      rename(neighbourhood = ssep3_median),
+    
+    ssep3_pop_grid %>% 
+      # filter(pop > 0) %>% 
+      st_drop_geometry() %>% 
+      select(ID, ssep3_median) %>% 
+      rename(population = ssep3_median)
+  ) %>% 
+  na.omit()
+
+blandr.output.text(compare$neighbourhood, compare$population, sig.level=0.95)
+p_unload(blandr)
+```
+
+### Bland-Altman 2
+
+```{r}
+p_load(BlandAltmanLeh)
+
+bas_list <- bland.altman.stats(compare$neighbourhood, compare$population)
+bas <- tibble(means = bas_list$means, diffs = bas_list$diffs)
+
+# bas_list$mean.diffs 
+# bas_list$critical.diff 
+
+ggplot(bas, aes(x = means, y = diffs)) + 
+  geom_count(alpha = 0.05) + 
+  # geom_point() + 
+  geom_hline(yintercept = bas_list$lines[-2], 
+             linetype = 2, 
+             size = 1,
+             colour = "slateblue1") + 
+  geom_hline(yintercept = bas_list$lines[2], 
+             linetype = 2, 
+             size = 1, 
+             colour = "slateblue4") + 
+  xlab("Mean of measurements") + 
+  ylab("Difference") + 
+  theme_classic()
+
+p_unload(BlandAltmanLeh)
+```
+
+Mean diff and CI lines:
+
+```{r}
+bas_list$lines
+```
+
+Proportion within 95%:
+
+```{r}
+prop.table(table(bas_list$diffs >= bas_list$lines[1] & bas_list$diffs <= bas_list$lines[3]))
+```
+
+## Decile discrepancies
+
+```{r}
+compare <- 
+  full_join(
+    ssep3_neigh_grid %>% 
+      # filter(n > 0) %>% 
+      st_drop_geometry() %>% 
+      select(ID, median_ssep3_d) %>% 
+      rename(neighbourhood = median_ssep3_d),
+    
+    ssep3_pop_grid %>% 
+      # filter(pop > 0) %>% 
+      st_drop_geometry() %>% 
+      select(ID, median_ssep3_d) %>% 
+      rename(population = median_ssep3_d)
+  ) %>% 
+  na.omit()
+
+# with(compare, table(neighbourhood, population))
+
+start <- nrow(compare)
+
+compare %>% 
+  filter(population == neighbourhood) %>% 
+  nrow() -> agreement
+
+compare %>% 
+  mutate(diff = as.numeric(population) - as.numeric(neighbourhood)) %>% 
+  filter(diff >= -1 & diff <= 1) %>% 
+  nrow() -> partial
+
+compare %>% 
+  mutate(diff = as.numeric(population) - as.numeric(neighbourhood)) %>% 
+  filter(diff == -9 | diff == 9) %>% 
+  nrow() -> disagreement
+```
+
+Out of `r number(start, big.mark = ",")` grid cells `r number(agreement, big.mark = ",")` or `r percent(agreement/start)` has been assigned to the same decile using both solutions. 
+
+If we relax this assumption and alow variation +/- 1 decile then `r percent(partial/start)` of cells are matching.
+
+There are only `r number(disagreement, big.mark = ",")` (`r percent(disagreement/start, accuracy = 0.001)`) cells that are on the opposite scale of the index. 
+
+### Full numbers
+
+Counts
+
+```{r}
+sep_dif_xtab <- table(compare$neighbourhood, compare$population) # first var in rows
+# sep_dif_xtab
+
+sep_dif_xtab %>% # 
+  knitr::kable(caption = 'SSEP 1.0 (rows) vs. 2.0 (columns).')
+```
+
+Share (cell %)
+
+```{r}
+prop.table(sep_dif_xtab) %>% # cell percentages
+  knitr::kable(digits = 3,
+               caption = '% SSEP 1.0 (rows) vs. 2.0 (columns).')
+```
+
+```{r eval=FALSE, include=FALSE}
+mosaicplot(sep_dif_xtab, shade = TRUE)
+
+spineplot(factor(compare$neighbourhood), factor(compare$population))
+```
+
+Visually 
+
+```{r, layout="l-page", fig.width=6, fig.height=6}
+sep_dif_freq <- as.data.frame(table(compare$neighbourhood, compare$population)) %>% 
+  rename(SSEP1 = Var1, SSEP2 = Var2)
+
+sep_dif_freq %>% 
+  ggplot(aes(SSEP1, Freq)) +
+  geom_col() +
+  facet_grid(vars(SSEP2))
+```
+
+Alternative view
+
+```{r, layout="l-body-outset"}
+sep_dif_freq %>% 
+  ggplot(aes(SSEP1, SSEP2)) +
+  geom_point(aes(size = Freq, color = Freq / nrow(compare)), shape = 15) +
+  scale_size_continuous(range = c(2, 10)) + 
+  scale_color_distiller(palette = "RdYlBu", direction = 1) +
+  theme_classic()
+```
+
+Excluding diagonal
+
+```{r, layout="l-body-outset"}
+sep_dif_freq %>% 
+  filter(SSEP1 != SSEP2) %>% 
+  ggplot(aes(SSEP1, SSEP2)) +
+  geom_point(aes(size = Freq, color = Freq / nrow(compare)), shape = 15) +
+  scale_size_continuous(range = c(2, 10)) + 
+  scale_color_distiller(palette = "RdYlBu", direction = 1) +
+  theme_classic()
+```
+
+<!-- ----------------------------------------------------- -->
+
 # Gridded temperature data
 
 Using gridded data from [meteoswiss](https://www.meteoswiss.admin.ch/home/climate/swiss-climate-in-detail/raeumliche-klimaanalysen.html).  

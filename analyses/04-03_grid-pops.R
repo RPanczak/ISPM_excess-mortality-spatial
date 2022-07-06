@@ -2,6 +2,8 @@
 # Extrapolating pops
 # simple, multilevel solution
 
+set.seed(12345)
+
 library(readr)
 library(dplyr)
 library(tidyr)

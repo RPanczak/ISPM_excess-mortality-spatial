@@ -6,6 +6,7 @@
 #SBATCH --mail-user=radoslaw.panczak@ispm.unibe.ch
 #SBATCH --mail-type=end,fail
 
-ml R
+ml vital-it
+ml R/3.6.1
 
 Rscript ~/ISPM_excess-mortality-spatial/analyses/04-04_grid-pops.R

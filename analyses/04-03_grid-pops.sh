@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="gr-pop"
+#SBATCH --job-name="gr-po1"
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=8G
 #SBATCH --time=48:00:00

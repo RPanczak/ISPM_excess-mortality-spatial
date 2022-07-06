@@ -589,6 +589,107 @@ stopifnot(
 
 <!-- ----------------------------------------------------- -->
 
+# Raumgliederungen 
+
+Data from the [app](https://www.agvchapp.bfs.admin.ch/de/typologies/query). State as of `2021-07-01` to match spatial data nicely.  
+
+```{r}
+raum <- read_xlsx("data-raw/BfS/Raumgliederungen.xlsx", 
+                  skip = 1) %>% 
+  remove_empty(c("rows", "cols")) %>% clean_names() %>% 
+  filter(! is.na(bfs_gde_nummer)) %>% 
+  rename(GMDNR = bfs_gde_nummer,
+         GMDNAME = gemeindename,
+         KTNAME = kanton,
+         BZNR = bezirks_nummer,
+         BZNAME = bezirksname) %>% 
+  select(GMDNR, GMDNAME, KTNAME, BZNR, BZNAME, 
+         stadtische_landliche_gebiete, sprachgebiete,
+         urbanisierungsgrad_2011_degurba_eurostat) %>% 
+  mutate(
+    r_urban1 = case_when(
+      stadtische_landliche_gebiete == 1 ~  "Urban",
+      stadtische_landliche_gebiete == 2 ~  "Periurban",
+      stadtische_landliche_gebiete == 3 ~  "Rural",
+      TRUE ~  ""),
+    r_urban2 = case_when(
+      urbanisierungsgrad_2011_degurba_eurostat == 1 ~  "Dense",
+      urbanisierungsgrad_2011_degurba_eurostat == 2 ~  "Medium",
+      urbanisierungsgrad_2011_degurba_eurostat == 3 ~  "Low",
+      TRUE ~  ""),
+    r_lang = case_when(
+      sprachgebiete == 1 ~  "German",
+      sprachgebiete == 2 ~  "French",
+      sprachgebiete == 3 ~  "Italian",
+      sprachgebiete == 4 ~  "Romansh",
+      TRUE ~  "")
+  ) %>% 
+  select(-stadtische_landliche_gebiete, -sprachgebiete,
+         -urbanisierungsgrad_2011_degurba_eurostat)
+```
+
+```{r include=FALSE}
+stopifnot(nrow(anti_join(raum, gg21)) == 0)
+
+gg21_merged <- gg21 %>% 
+  left_join(raum) %>% 
+  relocate(geometry, .after = last_col())
+
+tmap_mode("plot")
+```
+
+## Urbanization 1 
+
+```{r echo=FALSE}
+frq(raum, r_urban1)
+
+tm_shape(se21, is.master = FALSE) +
+  tm_fill(col = "#a7cdf2")  +
+  tm_shape(gg21_merged) +
+  tm_fill(col = "r_urban1")  +
+  tm_shape(kt21) +
+  tm_borders()  +
+  tm_layout(
+    title = "Urbanization 2021"
+  )
+```
+
+## Urbanization 2 
+
+Using [DEGURBA](https://ec.europa.eu/eurostat/web/degree-of-urbanisation/background).  
+
+```{r echo=FALSE}
+frq(raum, r_urban2)
+
+tm_shape(se21, is.master = FALSE) +
+  tm_fill(col = "#a7cdf2")  +
+  tm_shape(gg21_merged) +
+  tm_fill(col = "r_urban2", palette = "-Set3")  +
+  tm_shape(kt21) +
+  tm_borders()  +
+  tm_layout(
+    title = "Urbanization 2021"
+  )
+```
+
+## Language region
+
+```{r echo=FALSE}
+frq(raum, r_lang)
+
+tm_shape(se21, is.master = FALSE) +
+  tm_fill(col = "#a7cdf2")  +
+  tm_shape(gg21_merged) +
+  tm_fill(col = "r_lang")  +
+  tm_shape(kt21) +
+  tm_borders()  +
+  tm_layout(
+    title = "Language region 2021"
+  )
+```
+
+<!-- ----------------------------------------------------- -->
+
 # Labour market areas 2018
 
 ## Data sources
@@ -853,7 +954,7 @@ gg21 %>%
   datatable() 
 ```
 
-```{r}
+```{r include=FALSE}
 gg21 %>% left_join(raum %>% select(GMDNR, KTNAME, 
                                    ARGRNR, ARGRNAME, ARNR, ARNAME,
                                    border)) %>% 
@@ -879,616 +980,4 @@ st_gg21 %>% left_join(raum %>% select(GMDNR, KTNAME,
   relocate(geometry, .after = last_col()) %>% 
   st_write("data/geo/swisstopo.gpkg", 
            layer = "st_gg21", append = FALSE)
-```
-
-<!-- ----------------------------------------------------- -->
-
-# tg3o simplification
-
-## Data
-
-So called 'productive areas', also coming from BfS' *ThemaKart* [product](https://www.bfs.admin.ch/bfs/en/home/statistics/regional-statistics/base-maps/cartographic-bases.assetdetail.21245514.html).
-
-Roughly coincides with removing areas of above 2000m asl.
-
-```{r include=FALSE, results=FALSE}
-tg3o_orig <- 
-  st_read("data-raw/BfS/KM04-00-c-suis-2022-q/01_INST/Vegetationsfläche_vf/K4_polg20210101_vf/K4polg20210101gf_ch2007Poly.shp",
-          as_tibble = TRUE) %>% 
-  st_transform(2056) %>% 
-  rename(GMDNR = id,
-         GMDNAME = name)
-```
-
-```{r results=FALSE}
-tg3o <- 
-  st_read("data-raw/BfS/KM04-00-c-suis-2022-q/01_INST/Vegetationsfläche_vf/K4_polg20210101_vf/K4polg20210101gf_ch2007Poly_cor.shp",
-          as_tibble = TRUE) %>% 
-  st_transform(2056) %>% 
-  rename(GMDNR = id,
-         GMDNAME = name)
-```
-
-```{r eval=FALSE, include=FALSE}
-tg3o %>% 
-  st_drop_geometry() %>% 
-  filter(GMDNR %in% c(2391, 5391, 5394)) %>% 
-  select(GMDNR, GMDNAME)
-
-tg3o %<>% 
-  filter(! GMDNR %in% c(2391, 5391, 5394)) %>% 
-  select(GMDNR, GMDNAME, KTNR) %>% 
-  arrange(GMDNR)
-```
-
-```{r echo=FALSE}
-qtm(tg3o)
-```
-
-Dataset consists of `r scales::number(length(unique(tg3o$GMDNR)), big.mark = ",")` communities. The state is from `2021-01-01` so needs to be updated to July to match the mortality of the data.
-
-## Updating to Jul 2021
-
-Using `Gemeindestand - Stand vom 01.07.2021.xlsx` from [here](https://www.agvchapp.bfs.admin.ch/de/home) we can identify municipalities with changes during the study period.
-
-```{r}
-histcomm <- read_xlsx("data-raw/BfS/Mutierte_Gemeinden_20150101_bis_20210701.xlsx", 
-                      col_types = c("numeric", "text", "numeric", 
-                                    "numeric", "text", "text", "numeric", 
-                                    "numeric", "text", "text"), 
-                      skip = 1) %>%
-  remove_empty(c("rows", "cols")) %>% clean_names() %>% 
-  mutate(datum_der_aufnahme = ymd(datum_der_aufnahme)) %>% 
-  arrange(desc(datum_der_aufnahme), gemeindename_5) %>% 
-  rename(kanton_old = kanton_2,
-         bezirks_num_old = bezirks_nummer_3,
-         bfs_gde_num_old = bfs_gde_nummer_4,
-         gemeindename_old = gemeindename_5,
-         kanton_new = kanton_6,
-         bezirks_num_new = bezirks_nummer_7,
-         bfs_gde_num_new = bfs_gde_nummer_8,
-         gemeindename_new = gemeindename_9) %>% 
-  select(-bezirks_num_old, -bezirks_num_new)
-```
-
-```{r include=FALSE}
-write_rds(histcomm, "data/BfS/histcomm.Rds")
-```
-
-<!-- There were `r length(unique(histcomm$bezirks_num_old))` municipalities with changes recorded in `2015-01-01` - `2021-07-01` period.   -->
-
-The following changes occurred after `2020-01-01` onwards that need to be replicated in tg3o dataset:
-
-```{r echo=FALSE}
-histcomm %>% 
-  filter(datum_der_aufnahme > ymd("2021-01-01")) %>% 
-  select(-kanton_new) %>% 
-  arrange(bfs_gde_num_new, gemeindename_new) %>% 
-  datatable(options = list(pageLength = 11))
-```
-
-```{r eval=FALSE, include=FALSE}
-# Auf den 18. April 2021 fusionierten die ehemaligen politischen Gemeinden Croglio, Monteggio, Ponte Tresa und Sessa zur neuen politischen Gemeinde Tresa
-
-histcomm %>% 
-  filter(bfs_gde_num_new %in% c(5239)) %>% 
-  select(bfs_gde_num_new, gemeindename_new, 
-         bfs_gde_num_old, gemeindename_old)
-
-histcomm %>% 
-  filter(bfs_gde_num_old %in% c(5178, 5202, 5213, 5222)) %>% 
-  select(bfs_gde_num_new, gemeindename_new, 
-         bfs_gde_num_old, gemeindename_old)
-
-gg21 %>% 
-  st_drop_geometry() %>% 
-  filter(GMDNR %in% c(5239)) %>% 
-  select(GMDNR, GMDNAME)
-
-st_read("data-raw/BfS/ag-b-00.03-875-gg21/ggg_2021-LV95/shp/g1g21_01012021.shp",
-        quiet = TRUE) %>%
-  st_drop_geometry() %>%
-  filter(GMDNR %in% c(5178, 5202, 5213, 5222)) %>%
-  select(GMDNR, GMDNAME)
-```
-
-```{r}
-changes <- histcomm %>% 
-  filter(datum_der_aufnahme > ymd("2021-01-01")) %>% 
-  select(bfs_gde_num_old, bfs_gde_num_new, gemeindename_new)
-
-tg3o %<>% 
-  left_join(changes, by = c("GMDNR" = "bfs_gde_num_old")) %>% 
-  mutate(GMDNR = if_else(!is.na(bfs_gde_num_new), 
-                         bfs_gde_num_new, GMDNR),
-         GMDNAME = if_else(!is.na(bfs_gde_num_new), 
-                           gemeindename_new, GMDNAME)) %>% 
-  select(-bfs_gde_num_new, -gemeindename_new) %>% 
-  group_by(GMDNR) %>% 
-  summarise(GMDNR = first(GMDNR),
-            GMDNAME = first(GMDNAME)) %>%
-  st_cast("MULTIPOLYGON") %>% 
-  ungroup()
-```
-
-```{r message=FALSE, warning=FALSE, include=FALSE}
-# original dataset as it came from BfS
-frq(st_is_valid(tg3o_orig))
-
-gc() 
-
-tg3o_orig %<>% 
-  left_join(changes, by = c("GMDNR" = "bfs_gde_num_old")) %>% 
-  mutate(GMDNR = if_else(!is.na(bfs_gde_num_new), 
-                         bfs_gde_num_new, GMDNR),
-         GMDNAME = if_else(!is.na(bfs_gde_num_new), 
-                           gemeindename_new, GMDNAME)) %>% 
-  select(-bfs_gde_num_new, -gemeindename_new) %>% 
-  group_by(GMDNR) %>% 
-  summarise(GMDNR = first(GMDNR),
-            GMDNAME = first(GMDNAME)) %>%
-  st_cast("MULTIPOLYGON") %>% 
-  ungroup()
-
-frq(st_is_valid(tg3o_orig))
-
-# manually corrected dataset forcing new connections
-tg3o_nb <- 
-  st_read("data-raw/BfS/KM04-00-c-suis-2022-q/01_INST/Vegetationsfläche_vf/K4_polg20210101_vf/K4polg20210101gf_ch2007Poly_cor_nb.shp",
-          as_tibble = TRUE) %>% 
-  st_transform(2056) %>% 
-  rename(GMDNR = id,
-         GMDNAME = name)
-
-frq(st_is_valid(tg3o_nb))
-
-# tg3o_nb %>% 
-#   filter(!st_is_valid(.)) %>% 
-#   select(GMDNAME)
-
-# fixing with this
-# tg3o_nb <- st_make_valid(tg3o_nb)
-# frq(st_is_valid(tg3o_nb))
-
-gc() 
-
-tg3o_nb %<>% 
-  left_join(changes, by = c("GMDNR" = "bfs_gde_num_old")) %>% 
-  mutate(GMDNR = if_else(!is.na(bfs_gde_num_new), 
-                         bfs_gde_num_new, GMDNR),
-         GMDNAME = if_else(!is.na(bfs_gde_num_new), 
-                           gemeindename_new, GMDNAME)) %>% 
-  select(-bfs_gde_num_new, -gemeindename_new) %>% 
-  group_by(GMDNR) %>% 
-  summarise(GMDNR = first(GMDNR),
-            GMDNAME = first(GMDNAME)) %>%
-  st_cast("MULTIPOLYGON") %>% 
-  ungroup()
-
-frq(st_is_valid(tg3o_nb))
-
-# View(st_drop_geometry(tg3o))
-rm(changes); gc()
-```
-
-```{r eval=FALSE}
-tg3o %>% 
-  st_drop_geometry() %>% 
-  select(GMDNR) %>% 
-  anti_join(gg21 %>% st_drop_geometry())
-```
-
-Dataset now consists of `r scales::number(length(unique(tg3o$GMDNR)), big.mark = ",")` municipalities.
-
-## AR
-
-Merging to get AR in tg3o layout.
-
-```{r include=FALSE}
-tg3o_ar <- tg3o %>% 
-  left_join(raum %>% select(-GMDNAME), 
-            by = c("GMDNR")) %>% 
-  group_by(ARNR) %>% 
-  summarise(ARNR = first(ARNR),
-            ARNAME = first(ARNAME),
-            border = first(border)) %>%
-  st_cast("MULTIPOLYGON") %>% 
-  ungroup()
-```
-
-```{r eval=FALSE, include=FALSE}
-frq(st_is_valid(tg3o_ar))
-
-tg3o_ar %>% 
-  st_drop_geometry() %>% 
-  select(ARNR) %>% 
-  anti_join(ar21 %>% st_drop_geometry())
-```
-
-```{r echo=FALSE}
-qtm(tg3o_ar)
-```
-
-```{r include=FALSE}
-write_rds(tg3o, "data/geo/tg3o.Rds")
-# write_rds(tg3o_orig, "data/geo/tg3o_orig.Rds")
-write_rds(tg3o_ar, "data/geo/tg3o_ar.Rds")
-
-st_write(tg3o_orig, "data/geo/tg3o.gpkg", 
-         layer = "tg3o_orig", delete_dsn = TRUE)
-
-st_write(tg3o, "data/geo/tg3o.gpkg", 
-         layer = "tg3o", append = FALSE)
-
-st_write(tg3o_ar, "data/geo/tg3o.gpkg", 
-         layer = "tg3o_ar", append = FALSE)
-```
-
-<!-- ----------------------------------------------------- -->
-
-# Spatial connectivity of municipalities
-
-## Traditional
-
-Based on queen connectivity between the areas. Uses 'normal' municipality boundaries and connects them irrespectively of mountains.
-
-```{r eval=FALSE, include=FALSE}
-# results will differ if not multipart!
-# gg21 %<>%
-#   st_cast("POLYGON")
-```
-
-### Weights
-
-```{r}
-gg21_wm_q <- poly2nb(gg21, queen = TRUE, row.names = gg21$GMDNR)
-
-gg21_wm_q
-summary(gg21_wm_q)
-
-write_rds(gg21_wm_q, "data/nb/gg21_wm_q.Rds")
-nb2INLA("data/nb/gg21_wm_q.adj", gg21_wm_q) 
-```
-
-### Region with one neighbour
-
-`2271 Meyriez`
-
-```{r echo=FALSE}
-tmap_mode("view")
-
-tm_shape(gg21 %>% st_join(gg21 %>% 
-                            filter(GMDNAME == "Meyriez"), 
-                          left = FALSE)) +
-  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
-  tm_shape(gg21 %>% 
-             filter(GMDNAME == "Meyriez")) +
-  tm_fill(col = "red", lwd = 2, alpha = 0.5)
-```
-
-### Region with twelve neighbours (max case)
-
-`5586 Lausanne`
-
-```{r echo=FALSE}
-tm_shape(gg21 %>% st_join(gg21 %>% 
-                            filter(GMDNAME == "Lausanne"), 
-                          left = FALSE)) +
-  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
-  tm_shape(gg21 %>% 
-             filter(GMDNAME == "Lausanne")) +
-  tm_fill(col = "red", lwd = 2, alpha = 0.5)
-```
-
-### Multipart features
-
-<!-- `6153 Monthey`   -->
-
-```{r eval=FALSE, include=FALSE}
-tm_shape(gg21 %>% st_join(gg21 %>% 
-                            filter(GMDNAME == "Monthey"), 
-                          left = FALSE)) +
-  tm_borders(col = "grey50", lwd = 1, alpha = 0.5) +
-  tm_shape(gg21 %>% 
-             filter(GMDNAME == "Monthey")) + 
-  tm_fill(col = "red", lwd = 2, alpha = 0.5)
-
-temp1 <- gg21 %>% 
-  st_join(gg21 %>% 
-            filter(GMDNAME == "Monthey"), 
-          left = FALSE) %>% 
-  as_Spatial()
-
-temp2 <- gg21 %>% 
-  filter(GMDNAME == "Monthey") %>% 
-  as_Spatial()
-
-plot(temp1, col = "lightgrey") 
-plot(temp2, col = "purple", add = TRUE) 
-plot(gg21_wm_q, 
-     coordinates(as_Spatial(gg21)), 
-     pch = 19, cex = 0.6, add = TRUE, col = "red")
-```
-
-<!-- `2054 Estavayer`   -->
-
-```{r eval=FALSE, include=FALSE}
-tm_shape(gg21 %>% st_join(gg21 %>% 
-                            filter(GMDNAME == "Estavayer"), 
-                          left = FALSE)) +
-  tm_borders(col = "grey50", lwd = 1, alpha = 0.5) +
-  tm_shape(gg21 %>% 
-             filter(GMDNAME == "Estavayer")) + 
-  tm_fill(col = "red", lwd = 2, alpha = 0.5)
-
-temp1 <- gg21 %>% 
-  st_join(gg21 %>% 
-            filter(GMDNAME == "Estavayer"), 
-          left = FALSE) %>% 
-  as_Spatial()
-
-temp2 <- gg21 %>% 
-  filter(GMDNAME == "Estavayer") %>% 
-  as_Spatial()
-
-plot(temp1, col = "lightgrey") 
-plot(temp2, col = "purple", add = TRUE) 
-plot(gg21_wm_q, 
-     coordinates(as_Spatial(gg21)), 
-     pch = 19, cex = 0.6, add = TRUE, col = "red")
-```
-
-Example of `418 Oberburg`. Location:
-
-```{r echo=FALSE}
-tm_shape(gg21 %>% st_join(gg21 %>% 
-                            filter(GMDNAME == "Oberburg"), 
-                          left = FALSE)) +
-  tm_borders(col = "grey50", lwd = 1, alpha = 0.5) +
-  tm_shape(gg21 %>% 
-             filter(GMDNAME == "Oberburg")) + 
-  tm_fill(col = "red", lwd = 2, alpha = 0.5)
-```
-
-Connectivity:
-
-```{r echo=FALSE}
-temp1 <- gg21 %>% 
-  st_join(gg21 %>% 
-            filter(GMDNAME == "Oberburg"), 
-          left = FALSE) %>% 
-  as_Spatial()
-
-temp2 <- gg21 %>% 
-  filter(GMDNAME == "Oberburg") %>% 
-  as_Spatial()
-
-plot(temp1, col = "lightgrey") 
-plot(temp2, col = "purple", add = TRUE) 
-plot(gg21_wm_q, 
-     coordinates(as_Spatial(gg21)), 
-     pch = 19, cex = 0.6, add = TRUE, col = "red")
-```
-
-### Connectivity over Zurichsee
-
-`1322 Freienbach` fixed above:
-
-```{r echo=FALSE}
-tm_shape(gg21_orig %>% 
-           filter(GMDNAME %in% c("Freienbach", "Rapperswil-Jona"))) +
-  tm_fill(col = "red", lwd = 2, alpha = 0.5)
-```
-
-```{r include=FALSE}
-temp1 <- gg21_orig %>% 
-  st_join(gg21_orig %>% 
-            filter(GMDNAME %in% c("Freienbach", "Rapperswil-Jona")), 
-          left = FALSE) %>% 
-  as_Spatial()
-
-temp2 <- gg21_orig %>% 
-  filter(GMDNAME %in% c("Freienbach", "Rapperswil-Jona")) %>% 
-  as_Spatial()
-```
-
-```{r echo=FALSE}
-plot(temp1, col = "lightgrey") 
-plot(temp2, col = "purple", add = TRUE) 
-plot(gg21_wm_q, coordinates(as_Spatial(gg21)), 
-     pch = 19, cex = 0.6, add = TRUE, col = "red")
-```
-
-### Connectivity over Lugano
-
-```{r echo=FALSE}
-tm_shape(gg21_orig %>% 
-           st_join(gg21_orig %>% 
-                     filter(GMDNAME %in% c("Bissone", "Melide")), 
-                   left = FALSE)) +
-  tm_borders(col = "grey50", lwd = 1, alpha = 0.5) +
-  tm_shape(gg21_orig %>% 
-             filter(GMDNAME %in% c("Bissone", "Melide"))) + 
-  tm_fill(col = "red", lwd = 2, alpha = 0.5)
-```
-
-```{r include=FALSE}
-temp <- gg21_orig %>% 
-  filter(GMDNAME %in% c("Bissone", "Melide"))
-```
-
-```{r echo=FALSE}
-plot(as_Spatial(temp), col = "lightgrey") 
-plot(gg21_wm_q, coordinates(as_Spatial(gg21)), 
-     pch = 19, cex = 0.6, add = TRUE, col = "red")
-```
-
-### All together:
-
-```{r echo=FALSE}
-tmap_mode("plot")
-
-plot(as_Spatial(gg21), borders = "lightgrey") 
-plot(gg21_wm_q, coordinates(as_Spatial(gg21)), 
-     pch = 19, cex = 0.6, add = TRUE, col = "red")
-```
-
-### List
-
-```{r}
-gg21_wm_q_list <- nb2listw(gg21_wm_q, style = "W", zero.policy = TRUE)
-write_rds(gg21_wm_q_list, "data/nb/gg21_wm_q_list.Rds")
-```
-
-## tg3o simplification
-
-Based on queen connectivity between the productive areas. Uses 'tg3o' simplified municipality boundaries so it breaks some connections in the mountainous regions. Few disconnected areas are connected back, mostly when tehre is a train tunnel or a year round road pass connection.
-
-```{r eval=FALSE, include=FALSE}
-# results will differ if not multipart!
-# tg3o %<>%
-#   st_cast("POLYGON")
-```
-
-### Weights
-
-```{r include=FALSE}
-tg3o_orig_wm_q <- poly2nb(tg3o_orig, queen = TRUE, row.names = tg3o$GMDNR)
-
-# tg3o_orig_wm_q
-# summary(tg3o_orig_wm_q)
-```
-
-```{r}
-tg3o_wm_q <- poly2nb(tg3o_nb, queen = TRUE, row.names = tg3o$GMDNR)
-
-# tg3o_wm_q
-summary(tg3o_wm_q)
-
-write_rds(tg3o_wm_q, "data/nb/tg3o_wm_q.Rds")
-nb2INLA("data/nb/tg3o_wm_q.adj", tg3o_wm_q) 
-```
-
-<!-- ### Manual correction -->
-
-<!-- Adding missing links.     -->
-
-```{r eval=FALSE, include=FALSE}
-# **Note: needs to be run outside or RStudio!**  
-setwd("C:/projects/ISPM_geo-mortality")
-tg3o <- readr::read_rds("data/geo/tg3o.Rds")
-tg3o_wm_q <- readr::read_rds("data/nb/tg3o_wm_q.Rds")
-tg3o_wm_q_cor <- spdep::edit.nb(tg3o_wm_q, polys = as(tg3o, "Spatial"))
-
-readr::write_rds(tg3o_wm_q_cor, "data/nb/tg3o_wm_q_cor.Rds")
-```
-
-```{r eval=FALSE, include=FALSE}
-tg3o_wm_q_cor <- read_rds("data/nb/tg3o_wm_q_cor.Rds")
-
-# tg3o_wm_q
-summary(tg3o_wm_q)
-```
-
-### All together
-
-Original connectivity, notice disconnected 'islands' of polygons:
-
-```{r echo=FALSE}
-plot(as_Spatial(tg3o), col = "lightgrey") 
-
-plot(tg3o_orig_wm_q, coordinates(as_Spatial(tg3o_orig)), 
-     pch = 19, cex = 0.6, add = TRUE, col = "red")
-```
-
-```{r eval=FALSE, include=FALSE}
-plot(as_Spatial(tg3o), col = "lightgrey") 
-
-plot(tg3o_wm_q, coordinates(as_Spatial(tg3o_nb)), 
-     pch = 19, cex = 0.6, add = TRUE, col = "red")
-```
-
-Forcing extra connections; clearer when only the differences are shown:
-
-```{r echo=FALSE}
-diffs <- diffnb(tg3o_wm_q, tg3o_orig_wm_q, verbose = NULL)
-
-plot(as_Spatial(tg3o), col = "lightgrey") 
-
-plot(diffs, coordinates(as_Spatial(tg3o_nb)), 
-     points = FALSE, add = TRUE, col = "red")
-```
-
-### List
-
-```{r}
-tg3o_wm_q_list <- nb2listw(tg3o_wm_q, style = "W", zero.policy = TRUE)
-write_rds(tg3o_wm_q_list, "data/nb/tg3o_wm_q_list.Rds")
-```
-
-<!-- ----------------------------------------------------- -->
-
-# Spatial connectivity of AR regions
-
-## Traditional
-
-Based on queen connectivity between the areas. Uses 'normal' AR boundaries and connects them irrespectively of mountains.
-
-### Weights
-
-```{r}
-ar21_wm_q <- poly2nb(ar21, queen = TRUE, row.names = ar21$ARNR)
-
-ar21_wm_q
-summary(ar21_wm_q)
-
-write_rds(ar21_wm_q, "data/nb/ar21_wm_q.Rds")
-nb2INLA("data/nb/ar21_wm_q.adj", ar21_wm_q) 
-```
-
-### Region with one neighbour
-
-`08013 Basel`
-
-```{r echo=FALSE}
-tmap_mode("view")
-
-tm_shape(ar21 %>% st_join(ar21 %>% 
-                            filter(ARNAME == "Basel"), 
-                          left = FALSE)) +
-  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
-  tm_shape(ar21 %>% 
-             filter(ARNAME == "Basel")) +
-  tm_fill(col = "red", lwd = 2, alpha = 0.5)
-```
-
-### Region with ten neighbours (max case)
-
-`05060 Solothurn`
-
-```{r echo=FALSE}
-tm_shape(ar21 %>% st_join(ar21 %>% 
-                            filter(ARNAME == "Solothurn"), 
-                          left = FALSE)) +
-  tm_borders(col = "blue", lwd = 1, alpha = 0.5) +
-  tm_shape(ar21 %>% 
-             filter(ARNAME == "Solothurn")) +
-  tm_fill(col = "red", lwd = 2, alpha = 0.5)
-```
-
-### All together:
-
-```{r echo=FALSE}
-tmap_mode("plot")
-
-plot(as_Spatial(ar21), border = "lightgrey") 
-plot(ar21_wm_q, coordinates(as_Spatial(ar21)), 
-     pch = 19, cex = 0.6, add = TRUE, col = "red")
-```
-
-### List
-
-```{r}
-ar21_wm_q_list <- nb2listw(ar21_wm_q, style = "W", zero.policy = TRUE)
-write_rds(ar21_wm_q_list, "data/nb/ar21_wm_q_list.Rds")
 ```

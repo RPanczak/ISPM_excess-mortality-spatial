@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name="gr-pop"
-#SBATCH --cpus-per-task=16
-#SBATCH --mem-per-cpu=512M
+#SBATCH --cpus-per-task=128
+#SBATCH --mem-per-cpu=256M
 #SBATCH --time=24:00:00
 #SBATCH --mail-user=radoslaw.panczak@ispm.unibe.ch
 #SBATCH --mail-type=end,fail

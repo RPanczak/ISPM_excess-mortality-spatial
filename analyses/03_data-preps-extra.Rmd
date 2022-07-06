@@ -224,7 +224,6 @@ population %>%
 population_ext_lm <- population %>%
   filter(year != 2020) %>%
   # filter(GMDNR == 261 | GMDNR == 389) %>%
-  # group_by(GMDNR, age, sex, nationality) %>%
   group_by(GMDNR, age, sex) %>%
   # do(broom::tidy(lm(population ~ year, data = .))) %>%
   # do(broom::augment(lm(population ~ year, data = .))) %>%
@@ -236,7 +235,6 @@ population_ext_lm <- population %>%
        )) %>%
   ungroup() %>%
   mutate(population_ext_lm = as.integer(round(population_ext_lm))) %>%
-  # arrange(year, GMDNR, sex, nationality, age) %>%
   arrange(year, GMDNR, sex, age) %>%
   relocate(year)
 ```
@@ -261,7 +259,6 @@ Similar as above but this time with Poisson model:
 population_ext_poi <- population %>%
   filter(year != 2020) %>%
   # filter(GMDNR == 261 | GMDNR == 389) %>%
-  # group_by(GMDNR, age, sex, nationality) %>%
   group_by(GMDNR, age, sex) %>%
   do(glm(population ~ year, data = ., family = "poisson") %>%
        predict(., newdata = tibble(year = c(as.integer(2020), as.integer(2021))), type = "response") %>%
@@ -271,7 +268,6 @@ population_ext_poi <- population %>%
        )) %>%
   ungroup() %>%
   mutate(population_ext_poi = as.integer(round(population_ext_poi))) %>%
-  # arrange(year, GMDNR, sex, nationality, age) %>%
   arrange(year, GMDNR, sex, age) %>%
   relocate(year)
 ```
@@ -410,7 +406,6 @@ for (i in 2014:2020) {
   result <- data %>%
     filter(year >= i & year <= i + 1) %>%
     # filter(GMDNR == 261 | GMDNR == 389) %>%
-    # group_by(GMDNR, age, sex, nationality) %>%
     group_by(GMDNR, age, sex) %>%
     summarise(population_mid_lm = mean(population)) %>%
     ungroup() %>%
@@ -418,7 +413,6 @@ for (i in 2014:2020) {
       year = as.integer(i + 1),
       population_mid_lm = as.integer(round(population_mid_lm))
     ) %>%
-    # arrange(year, GMDNR, sex, nationality, age)
     arrange(year, GMDNR, sex, age)
   
   if (i == 2014) {
@@ -449,7 +443,6 @@ for (i in 2014:2020) {
   result <- data %>%
     filter(year >= i & year <= i + 1) %>%
     # filter(GMDNR == 261 | GMDNR == 389) %>%
-    # group_by(GMDNR, age, sex, nationality) %>%
     group_by(GMDNR, age, sex) %>%
     summarise(population_mid_poi = mean(population)) %>%
     ungroup() %>%
@@ -457,7 +450,6 @@ for (i in 2014:2020) {
       year = as.integer(i + 1),
       population_mid_poi = as.integer(round(population_mid_poi))
     ) %>%
-    # arrange(year, GMDNR, sex, nationality, age)
     arrange(year, GMDNR, sex, age)
   
   if (i == 2014) {
@@ -472,12 +464,10 @@ for (i in 2014:2020) {
 rm(i, data, result)
 
 population_mid_lm %<>%
-  # arrange(year, GMDNR, sex, nationality, age) %>%
   arrange(year, GMDNR, sex, age) %>%
   relocate(year)
 
 population_mid_poi %<>%
-  # arrange(year, GMDNR, sex, nationality, age) %>%
   arrange(year, GMDNR, sex, age) %>%
   relocate(year)
 ```
@@ -489,16 +479,16 @@ Again, results for large municipality are fine:
 ```{r echo=FALSE, warning=FALSE}
 population %>%
   filter(year < 2020) %>%
-  bind_rows(population_ext_lm) %>%
-  mutate(population = if_else(year >= 2020, population_ext_lm, population)) %>%
-  select(-population_ext_lm) %>%
+  bind_rows(population_ext_poi) %>%
+  mutate(population = if_else(year >= 2020, population_ext_poi, population)) %>%
+  select(-population_ext_poi) %>%
   filter(GMDNR == 261 & age == "80+") %>%
-  bind_rows(population_mid_lm %>%
+  bind_rows(population_mid_poi %>%
               filter(GMDNR == 261 & age == "80+") %>%
               mutate(year = year - .5)) %>%
   ggplot(aes(x = year)) +
   geom_point(aes(y = population)) +
-  geom_point(aes(y = population_mid_lm), color = "red") +
+  geom_point(aes(y = population_mid_poi), color = "red") +
   facet_wrap(~sex, scales = "free")
 ```
 
@@ -509,16 +499,16 @@ Again, for small municipality we might end up with sth more wiggly.
 ```{r echo=FALSE, warning=FALSE}
 population %>%
   filter(year < 2020) %>%
-  bind_rows(population_ext_lm) %>%
-  mutate(population = if_else(year >= 2020, population_ext_lm, population)) %>%
-  select(-population_ext_lm) %>%
+  bind_rows(population_ext_poi) %>%
+  mutate(population = if_else(year >= 2020, population_ext_poi, population)) %>%
+  select(-population_ext_poi) %>%
   filter(GMDNR == 389 & age == "80+") %>%
-  bind_rows(population_mid_lm %>%
+  bind_rows(population_mid_poi %>%
               filter(GMDNR == 389 & age == "80+") %>%
               mutate(year = year - .5)) %>%
   ggplot(aes(x = year)) +
   geom_point(aes(y = population)) +
-  geom_point(aes(y = population_mid_lm), color = "red") +
+  geom_point(aes(y = population_mid_poi), color = "red") +
   facet_wrap(~sex, scales = "free")
 ```
 

@@ -1,0 +1,271 @@
+---
+title: "Spatial analyses of 2020-21 excess mortality in CH"
+subtitle: "Grid & grided data"
+pagetitle: "Spatial Excess: grid"
+author: "Radek Panczak, Garyfallos Konstantinoudis & Julien Riou"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::robobook:
+    code_folding: show
+    self_contained: true
+    highlight: pygments
+editor_options: 
+  chunk_output_type: console
+knit: (function(inputFile, encoding) {
+  rmarkdown::render(inputFile, encoding = encoding, output_dir = "../docs") })
+---
+
+<!-- ----------------------------------------------------- -->
+
+```{r setup, include = FALSE}
+set.seed(12345)
+options(scipen = 999)
+options(max.print = "75")
+
+library(pacman)
+p_load(
+  tidyverse, lubridate, magrittr, scales,
+  DT,
+  sf, tmap,
+  INLA
+)
+
+tmap_mode("view")
+
+import::from("sjmisc", "frq")
+```
+
+```{r conflicts, include = FALSE}
+tidyverse::tidyverse_conflicts()
+
+conflicted::conflict_scout()
+```
+
+```{r knit-setup, include = FALSE}
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_chunk$set(
+  cache = FALSE,
+  prompt = FALSE,
+  tidy = FALSE,
+  comment = NA,
+  message = FALSE,
+  warning = FALSE
+)
+
+knitr::opts_knit$set(width = 75)
+```
+
+<!-- ----------------------------------------------------- -->
+
+# lme4 results
+
+```{r}
+st_grid_pop_pred <- read_rds("data/blob/st_grid_pop_pred.Rds")
+```
+
+## Quick plots
+
+```{r}
+with(st_grid_pop_pred, cor(pop, m3,  method = "pearson", use = "complete.obs"))
+
+st_grid_pop_pred %>% 
+  ggplot() +
+  geom_point(aes(x = pop, y = m3), alpha = 0.1) + 
+  coord_fixed()
+
+filter(st_grid_pop_pred, ID == 1, age == "<40", sex == "Female") %>%
+  ggplot(aes(x = year)) +
+  geom_point(aes(y = m3)) +
+  geom_point(aes(y = pop), colour = "red")
+
+filter(st_grid_pop_pred, ID == 4084, age == "<40", sex == "Female") %>%
+  ggplot(aes(x = year)) +
+  geom_point(aes(y = m3)) +
+  geom_point(aes(y = pop), colour = "red")
+```
+
+<!-- ----------------------------------------------------- -->
+
+# INLA results
+
+```{r}
+grid_1km <- readRDS("data/grid/grid_1km.Rds")
+
+# 2020 data
+st_grid_pop <- readRDS("data/blob/st_grid_pop.Rds") %>% 
+  filter(year > 2019) %>% 
+  rename(pop_obs = pop)
+
+table(st_grid_pop$year)
+
+st_grid_pop_exp <- read_rds("data/blob/st_grid_pop_exp.Rds") %>% 
+  left_join(st_grid_pop)
+
+table(st_grid_pop_exp$year)
+
+m2_zip0 <- read_rds("data/blob/m2_zip0.Rds")
+m3_zip0 <- read_rds("data/blob/m3_zip0.Rds")
+```
+
+```{r}
+st_grid_pop %<>% 
+  filter(ID %in% m2_zip0$summary.random$ID$ID)
+
+st_grid_pop_exp %<>% 
+  filter(ID %in% m2_zip0$summary.random$ID$ID)
+```
+
+## m2
+
+## Year 
+
+```{r}
+m2_zip0_year <- m2_zip0$summary.random$id_year %>% 
+  mutate(ID = ID + 2013, 
+         `0.025quant` = exp(`0.025quant`),
+         `0.5quant` = exp(`0.5quant`),
+         `0.975quant` = exp(`0.975quant`)) 
+
+m2_zip0_year %>% 
+  ggplot(aes(x = ID)) + 
+  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`), alpha = 0.1) + 
+  geom_line(aes(y = `0.5quant`)) + 
+  theme_minimal()
+```
+
+## Example of a cell
+
+```{r}
+m2_zip0_fit <- bind_cols(
+  st_grid_pop_exp,
+  m2_zip0$summary.fitted.values
+) 
+
+m2_zip0_fit %>% 
+  filter(ID == 38988) %>% 
+  ggplot(aes(x = year)) + 
+  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`, 
+                  group = ID), alpha = 0.1) +
+  geom_line(aes(y = `0.5quant`, group = ID)) + 
+  geom_point(aes(y = pop), alpha = 0.5) + 
+  geom_point(aes(y = pop_obs), col = "red", alpha = 0.5) + 
+  facet_wrap(vars(sex, age), scales = "free_y") +
+  xlab("") + ylab("predicted/observed") +
+  theme_minimal()
+```
+
+## Observed vs predicted
+
+```{r}
+with(m2_zip0_fit, cor(pop, `0.5quant`,  
+                      method = "pearson", use = "complete.obs"))
+
+m2_zip0_fit <- bind_cols(
+  st_grid_pop_exp,
+  m2_zip0$summary.fitted.values
+) %>% 
+  mutate(split = ifelse(year == 2020, "2020", "<2019")) %>% 
+  mutate(pop = ifelse(year == 2020, pop_obs , pop))
+
+ggplot(m2_zip0_fit) + 
+  geom_point(aes(x = `0.5quant`, y = pop), alpha = 0.22) + 
+  facet_wrap(vars(split)) +
+  xlab("predicted") + 
+  theme_minimal()
+```
+
+## Aggregating all observed and pred over time
+
+```{r}
+m2_zip0_fit_agg <- m2_zip0_fit %>% 
+  # mutate(population = ifelse(month == 1, population, NA)) %>% 
+  group_by(year) %>% 
+  summarise(observed = sum(pop),
+            # population = sum(population),
+            predicted = as.integer(sum(`0.5quant`)))
+
+m2_zip0_fit_agg %>% 
+  ggplot(aes(x = year)) + 
+  geom_line(aes(y = predicted)) + 
+  geom_line(aes(y = observed), col = "darkorchid", alpha = 0.5) + 
+  # facet_wrap(vars(split), scales = "free_x") +
+  xlab("") + ylab("predicted/observed") +
+  theme_minimal()
+```
+
+## Region effect 
+
+```{r}
+m2_zip0_space <-
+  grid_1km %>%
+  inner_join(m2_zip0_fit) %>% 
+  filter(!is.na(pop)) %>% 
+  mutate(diff = (`0.5quant` - pop) / `0.5quant`)
+
+m2_zip0_space %>% 
+  st_drop_geometry() %>% 
+  group_by(year) %>% 
+  summarize(diff = mean(diff, na.rm = TRUE))
+
+m2_zip0_space %>% 
+  st_drop_geometry() %>% 
+  group_by(ID) %>% 
+  summarize(diff = mean(diff, na.rm = TRUE)) %>% 
+  arrange(diff)
+
+m2_zip0_space %>% 
+  st_drop_geometry() %>% 
+  group_by(ID) %>% 
+  summarize(diff = mean(diff, na.rm = TRUE)) %>% 
+  arrange(desc(diff))
+
+tm_shape(m2_zip0_space) +
+  tm_fill("diff") + 
+  tm_facets(by = "year")
+```
+
+## Performance 
+
+```{r}
+marg.variance <- inla.tmarginal(function(x) 1/x,
+                                m2_zip0$marginals.hyperpar$"Precision for ID")
+inla.zmarginal(marg.variance)
+
+rm(marg.variance)
+```
+
+```{r eval=FALSE, include=FALSE}
+table(m2_zip0$cpo$failure > 0)
+sum(-log(m2_zip0$cpo$cpo), na.rm = TRUE)
+# m2_zip0$cpo$pit
+```
+
+
+
+
+
+<!-- ----------------------------------------------------- -->
+
+# Final dataset
+
+FIXME: probably into long format?
+
+```{r}
+st_grid_pop_pred <- read_rds("data/blob/st_grid_pop_pred.Rds")
+
+st_grid_deaths_2014_2019 <- read_rds("data/blob/st_grid_deaths_2014_2019.Rds")
+
+st_grid_deaths_2020_2021 <- read_rds("data/blob/st_grid_deaths_2020_2021.Rds")
+
+st_grid_final <- 
+  # st_grid_pop %>%
+  # st_grid_pop_pred %>%
+  left_join(st_grid_deaths_2014_2019) %>%
+  left_join(st_grid_deaths_2020_2021)
+
+write_rds(st_grid_final, "data/blob/st_grid_final.Rds")
+```
+
+
+

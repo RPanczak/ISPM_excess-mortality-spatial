@@ -62,7 +62,7 @@ Custom file delivered by BfS covering 2021 period and standardizing municipaliti
 Using **Wohnort** (*the municipality where the person lived*) as unit of analysis.   
 
 ```{r}
-w_deaths_2015_2021 <- read_csv("data-raw/BfS-closed/13OCT21_Lieferung_Panczak_Wohnort.csv", 
+w_deaths_2015_2021 <- read_csv("data-raw/BfS-closed/monthly_deaths/13OCT21_Lieferung_Panczak_Wohnort.zip", 
                                col_types = cols(year = col_integer(), 
                                                 month = col_integer(), 
                                                 COUNT = col_integer()),
@@ -76,6 +76,7 @@ w_deaths_2015_2021 <- read_csv("data-raw/BfS-closed/13OCT21_Lieferung_Panczak_Wo
   mutate(GMDNAME = if_else(GMDNAME == "La Grande-Béroche", "La Grande Béroche", GMDNAME)) %>% 
   # name change? >> resolved with Cordula
   mutate(GMDNAME = if_else(GMDNAME == "Klosters-Serneus", "Klosters", GMDNAME)) %>% 
+  # typo? check with BfS!
   mutate(GMDNAME = if_else(GMDNAME == "Effingen", "Elfingen", GMDNAME)) %>% 
   group_by(year, month, canton, GMDNAME, agegroup, sex) %>% 
   summarise(deaths = sum(COUNT)) %>% 

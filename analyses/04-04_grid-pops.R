@@ -4,10 +4,8 @@
 
 set.seed(12345)
 
-library(readr)
-library(dplyr)
-library(tidyr)
-library(tibble)
+library(tidyverse)
+# library(splines)
 
 library(INLA)
 
@@ -16,10 +14,10 @@ library(INLA)
 st_grid_pop_exp <- read_rds("data/blob/st_grid_pop_exp.Rds")
 
 # sample dataset for testing
-st_grid_pop_exp <- st_grid_pop_exp %>%
-  mutate(ID = factor(ID)) %>%
-  filter(ID %in% sample(levels(ID), 100)) %>% 
-  mutate(ID = forcats::fct_drop(ID))
+# st_grid_pop_exp <- st_grid_pop_exp %>%
+#   mutate(ID2 = factor(ID)) %>%
+#   filter(ID2 %in% sample(levels(ID2), 100)) %>%
+#   mutate(ID2 = forcats::fct_drop(ID2))
 
 # length(unique(st_grid_pop_exp$ID))
 
@@ -44,8 +42,8 @@ family = "zeroinflatedpoisson0"
 
 f2 <- pop ~ 
   sex + age +
-  f(id_year, model = "iid", hyper = hyper.iid, constr = TRUE) +
-  f(ID, model = "iid", constr = TRUE, hyper = hyper.iid)
+  ns(year, df = 5) +
+  f(ID2, model = "iid", constr = TRUE, hyper = hyper.iid)
 
 m2_zip0 <- inla(f2,
                 data = st_grid_pop_exp,
@@ -65,7 +63,7 @@ m2_zip0 <- inla(f2,
                   strategy = "simplified.laplace", # default
                   # strategy = "adaptive",
                   # strategy = "gaussian",
-                  # strategy = "laplace", #npoints = 21,
+                  # strategy = "laplace", # npoints = 21,
                   int.strategy = "ccd" # default
                   # int.strategy = "grid", diff.logdens = 4
                 )
@@ -99,7 +97,7 @@ m3_zip0 <- inla(f3,
                   strategy = "simplified.laplace", # default
                   # strategy = "adaptive",
                   # strategy = "gaussian",
-                  # strategy = "laplace", #npoints = 21,
+                  # strategy = "laplace", # npoints = 21,
                   int.strategy = "ccd" # default
                   # int.strategy = "grid", diff.logdens = 4
                 )

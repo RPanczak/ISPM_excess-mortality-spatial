@@ -53,9 +53,7 @@ mu <- Hmisc::markupSpecs$html
 
 <!-- ----------------------------------------------------- -->
 
-# Mortality data 2015-2021
-
-## Source 
+# Mortality data 2015-2021 
 
 Custom file delivered by BfS covering 2021 period and standardizing municipalities to Jul 2021.  
 
@@ -119,7 +117,7 @@ w_deaths_2015_2021 %>%
   datatable(options = list(dom = "t"))
 ```
 
-## Codes of geographical areas
+# Codes of geographical areas
 
 ```{r include=FALSE}
 raum <- read_rds("data/BfS/raum.Rds")
@@ -158,7 +156,7 @@ no_cases %>%
 rm(no_cases)
 ```
 
-## Age groups
+# Age groups
 
 Original age groups:  
 
@@ -187,7 +185,6 @@ w_deaths_2015_2021 %<>%
       TRUE ~                    agegroup)
   ) %>% 
   select(-agegroup) %>% 
-  # group_by(GMDNAME, year, month, canton, sex, age, nationality) %>% 
   group_by(GMDNAME, year, month, canton, sex, age) %>% 
   summarise(deaths = sum(deaths)) %>% 
   ungroup()
@@ -197,7 +194,7 @@ w_deaths_2015_2021 %<>%
 frq(w_deaths_2015_2021, age)
 ```
 
-## Distribution of death counts
+# Distribution of death counts
 
 Obviously highly skewed.  
 Note:  No zeroes here yet! No pop denominator either!  
@@ -208,7 +205,7 @@ w_deaths_2015_2021 %>%
   geom_histogram(binwidth = 1)
 ```
 
-## Filling with zeroes
+# Filling with zeroes
 
 All possible combinations of `year, month, canton, municipality, age & sex` are used and then empty strata are filled with zeroes.  
 
@@ -226,10 +223,8 @@ w_deaths_2015_2021_exp <-
     year = if_else(is.na(year), as.integer(2015), year),
     month = if_else(is.na(month), as.integer(1), month),
     sex = if_else(is.na(sex), "Male", sex),
-    age = if_else(is.na(age), "<40", age)#,
-    # nationality = if_else(is.na(nationality), "Swiss", nationality)
+    age = if_else(is.na(age), "<40", age)
   ) %>% 
-  # expand(GMDNAME, year, month, age, sex, nationality) %>% 
   expand(GMDNAME, year, month, age, sex) %>%
   left_join(w_deaths_2015_2021) %>% 
   replace_na(list(deaths = 0)) %>% 
@@ -239,7 +234,6 @@ w_deaths_2015_2021_exp <-
   select(-canton) %>% 
   relocate(GMDNR, .before = GMDNAME) %>% 
   relocate(KTNAME, .after = GMDNAME) %>% 
-  # arrange(GMDNR, year, month, age, sex, nationality) %>% 
   arrange(GMDNR, year, month, age, sex) %>% 
   filter( !(year == 2021 & month > 6))
 ```
@@ -260,9 +254,9 @@ w_deaths_2015_2021_exp %>%
   frq(deaths == 0)
 ```
 
-## Examples of time series
+# Examples of time series
 
-### Municipalities Bern & Meienried:  
+## Municipalities Bern & Meienried:  
 
 ```{r echo=FALSE}
 w_deaths_2015_2021_exp %>% 
@@ -291,72 +285,6 @@ w_deaths_2015_2021_exp %>%
 # write_rds(w_deaths_2015_2021, "data/BfS-closed/monthly_deaths/w_deaths_2015_2021.Rds")
 write_rds(w_deaths_2015_2021_exp, "data/BfS-closed/monthly_deaths/w_deaths_2015_2021_exp.Rds")
 ```
-
-<!-- ----------------------------------------------------- -->
-
-# Aggregating to labour market areas 
-
-## Preps
-
-```{r}
-w_deaths_2015_2021_ar <- w_deaths_2015_2021_exp %>% 
-  select(-GMDNR, -GMDNAME) %>% 
-  # group_by(ARGRNR, ARGRNAME, ARNR, ARNAME, 
-  #          KTNAME, year, month, date, age, sex, nationality) %>%   
-  group_by(ARGRNR, ARGRNAME, ARNR, ARNAME, 
-           KTNAME, year, month, date, age, sex) %>% 
-  summarise(deaths = as.integer(sum(deaths))) %>% 
-  ungroup()
-```
-
-That reduces the size of the dataset to `r number(nrow(w_deaths_2015_2021_ar), big.mark = ",")` rows.  
-
-Proportion of zero cells:
-
-```{r echo=FALSE}
-frq(w_deaths_2015_2021_ar, deaths == 0)
-```
-
-And with exclusion of `<40` age group stratum:  
-
-```{r echo=FALSE}
-w_deaths_2015_2021_ar %>% 
-  filter(age != "<40") %>% 
-  frq(deaths == 0)
-```
-
-## Examples of time series
-
-### Districts Bern & Biel/Bienne
-
-```{r echo=FALSE}
-w_deaths_2015_2021_ar %>% 
-  filter(ARNAME %in% c("Bern", "Biel/Bienne")) %>% 
-  group_by(ARNAME, date) %>% 
-  summarise(deaths = sum(deaths)) %>% 
-  ungroup() %>% 
-  ggplot(aes(x = date, y = deaths, group = factor(ARNAME), color = factor(ARNAME))) + 
-  geom_line() + geom_point() +
-  theme_minimal()
-```
-
-## All time series
-
-```{r echo=FALSE}
-w_deaths_2015_2021_ar %>% 
-  group_by(ARNAME, date) %>% 
-  summarise(deaths = sum(deaths)) %>% 
-  ungroup() %>% 
-  ggplot(aes(x = date, y = deaths, group = ARNAME)) + 
-  geom_line(colour = "darkorchid", alpha = 0.25) +
-  theme_minimal()
-```
-
-```{r include=FALSE}
-write_rds(w_deaths_2015_2021_ar, "data/BfS/monthly_deaths/w_deaths_2015_2021_ar.Rds")
-```
-
-<!-- ----------------------------------------------------- -->
 
 # Groups for stratified modelling 
 

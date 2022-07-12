@@ -102,6 +102,7 @@ histcomm_14 <- read_excel("data-raw/BfS/Gemeindestand - Stand vom 01.07.2021.xls
 ```
 
 ## Data preps
+
 Data aggregated to age groups as in deaths dataset.  
 
 ```{r}
@@ -168,11 +169,9 @@ population <- read_xlsx("data-raw/BfS/px-x-0103010000_201.xlsx",
     GMDNAME = if_else(!is.na(gemeindename_new), gemeindename_new, GMDNAME)
   ) %>%
   select(-bfs_gde_num_new, -gemeindename_new) %>%
-  # group_by(year, GMDNR, GMDNAME, sex, nationality, age) %>%
   group_by(year, GMDNR, GMDNAME, sex, age) %>%
   summarise(population = as.integer(sum(population))) %>%
   ungroup() %>%
-  # arrange(year, GMDNR, sex, nationality, age)
   arrange(year, GMDNR, sex, age)
 ```
 
@@ -204,6 +203,8 @@ population %>%
 
 ## Predicting 2020 & 2021 pops
 
+For each age, sex, nationality stratum, for each municipality separately, Poisson model was fitted using the 2014-2019 data; then prediction was made for 2020 & 2021 years. The gist of this operation was to exclude the effect of pandemic from the population counts in years affected. 
+
 ```{r eval=FALSE, include=FALSE}
 # smallest pops
 population %>%
@@ -217,43 +218,6 @@ population %>%
   arrange(population)
 # arrange(desc(population))
 ```
-
-### Linear model
-
-```{r}
-population_ext_lm <- population %>%
-  filter(year != 2020) %>%
-  # filter(GMDNR == 261 | GMDNR == 389) %>%
-  group_by(GMDNR, age, sex) %>%
-  # do(broom::tidy(lm(population ~ year, data = .))) %>%
-  # do(broom::augment(lm(population ~ year, data = .))) %>%
-  do(lm(population ~ year, data = .) %>%
-       predict(., newdata = tibble(year = c(as.integer(2020), as.integer(2021)))) %>%
-       tibble(
-         year = c(as.integer(2020), as.integer(2021)),
-         population_ext_lm = .
-       )) %>%
-  ungroup() %>%
-  mutate(population_ext_lm = as.integer(round(population_ext_lm))) %>%
-  arrange(year, GMDNR, sex, age) %>%
-  relocate(year)
-```
-
-Summary of values:  
-
-```{r echo=FALSE}
-summary(population_ext_lm$population_ext_lm)
-```
-
-**Note:** *minus values!*  
-
-```{r echo=FALSE}
-frq(population_ext_lm, population_ext_lm < 0)
-```
-
-### Poisson model
-
-Similar as above but this time with Poisson model:  
 
 ```{r}
 population_ext_poi <- population %>%
@@ -292,24 +256,9 @@ population_ext_poi %>%
   filter(GMDNR %in% c(389) & sex == "Male" & age == "80+")
 ```
 
-### Results in large municipality {.tabset}
+### Results in large municipality
 
 Results for large municipality are fine.    
-
-#### Linear model
-
-```{r echo=FALSE, warning=FALSE}
-population %>%
-  filter(GMDNR == 261 & (age == "80+" | age == "<40")) %>%
-  bind_rows(population_ext_lm %>%
-              filter(GMDNR == 261 & (age == "80+" | age == "<40"))) %>%
-  ggplot(aes(x = year)) +
-  geom_point(aes(y = population)) +
-  geom_point(aes(y = population_ext_lm), color = "red") +
-  facet_wrap(age ~ sex, scales = "free")
-```
-
-#### Poisson model
 
 ```{r echo=FALSE, warning=FALSE}
 population %>%
@@ -322,24 +271,9 @@ population %>%
   facet_wrap(age ~ sex, scales = "free")
 ```
 
-### Results in small municipality {.tabset}
+### Results in small municipality
 
 For small municipality we might end up with sth more wiggly. 
-
-#### Linear model
-
-```{r echo=FALSE, warning=FALSE}
-population %>%
-  filter(GMDNR == 389 & (age == "80+" | age == "<40")) %>%
-  bind_rows(population_ext_lm %>%
-              filter(GMDNR == 389 & (age == "80+" | age == "<40"))) %>%
-  ggplot(aes(x = year)) +
-  geom_point(aes(y = population)) +
-  geom_point(aes(y = population_ext_lm), color = "red") +
-  facet_wrap(age ~ sex, scales = "free")
-```
-
-#### Poisson model 
 
 ```{r echo=FALSE, warning=FALSE}
 population %>%
@@ -388,43 +322,42 @@ population %>%
   View()
 ```
 
-## Getting mid-year pops {.tabset}
+Population in this strata was replaced by estimates of a simple linear model.  
+
+```{r}
+population_ext_lm <- population %>%
+  filter(year != 2020) %>%
+  # filter(GMDNR == 261 | GMDNR == 389) %>%
+  group_by(GMDNR, age, sex) %>%
+  do(lm(population ~ year, data = .) %>%
+       predict(., newdata = tibble(year = c(as.integer(2020), as.integer(2021)))) %>%
+       tibble(
+         year = c(as.integer(2020), as.integer(2021)),
+         population_ext_lm = .
+       )) %>%
+  ungroup() %>%
+  mutate(population_ext_lm = as.integer(round(population_ext_lm))) %>%
+  arrange(year, GMDNR, sex, age) %>%
+  relocate(year)
+```
+
+```{r eval=FALSE, include=FALSE}
+population %>%
+  bind_rows(population_ext_lm) %>%
+  filter(
+    GMDNR %in% problems$GMDNR,
+    age %in% problems$age,
+    sex %in% problems$sex
+  ) %>%
+  arrange(GMDNR, sex, age, year) %>%
+  View()
+```
+
+## Getting mid-year pops 
 
 For each age, sex, nationality stratum, for each municipality separately, simple mean of the two years of data is used to estimate the middle point. In such case we use, for instance data from 31st Dec 2014 and 31st Dec 2015 to estimate population mid-2015.   
 
 ```{r}
-data <- population %>%
-  filter(year < 2020) %>%
-  bind_rows(population_ext_lm) %>%
-  # 2020 replaced by estimates from lm extrapol
-  mutate(population = if_else(year >= 2020,
-                              population_ext_lm, population
-  )) %>%
-  select(-population_ext_lm)
-
-for (i in 2014:2020) {
-  result <- data %>%
-    filter(year >= i & year <= i + 1) %>%
-    # filter(GMDNR == 261 | GMDNR == 389) %>%
-    group_by(GMDNR, age, sex) %>%
-    summarise(population_mid_lm = mean(population)) %>%
-    ungroup() %>%
-    mutate(
-      year = as.integer(i + 1),
-      population_mid_lm = as.integer(round(population_mid_lm))
-    ) %>%
-    arrange(year, GMDNR, sex, age)
-  
-  if (i == 2014) {
-    population_mid_lm <- result
-  } else {
-    population_mid_lm <- bind_rows(population_mid_lm, result)
-  }
-}
-```
-
-```{r include=FALSE}
-# repeated for poi results
 data <- population %>%
   filter(year < 2020) %>%
   bind_rows(population_ext_poi) %>%
@@ -462,10 +395,6 @@ for (i in 2014:2020) {
 
 ```{r include=FALSE}
 rm(i, data, result)
-
-population_mid_lm %<>%
-  arrange(year, GMDNR, sex, age) %>%
-  relocate(year)
 
 population_mid_poi %<>%
   arrange(year, GMDNR, sex, age) %>%
@@ -522,24 +451,14 @@ Non-existent population count `communityXyearXageXsexXnationality` strata are as
 
 ```{r}
 w_deaths_2015_2021_pop <- read_rds("data/BfS-closed/monthly_deaths/w_deaths_2015_2021_exp.Rds") %>%
-  left_join(
-    bind_rows(
-      population,
-      population %>%
-        filter(year == 2020) %>%
-        mutate(year = 2021)
-    )
-  ) %>%
-  replace_na(list(population = 0)) %>%
-  left_join(population_mid_lm) %>%
-  replace_na(list(population_mid_lm = 0)) %>%
-  left_join(population_mid_poi) %>%
-  replace_na(list(population_mid_poi = 0))
+  left_join(population) %>% 
+  mutate(population = ifelse(year < 2021 & is.na(population), 0, population)) %>% 
+  left_join(population_mid_poi) %>% 
+  mutate(population_mid_poi = ifelse(is.na(population_mid_poi), 0, population_mid_poi))
 ```
 
 ```{r eval=FALSE, include=FALSE}
 summary(w_deaths_2015_2021_pop$population)
-summary(w_deaths_2015_2021_pop$population_mid_lm)
 summary(w_deaths_2015_2021_pop$population_mid_poi)
 ```
 

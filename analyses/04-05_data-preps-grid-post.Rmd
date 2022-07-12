@@ -64,25 +64,64 @@ knitr::opts_knit$set(width = 75)
 st_grid_pop_pred <- read_rds("data/blob/st_grid_pop_pred.Rds")
 ```
 
-## Quick plots
+## m2
 
 ```{r}
-with(st_grid_pop_pred, cor(pop, m3,  method = "pearson", use = "complete.obs"))
+with(st_grid_pop_pred, 
+     cor(pop, m2, 
+         method = "pearson", use = "complete.obs"))
+
+st_grid_pop_pred %>% 
+  ggplot() +
+  geom_point(aes(x = pop, y = m2), alpha = 0.1) + 
+  coord_fixed() +
+  theme_minimal()
+
+# filter(st_grid_pop_pred, ID == 279) %>%
+#   ggplot(aes(x = year)) +
+#   geom_line(aes(y = m2), colour = "red") +
+#   geom_point(aes(y = pop)) +
+#   facet_wrap(vars(sex, age), scales = "free_y") +
+#   xlab("") + ylab("predicted/observed") +
+#   theme_minimal()
+
+filter(st_grid_pop_pred, ID == 6023) %>%
+  ggplot(aes(x = year)) +
+  geom_line(aes(y = m2), colour = "red") +
+  geom_point(aes(y = pop)) +
+  facet_wrap(vars(sex, age), scales = "free_y") +
+  xlab("") + ylab("predicted/observed") +
+  theme_minimal()
+```
+
+## m3
+
+```{r}
+with(st_grid_pop_pred, 
+     cor(pop, m3, 
+         method = "pearson", use = "complete.obs"))
 
 st_grid_pop_pred %>% 
   ggplot() +
   geom_point(aes(x = pop, y = m3), alpha = 0.1) + 
-  coord_fixed()
+  coord_fixed() +
+  theme_minimal()
 
-filter(st_grid_pop_pred, ID == 1, age == "<40", sex == "Female") %>%
-  ggplot(aes(x = year)) +
-  geom_point(aes(y = m3)) +
-  geom_point(aes(y = pop), colour = "red")
+# filter(st_grid_pop_pred, ID == 279) %>%
+#   ggplot(aes(x = year)) +
+#   geom_line(aes(y = m3), colour = "red") +
+#   geom_point(aes(y = pop)) +
+#   facet_wrap(vars(sex, age), scales = "free_y") +
+#   xlab("") + ylab("predicted/observed") +
+#   theme_minimal()
 
-filter(st_grid_pop_pred, ID == 4084, age == "<40", sex == "Female") %>%
+filter(st_grid_pop_pred, ID == 6023) %>%
   ggplot(aes(x = year)) +
-  geom_point(aes(y = m3)) +
-  geom_point(aes(y = pop), colour = "red")
+  geom_line(aes(y = m3), colour = "red") +
+  geom_point(aes(y = pop)) +
+  facet_wrap(vars(sex, age), scales = "free_y") +
+  xlab("") + ylab("predicted/observed") +
+  theme_minimal()
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -116,6 +155,12 @@ st_grid_pop_exp %<>%
   filter(ID %in% m2_zip0$summary.random$ID$ID)
 ```
 
+## Spline
+
+```{r}
+attr(ns(st_grid_pop_exp$year, df = 5), "knots")
+```
+
 ## m2
 
 ## Year 
@@ -145,8 +190,8 @@ m2_zip0_fit <- bind_cols(
 m2_zip0_fit %>% 
   filter(ID == 38988) %>% 
   ggplot(aes(x = year)) + 
-  geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`, 
-                  group = ID), alpha = 0.1) +
+  # geom_ribbon(aes(ymin = `0.025quant`, ymax = `0.975quant`, 
+  #                 group = ID), alpha = 0.1) +
   geom_line(aes(y = `0.5quant`, group = ID)) + 
   geom_point(aes(y = pop), alpha = 0.5) + 
   geom_point(aes(y = pop_obs), col = "red", alpha = 0.5) + 

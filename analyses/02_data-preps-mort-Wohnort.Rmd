@@ -76,7 +76,7 @@ w_deaths_2015_2021 <- read_csv("data-raw/BfS-closed/13OCT21_Lieferung_Panczak_Wo
   mutate(GMDNAME = if_else(GMDNAME == "La Grande-Béroche", "La Grande Béroche", GMDNAME)) %>% 
   # name change? >> resolved with Cordula
   mutate(GMDNAME = if_else(GMDNAME == "Klosters-Serneus", "Klosters", GMDNAME)) %>% 
-  # group_by(year, month, canton, GMDNAME, agegroup, sex, nationality) %>% 
+  mutate(GMDNAME = if_else(GMDNAME == "Effingen", "Elfingen", GMDNAME)) %>% 
   group_by(year, month, canton, GMDNAME, agegroup, sex) %>% 
   summarise(deaths = sum(COUNT)) %>% 
   ungroup()
@@ -364,7 +364,7 @@ groups = as_tibble(expand_grid(age = c("<40", "40-49", "50-59",
                                        "60-69", "70-79", "80+"),
                                sex = c("Female", "Male")))
 ```
-                               
+
 ```{r include=FALSE}
 write_rds(groups, "data/groups.Rds")
 ```

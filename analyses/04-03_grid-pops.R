@@ -1,23 +1,28 @@
 # ###############################
 # Extrapolating pops
-# simple, multilevel solution
+# lme4 multilevel solution
 
 set.seed(12345)
 
-library(readr)
-library(dplyr)
-library(tidyr)
-library(tibble)
+library(tidyverse)
+library(splines)
+library(lme4)
 
 # ###############################
 # pop by grid
 st_grid_pop_pred <- read_rds("data/blob/st_grid_pop_exp.Rds")
 
+# sample dataset for testing
+# st_grid_pop_pred <- st_grid_pop_pred %>%
+#   mutate(ID2 = factor(ID)) %>%
+#   filter(ID2 %in% sample(levels(ID2), 100)) %>%
+#   mutate(ID2 = forcats::fct_drop(ID2))
+
 # ###############################
 # GLMER 1
-library(lme4)
-
-m2 <- glmer(pop ~ age + sex + year + (1 | ID),
+m2 <- glmer(pop ~ age*sex + 
+              ns(year, df = 5) +
+              (1 | ID),
             data = st_grid_pop_pred,
             family = poisson(link = "log"))
 
@@ -27,7 +32,9 @@ st_grid_pop_pred$m2 <- as.integer(predict(m2,
 
 # ###############################
 # GLMER 2
-m3 <- glmer(pop ~ age + sex + year + (year | ID),
+m3 <- glmer(pop ~ age*sex + 
+              year +
+              (year | ID),
             data = st_grid_pop_pred,
             family = poisson(link = "log")
 )

@@ -514,7 +514,7 @@ write_rds(w_deaths_2015_2021_pop, "data/BfS-closed/monthly_deaths/w_deaths_2015_
 
 <!-- ----------------------------------------------------- -->
 
-## STATPOP
+# STATPOP
 
 ```{r}
 statpop2020 <- read_delim("data-raw/BfS-closed/STATPOP/statpop2020_220098p.zip", 
@@ -547,8 +547,7 @@ statpop2020_agg <- statpop2020 %>%
   summarise(pop = n()) %>% 
   ungroup() %>% 
   st_as_sf(coords = c("geocoorde", "geocoordn"), 
-           crs = 2056,
-           remove = TRUE)
+           crs = 2056)
 ```
 
 Using data from `STATPOP` **2020**.  
@@ -559,6 +558,13 @@ Dataset consists of `r scales::number(nrow(statpop2020), big.mark = ",")` indivi
 write_rds(statpop2020_agg, "data/BfS-closed/STATPOP/statpop2020_agg.Rds")
 
 rm(statpop2020); gc()
+```
+
+```{r eval=FALSE, include=FALSE}
+# largest building
+statpop2020_agg %>% 
+  filter(pop == 800) %>% 
+  qtm()
 ```
 
 <!-- ----------------------------------------------------- -->

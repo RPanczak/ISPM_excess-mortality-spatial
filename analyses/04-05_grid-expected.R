@@ -30,8 +30,7 @@ expected_canton <- read_rds("data/blob/pois.samples.temp.bma.finmodel")
 st_grid_deaths_2020_2021 <- geom_004_expected_to_grid(
   expected_data = expected_canton,
   pop_data = lu_grid_gem,
-  weight_data = weights,
-  n_iter = 50 # choose number of replications
+  weight_data = weights
 ) 
 
 write_rds(st_grid_deaths_2020_2021, "data/blob/st_grid_deaths_2020_2021.Rds")

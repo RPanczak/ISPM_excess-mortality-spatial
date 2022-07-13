@@ -4244,6 +4244,7 @@ in CH</li>
           <li><a href="#deaths-population-problem">Deaths &gt;
           population problem</a></li>
           </ul></li>
+          <li><a href="#statpop">STATPOP</a></li>
           <li><a href="#voting">Voting</a>
           <ul>
           <li><a href="#june-vote">June vote</a></li>
@@ -4565,11 +4566,52 @@ refers to very small counts of deaths/pops.</p>
 <!-- ----------------------------------------------------- -->
 </div>
 </div>
+<div id="statpop" class="section level1">
+<h1>STATPOP</h1>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>statpop2020 <span class="ot">&lt;-</span> <span class="fu">read_delim</span>(<span class="st">&quot;data-raw/BfS-closed/STATPOP/statpop2020_220098p.zip&quot;</span>, </span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>                          <span class="at">delim =</span> <span class="st">&quot;;&quot;</span>, <span class="at">escape_double =</span> <span class="cn">FALSE</span>, </span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>                          <span class="at">col_types =</span> <span class="fu">cols</span>(<span class="at">STATYEAR =</span> <span class="fu">col_integer</span>(), </span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">SEX =</span> <span class="fu">col_integer</span>(), </span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">TYPEOFRESIDENCE =</span> <span class="fu">col_integer</span>(), </span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">POPULATIONTYPE =</span> <span class="fu">col_integer</span>(), </span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">AGE =</span> <span class="fu">col_integer</span>(), </span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">CLASSAGEFIVEYEARS =</span> <span class="fu">col_integer</span>(), </span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">NATIONALITYCATEGORY =</span> <span class="fu">col_integer</span>(), </span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">MAINRESIDENCECATEGORY =</span> <span class="fu">col_integer</span>(), </span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">GEOCOORDE =</span> <span class="fu">col_integer</span>(), </span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">GEOCOORDN =</span> <span class="fu">col_integer</span>(), </span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">INDIC_EGID =</span> <span class="fu">col_integer</span>(), </span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">statdate =</span> <span class="fu">col_date</span>(<span class="at">format =</span> <span class="st">&quot;%d/%m/%Y&quot;</span>)), </span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>                          <span class="at">trim_ws =</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>  janitor<span class="sc">::</span><span class="fu">remove_empty</span>(<span class="fu">c</span>(<span class="st">&quot;rows&quot;</span>, <span class="st">&quot;cols&quot;</span>)) <span class="sc">%&gt;%</span> janitor<span class="sc">::</span><span class="fu">clean_names</span>()  </span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>statpop2020_agg <span class="ot">&lt;-</span> statpop2020 <span class="sc">%&gt;%</span> </span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">egid =</span> federalbuildingid) <span class="sc">%&gt;%</span> </span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(typeofresidence <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(populationtype <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(mainresidencecategory <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(indic_egid <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>statyear, <span class="sc">-</span>statdate, </span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>         <span class="sc">-</span>typeofresidence, <span class="sc">-</span>populationtype, <span class="sc">-</span>mainresidencecategory,</span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>         <span class="sc">-</span>indic_egid) <span class="sc">%&gt;%</span> </span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(egid, geocoorde, geocoordn) <span class="sc">%&gt;%</span> </span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">pop =</span> <span class="fu">n</span>()) <span class="sc">%&gt;%</span> </span>
+<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">st_as_sf</span>(<span class="at">coords =</span> <span class="fu">c</span>(<span class="st">&quot;geocoorde&quot;</span>, <span class="st">&quot;geocoordn&quot;</span>), </span>
+<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a>           <span class="at">crs =</span> <span class="dv">2056</span>)</span></code></pre></div>
+<p>Using data from <code>STATPOP</code> <strong>2020</strong>.</p>
+<p>Dataset consists of 8,859,558 individuals and 1,549,502 buildings. We
+selected individuals with type of residence <em>Hauptwohnsitz</em>,
+population type <em>Ständige Wohnbevölkerung</em>, main residency
+category <em>Nur ein Hauptwohnsitz</em> and with valid EGID building
+ID.</p>
+<!-- ----------------------------------------------------- -->
+</div>
 <div id="voting" class="section level1">
 <h1>Voting</h1>
 <p>Data from <code>swissdd</code> <a href="https://github.com/politanch/swissdd">package</a>.</p>
 <p>Linked to municipality boundaries from <code>2022-01-01</code>.</p>
-<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>st_gg22 <span class="ot">&lt;-</span> <span class="fu">read_rds</span>(<span class="st">&quot;data/swisstopo/st_gg22.Rds&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>st_gg22 <span class="ot">&lt;-</span> <span class="fu">read_rds</span>(<span class="st">&quot;data/swisstopo/st_gg22.Rds&quot;</span>)</span></code></pre></div>
 <div id="june-vote" class="section level2">
 <h2>June vote</h2>
 <blockquote>
@@ -4579,12 +4621,12 @@ Verordnungen des Bundesrates zur Bewältigung der Covid-19-Epidemie
 </blockquote>
 <div id="data" class="section level3">
 <h3>Data</h3>
-<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>covid_jun <span class="ot">&lt;-</span> <span class="fu">get_nationalvotes</span>(</span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">votedates =</span> <span class="st">&quot;2021-06-13&quot;</span>,</span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">geolevel =</span> <span class="st">&quot;municipality&quot;</span></span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(name <span class="sc">==</span> <span class="st">&quot;Bundesgesetz über die gesetzlichen Grundlagen für Verordnungen des Bundesrates zur Bewältigung der Covid-19-Epidemie (Covid-19-Gesetz)&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>name, <span class="sc">-</span>id)</span></code></pre></div>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>covid_jun <span class="ot">&lt;-</span> <span class="fu">get_nationalvotes</span>(</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">votedates =</span> <span class="st">&quot;2021-06-13&quot;</span>,</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">geolevel =</span> <span class="st">&quot;municipality&quot;</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(name <span class="sc">==</span> <span class="st">&quot;Bundesgesetz über die gesetzlichen Grundlagen für Verordnungen des Bundesrates zur Bewältigung der Covid-19-Epidemie (Covid-19-Gesetz)&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>name, <span class="sc">-</span>id)</span></code></pre></div>
 <p>Dataset consists of 2,141 communities.</p>
 </div>
 <div id="results-preview" class="section level3">
@@ -4595,8 +4637,8 @@ Verordnungen des Bundesrates zur Bewältigung der Covid-19-Epidemie
 <h3>Link to municipalities</h3>
 <p>Using <code>GMDNR</code> / <code>mun_id</code> for deterministic
 linkage.</p>
-<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>covid_jun_gem <span class="ot">&lt;-</span> st_gg22 <span class="sc">%&gt;%</span></span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(covid_jun)</span></code></pre></div>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>covid_jun_gem <span class="ot">&lt;-</span> st_gg22 <span class="sc">%&gt;%</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(covid_jun)</span></code></pre></div>
 <p>There are few communities that exist on the map but do not exist in
 the voting dataset:</p>
 <pre><code># A tibble: 9 × 2
@@ -4624,12 +4666,12 @@ Veranstaltungen)</p>
 </blockquote>
 <div id="data-1" class="section level3">
 <h3>Data</h3>
-<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>covid_nov <span class="ot">&lt;-</span> <span class="fu">get_nationalvotes</span>(</span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">votedates =</span> <span class="st">&quot;2021-11-28&quot;</span>,</span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">geolevel =</span> <span class="st">&quot;municipality&quot;</span></span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
-<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(name <span class="sc">==</span> <span class="st">&quot;Änderung des Bundesgesetzes über die gesetzlichen Grundlagen für Verordnungen des Bundesrates zur Bewältigung der Covid-19-Epidemie (Covid-19-Gesetz) (Härtefälle, Arbeitslosenversicherung, familienergänzende Kinderbetreuung, Kulturschaffende, Veranstaltungen)&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>name, <span class="sc">-</span>id)</span></code></pre></div>
+<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>covid_nov <span class="ot">&lt;-</span> <span class="fu">get_nationalvotes</span>(</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">votedates =</span> <span class="st">&quot;2021-11-28&quot;</span>,</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">geolevel =</span> <span class="st">&quot;municipality&quot;</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(name <span class="sc">==</span> <span class="st">&quot;Änderung des Bundesgesetzes über die gesetzlichen Grundlagen für Verordnungen des Bundesrates zur Bewältigung der Covid-19-Epidemie (Covid-19-Gesetz) (Härtefälle, Arbeitslosenversicherung, familienergänzende Kinderbetreuung, Kulturschaffende, Veranstaltungen)&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>name, <span class="sc">-</span>id)</span></code></pre></div>
 <p>Dataset consists of 2,141 communities.</p>
 </div>
 <div id="results-preview-1" class="section level3">
@@ -4640,8 +4682,8 @@ Veranstaltungen)</p>
 <h3>Link to municipalities</h3>
 <p>Using <code>GMDNR</code> / <code>mun_id</code> for deterministic
 linkage.</p>
-<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>covid_nov_gem <span class="ot">&lt;-</span> st_gg22 <span class="sc">%&gt;%</span></span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(covid_nov)</span></code></pre></div>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>covid_nov_gem <span class="ot">&lt;-</span> st_gg22 <span class="sc">%&gt;%</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(covid_nov)</span></code></pre></div>
 <p>There are again few communities that exist on the map but do not
 exist in the voting dataset:</p>
 <pre><code># A tibble: 9 × 2

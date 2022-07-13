@@ -514,6 +514,55 @@ write_rds(w_deaths_2015_2021_pop, "data/BfS-closed/monthly_deaths/w_deaths_2015_
 
 <!-- ----------------------------------------------------- -->
 
+## STATPOP
+
+```{r}
+statpop2020 <- read_delim("data-raw/BfS-closed/STATPOP/statpop2020_220098p.zip", 
+                          delim = ";", escape_double = FALSE, 
+                          col_types = cols(STATYEAR = col_integer(), 
+                                           SEX = col_integer(), 
+                                           TYPEOFRESIDENCE = col_integer(), 
+                                           POPULATIONTYPE = col_integer(), 
+                                           AGE = col_integer(), 
+                                           CLASSAGEFIVEYEARS = col_integer(), 
+                                           NATIONALITYCATEGORY = col_integer(), 
+                                           MAINRESIDENCECATEGORY = col_integer(), 
+                                           GEOCOORDE = col_integer(), 
+                                           GEOCOORDN = col_integer(), 
+                                           INDIC_EGID = col_integer(), 
+                                           statdate = col_date(format = "%d/%m/%Y")), 
+                          trim_ws = TRUE) %>% 
+  janitor::remove_empty(c("rows", "cols")) %>% janitor::clean_names()  
+
+statpop2020_agg <- statpop2020 %>% 
+  rename(egid = federalbuildingid) %>% 
+  filter(typeofresidence == 1) %>% 
+  filter(populationtype == 1) %>% 
+  filter(mainresidencecategory == 1) %>% 
+  filter(indic_egid == 1) %>% 
+  select(-statyear, -statdate, 
+         -typeofresidence, -populationtype, -mainresidencecategory,
+         -indic_egid) %>% 
+  group_by(egid, geocoorde, geocoordn) %>% 
+  summarise(pop = n()) %>% 
+  ungroup() %>% 
+  st_as_sf(coords = c("geocoorde", "geocoordn"), 
+           crs = 2056,
+           remove = TRUE)
+```
+
+Using data from `STATPOP` **2020**.  
+
+Dataset consists of `r scales::number(nrow(statpop2020), big.mark = ",")` individuals and `r scales::number(nrow(statpop2020_agg), big.mark = ",")` buildings. We selected individuals with type of residence *Hauptwohnsitz*, population type *Ständige Wohnbevölkerung*, main residency category *Nur ein Hauptwohnsitz* and with valid EGID building ID.  
+
+```{r include=FALSE}
+write_rds(statpop2020_agg, "data/BfS-closed/STATPOP/statpop2020_agg.Rds")
+
+rm(statpop2020); gc()
+```
+
+<!-- ----------------------------------------------------- -->
+
 # Voting
 
 Data from `swissdd` [package](https://github.com/politanch/swissdd).    

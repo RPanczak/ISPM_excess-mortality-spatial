@@ -7,7 +7,7 @@
 
         <meta name="author" content="Radek Panczak" />
     
-        <meta name="date" content="2022-07-12" />
+        <meta name="date" content="2022-07-13" />
     
     <title>Spatial Excess: mortality data</title>
 
@@ -4255,7 +4255,7 @@ in CH</li>
           <li class="divider"></li>
                                 <li><span><i class="glyphicon glyphicon-user"></i> Radek
 Panczak</span></li>
-                                         <li><span><i class="glyphicon glyphicon-calendar"></i> 2022-07-12</span></li>
+                                         <li><span><i class="glyphicon glyphicon-calendar"></i> 2022-07-13</span></li>
                   </ul>     
       </div>
       <div class="book-body fixed">
@@ -4308,18 +4308,16 @@ lived</em>) as unit of analysis.</p>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">GMDNAME =</span> <span class="fu">if_else</span>(GMDNAME <span class="sc">==</span> <span class="st">&quot;La Grande-Béroche&quot;</span>, <span class="st">&quot;La Grande Béroche&quot;</span>, GMDNAME)) <span class="sc">%&gt;%</span> </span>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="co"># name change? &gt;&gt; resolved with Cordula</span></span>
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">GMDNAME =</span> <span class="fu">if_else</span>(GMDNAME <span class="sc">==</span> <span class="st">&quot;Klosters-Serneus&quot;</span>, <span class="st">&quot;Klosters&quot;</span>, GMDNAME)) <span class="sc">%&gt;%</span> </span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="co"># typo? check with BfS!</span></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">GMDNAME =</span> <span class="fu">if_else</span>(GMDNAME <span class="sc">==</span> <span class="st">&quot;Effingen&quot;</span>, <span class="st">&quot;Elfingen&quot;</span>, GMDNAME)) <span class="sc">%&gt;%</span> </span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(year, month, canton, GMDNAME, agegroup, sex) <span class="sc">%&gt;%</span> </span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">deaths =</span> <span class="fu">sum</span>(COUNT)) <span class="sc">%&gt;%</span> </span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span></code></pre></div>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(year, month, canton, GMDNAME, agegroup, sex) <span class="sc">%&gt;%</span> </span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">deaths =</span> <span class="fu">sum</span>(COUNT)) <span class="sc">%&gt;%</span> </span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span></code></pre></div>
 <p>Description of data:</p>
 <pre><code>The data contains 267576 observations of the following 7 variables:
 
   - year: n = 267576, Mean = 2017.81, SD = 1.89, Median = 2018.00, MAD = 2.97, range: [2015, 2021], Skewness = 0.03, Kurtosis = -1.19, 0% missing
   - month: n = 267576, Mean = 6.23, SD = 3.53, Median = 6.00, MAD = 4.45, range: [1, 12], Skewness = 0.12, Kurtosis = -1.25, 0% missing
   - canton: 26 entries, such as BE (14.35%); ZH (12.23%); AG (9.37%) and 23 others (0 missing)
-  - GMDNAME: 2158 entries, such as Zürich (0.46%); Genève (0.39%); Basel (0.38%) and 2155 others (0 missing)
+  - GMDNAME: 2159 entries, such as Zürich (0.46%); Genève (0.39%); Basel (0.38%) and 2156 others (0 missing)
   - agegroup: 10 entries, such as [80-90) (31.12%); [90-116) (22.49%); [70-80) (21.04%) and 7 others (0 missing)
   - sex: 2 entries, such as Male (51.57%); Female (48.43%); NA (0 missing)
   - deaths: n = 267576, Mean = 1.66, SD = 2.58, Median = 1.00, MAD = 0.00, range: [1, 124], Skewness = 13.11, Kurtosis = 267.13, 0% missing</code></pre>
@@ -4406,7 +4404,7 @@ lived</em>) as unit of analysis.</p>
 <td align="right">2</td>
 <td align="right">27</td>
 <td align="right">0</td>
-<td align="right">2158</td>
+<td align="right">2159</td>
 <td align="right">0</td>
 </tr>
 <tr class="odd">
@@ -4510,9 +4508,9 @@ lived</em>) as unit of analysis.</p>
 <div id="codes-of-geographical-areas" class="section level1">
 <h1>Codes of geographical areas</h1>
 <p>There were 2,163 municipalities in Jul 2021 in CH.</p>
-<p>5 had no deaths recorded during the study period.</p>
+<p>4 had no deaths recorded during the study period.</p>
 <div id="htmlwidget-d701554a25665d09d09f" style="width:100%;height:auto;" class="datatables html-widget"></div>
-<script type="application/json" data-for="htmlwidget-d701554a25665d09d09f">{"x":{"filter":"none","vertical":false,"data":[["1","2","3","4","5"],["Clavaleyres","Rüte","Effingen","Geltwil","Rossenges"],["BE","AI","AG","AG","VD"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>GMDNAME<\/th>\n      <th>KTNAME<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"dom":"t","columnDefs":[{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
+<script type="application/json" data-for="htmlwidget-d701554a25665d09d09f">{"x":{"filter":"none","vertical":false,"data":[["1","2","3","4"],["Clavaleyres","Rüte","Geltwil","Rossenges"],["BE","AI","AG","VD"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>GMDNAME<\/th>\n      <th>KTNAME<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"dom":"t","columnDefs":[{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
 </div>
 <div id="age-groups" class="section level1">
 <h1>Age groups</h1>

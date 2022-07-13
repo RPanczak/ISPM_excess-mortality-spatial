@@ -180,6 +180,33 @@ grid_1km_over <- grid_1km_crop %>%
 ```
 
 ```{r eval=FALSE, include=FALSE}
+st_drop_geometry(grid_1km_crop) %>% 
+  anti_join(st_drop_geometry(grid_1km))
+
+st_drop_geometry(grid_1km) %>% 
+  anti_join(st_drop_geometry(grid_1km_crop))
+
+grid_1km %>% 
+  st_drop_geometry() %>% 
+  group_by(ID) %>% 
+  filter(n() > 1)
+
+grid_1km_crop %>% 
+  # st_drop_geometry() %>% 
+  group_by(ID) %>% 
+  filter(n() > 1) %>% 
+  arrange(ID)
+
+grid_1km_crop %>% 
+  filter(ID == 11794) %>% 
+  qtm()
+
+grid_1km_crop %>% 
+  filter(ID == 32997) %>% 
+  qtm()
+```
+
+```{r eval=FALSE, include=FALSE}
 # grids
 st_write(grid_1km, "data/grid/grid_1km.gpkg", layer = "grid_1km", delete_dsn = TRUE)
 st_write(grid_1km_crop, "data/grid/grid_1km.gpkg", layer = "grid_1km_crop", append = TRUE)
@@ -286,6 +313,7 @@ grid_1km_crop_cent %<>%
     X = st_coordinates(grid_1km_crop_cent)[, 1],
     Y = st_coordinates(grid_1km_crop_cent)[, 2]
   ) %>%
+  # select(-area) %>% 
   relocate(geometry, .after = last_col())
 
 st_write(grid_1km_cent, "data/grid/grid_1km.gpkg", layer = "grid_1km_cent", append = FALSE)
@@ -350,6 +378,49 @@ tm_shape(st_join(grid_1km,
 
 ```{r include=FALSE}
 rm(grid_1km_crop, grid_1km_crop_cent); gc()
+```
+
+## Grid <> muicipality link
+
+Issue discussed in [#57](https://github.com/RPanczak/ISPM_excess-mortality-spatial/issues/57).  
+```{r eval=FALSE, include=FALSE}
+grid_1km_cent %>% 
+  filter(ID == 11794) %>% 
+  qtm()
+
+grid_1km_crop_cent %>% 
+  filter(ID == 11794) %>% 
+  qtm()
+
+grid_1km_cent %>% 
+  filter(ID == 32997) %>% 
+  qtm()
+
+grid_1km_crop_cent %>% 
+  filter(ID == 32997) %>% 
+  qtm()
+```
+
+### Simple spatial link
+
+```{r}
+grid_gemeinde <- grid_1km_cent %>% 
+  st_join(st_gg21, join = st_nearest_feature) %>% 
+  select(-X, -Y, -border) %>% 
+  st_drop_geometry()
+```
+
+```{r eval=FALSE, include=FALSE}
+grid_1km_cent %>% 
+  right_join(
+    grid_gemeinde %>% 
+      filter(GMDNR == 351)
+  ) %>% 
+  qtm()
+```
+
+```{r}
+write_rds(grid_gemeinde, "data/grid/grid_gemeinde.Rds")
 ```
 
 <!-- ----------------------------------------------------- -->

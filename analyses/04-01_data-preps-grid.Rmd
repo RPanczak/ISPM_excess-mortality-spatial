@@ -383,6 +383,11 @@ rm(grid_1km_crop, grid_1km_crop_cent); gc()
 ## Grid <> muicipality link
 
 Issue discussed in [#57](https://github.com/RPanczak/ISPM_excess-mortality-spatial/issues/57).  
+
+### Simple spatial link
+
+Assigns the municipality code to the simple geometrical centroid.  
+
 ```{r eval=FALSE, include=FALSE}
 grid_1km_cent %>% 
   filter(ID == 11794) %>% 
@@ -400,8 +405,6 @@ grid_1km_crop_cent %>%
   filter(ID == 32997) %>% 
   qtm()
 ```
-
-### Simple spatial link
 
 ```{r}
 grid_gemeinde <- grid_1km_cent %>% 
@@ -419,8 +422,88 @@ grid_1km_cent %>%
   qtm()
 ```
 
-```{r}
+```{r include=FALSE}
 write_rds(grid_gemeinde, "data/grid/grid_gemeinde.Rds")
+```
+
+### Population weighted link
+
+Alternative solution is to use `STATPOP` **2020** dataset prepared in `03`. This solution uses all building coordinates within each grid cell, weighted by population to find alternative centroid.     
+
+```{r}
+statpop2020_agg <- read_rds("data/BfS-closed/STATPOP/statpop2020_agg.Rds") %>%
+  dplyr::mutate(X = sf::st_coordinates(.)[,1],
+                Y = sf::st_coordinates(.)[,2]) %>% 
+  relocate(geometry, .after = last_col())
+
+statpop2020_grid <- 
+  st_join(statpop2020_agg, 
+          grid_1km, 
+          join = st_intersects) %>% 
+  relocate(ID)
+
+grid_gemeinde_pop_xy <- statpop2020_grid %>% 
+  st_drop_geometry() %>% 
+  group_by(ID) %>% 
+  summarize(X = as.integer(stats::weighted.mean(X, pop)),
+            Y = as.integer(stats::weighted.mean(Y, pop))) %>% 
+  ungroup() %>% 
+  st_as_sf(coords = c("X", "Y"), 
+           crs = 2056)
+
+grid_gemeinde_pop <- grid_gemeinde_pop_xy %>% 
+  st_join(st_gg21, join = st_nearest_feature) %>% 
+  select(-border) %>% 
+  st_drop_geometry()
+```
+
+Example of cell from Bern agglo area showing example of two definitions of grid centroids which will determine assignments of grid cells to municipality level variables (such as level of urbanization or voting patterns, etc.)
+
+- geometrical centroid (lower left marker) which assigns grid cell to Bremgarten
+- population weighted centroid ((upper right marker) (purple circles are buildings scaled to population size) which assigns cell to Bern
+
+```{r echo=FALSE}
+cell_number = 26844
+
+tm_shape(st_gg21 %>% filter(GMDNAME == "Bremgarten bei Bern")) + 
+  tm_polygons() + 
+  tm_shape(grid_1km %>% filter(ID == cell_number)) + 
+  tm_borders() + 
+  tm_shape(st_filter(statpop2020_agg, grid_1km %>% filter(ID == cell_number))) +
+  tm_dots(col = "darkorchid4", shape = 16, size = "pop", alpha = 0.5) + 
+  tm_shape(grid_1km_cent %>% filter(ID == cell_number)) + 
+  tm_markers(col = "black") + 
+  tm_shape(grid_gemeinde_pop_xy %>% filter(ID == cell_number)) + 
+  tm_markers(col = "darkorchid4")
+```
+
+
+```{r include=FALSE}
+write_rds(grid_gemeinde_pop, "data/grid/grid_gemeinde_pop.Rds")
+```
+
+```{r eval=FALSE, include=FALSE}
+# most populous grid
+statpop2020_grid %>% 
+  st_drop_geometry() %>% 
+  group_by(ID) %>% 
+  summarize(pop_agg = sum(pop)) %>% 
+  arrange(desc(pop_agg))
+
+statpop2020_grid %>% 
+  filter(ID == 4084) %>% 
+  qtm()
+
+# most buildings in grid
+statpop2020_grid %>% 
+  st_drop_geometry() %>% 
+  group_by(ID) %>% 
+  summarize(geb_agg = n()) %>% 
+  arrange(desc(geb_agg))
+
+statpop2020_grid %>% 
+  filter(ID == 40186) %>% 
+  qtm()
 ```
 
 <!-- ----------------------------------------------------- -->
@@ -441,56 +524,10 @@ sep3 %>%
   frq(ssep3_d)
 ```
 
-This dataset is aggregated to the level of `r scales::number(length(unique(grid_1km$ID)), big.mark = ",")` grid cells.  
-
-## STATPOP
-
-```{r}
-statpop2020 <- read_delim("data-raw/BfS-closed/STATPOP/statpop2020_220098p.zip", 
-                          delim = ";", escape_double = FALSE, 
-                          col_types = cols(STATYEAR = col_integer(), 
-                                           SEX = col_integer(), 
-                                           TYPEOFRESIDENCE = col_integer(), 
-                                           POPULATIONTYPE = col_integer(), 
-                                           AGE = col_integer(), 
-                                           CLASSAGEFIVEYEARS = col_integer(), 
-                                           NATIONALITYCATEGORY = col_integer(), 
-                                           MAINRESIDENCECATEGORY = col_integer(), 
-                                           GEOCOORDE = col_integer(), 
-                                           GEOCOORDN = col_integer(), 
-                                           INDIC_EGID = col_integer(), 
-                                           statdate = col_date(format = "%d/%m/%Y")), 
-                          trim_ws = TRUE) %>% 
-  janitor::remove_empty(c("rows", "cols")) %>% janitor::clean_names()  
-
-statpop2020_agg <- statpop2020 %>% 
-  rename(egid = federalbuildingid) %>% 
-  filter(typeofresidence == 1) %>% 
-  filter(populationtype == 1) %>% 
-  filter(mainresidencecategory == 1) %>% 
-  filter(indic_egid == 1) %>% 
-  select(-statyear, -statdate, 
-         -typeofresidence, -populationtype, -mainresidencecategory,
-         -indic_egid) %>% 
-  group_by(egid, geocoorde, geocoordn) %>% 
-  summarise(pop = n()) %>% 
-  ungroup() %>% 
-  st_as_sf(coords = c("geocoorde", "geocoordn"), 
-           crs = 2056,
-           remove = TRUE)
-```
-
-Using data from `STATPOP` **2020**.  
-
-Dataset consists of `r scales::number(nrow(statpop2020), big.mark = ",")` individuals and `r scales::number(nrow(statpop2020_agg), big.mark = ",")` buildings. We selected individuals with type of residence *Hauptwohnsitz*, population type *Ständige Wohnbevölkerung*, main residency category *Nur ein Hauptwohnsitz* and with valid EGID building ID.  
-
-The nearest building with SSEP was assigned for each of these building. The point dataset was then overlaid with community boundaries and summary measures of population based index were created and population level SEP was aggregated by community. 
-
-```{r include=FALSE}
-rm(statpop2020); gc()
-```
-
 ## Grid based averages
+
+SEP dataset is aggregated to the level of `r scales::number(length(unique(grid_1km$ID)), big.mark = ",")` grid cells.  
+
 
 ```{r eval=FALSE}
 ssep3_grid_1km <- 
@@ -550,7 +587,13 @@ ssep3_neigh_grid %>%
 
 ## Population based averages
 
+Alternative solution is to use `STATPOP` **2020** dataset prepared in `03`. This solution uses assigns SEP to nearest building of STATPOP which in turns gives population numbers.   
+
 ```{r eval=FALSE}
+# STATPOP 2020
+statpop2020_agg <- read_rds("data/BfS-closed/STATPOP/statpop2020_agg.Rds") %>% 
+  select(-geocoorde, -geocoordn)
+
 # join to sep3
 ssep3_pop <- st_join(statpop2020_agg, sep3, join = st_nearest_feature)
 
@@ -1193,8 +1236,6 @@ Done using `04-02_grid-deaths.R` script on HPC.
 
 # Extrapolated population after 2019
 
-FIXME: check year_month definition!
-
 ## Data for modelling
 
 ```{r}
@@ -1265,4 +1306,4 @@ st_grid_pop_exp %>%
 
 ## Processing 
 
-Done using `04-03_grid-pops.R` script on HPC.  
+Tested using `04-03_grid-pops.R` & `04-04_grid-pops.R` script on HPC.  

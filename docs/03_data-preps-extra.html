@@ -7,7 +7,7 @@
 
         <meta name="author" content="Radek Panczak" />
     
-        <meta name="date" content="2022-07-12" />
+        <meta name="date" content="2022-07-13" />
     
     <title>Spatial Excess: more data</title>
 
@@ -4255,7 +4255,7 @@ in CH</li>
           <li class="divider"></li>
                                 <li><span><i class="glyphicon glyphicon-user"></i> Radek
 Panczak</span></li>
-                                         <li><span><i class="glyphicon glyphicon-calendar"></i> 2022-07-12</span></li>
+                                         <li><span><i class="glyphicon glyphicon-calendar"></i> 2022-07-13</span></li>
                   </ul>     
       </div>
       <div class="book-body fixed">
@@ -4495,7 +4495,7 @@ and 31st Dec 2015 to estimate population mid-2015.</p>
 <div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>data <span class="ot">&lt;-</span> population <span class="sc">%&gt;%</span></span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(year <span class="sc">&lt;</span> <span class="dv">2020</span>) <span class="sc">%&gt;%</span></span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>(population_ext_poi) <span class="sc">%&gt;%</span></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 2020 replaced by estimates from lm extrapol</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 2020 replaced by estimates from poisson</span></span>
 <span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">population =</span> <span class="fu">if_else</span>(year <span class="sc">&gt;=</span> <span class="dv">2020</span>,</span>
 <span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>                              population_ext_poi, population</span>
 <span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  )) <span class="sc">%&gt;%</span></span>

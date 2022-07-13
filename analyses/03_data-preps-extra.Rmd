@@ -76,16 +76,6 @@ Important info from footnotes:
 
 Community mutations data after `2021-01-01` from @Cordula are integrated into the data and pops are recalculated using these new codes to match mortality.  
 
-```{r}
-histcomm <- read_rds("data/BfS/histcomm.Rds") %>%
-  filter(datum_der_aufnahme >= ymd("2021-01-01")) %>%
-  select(bfs_gde_num_old, bfs_gde_num_new, gemeindename_new)
-```
-
-```{r eval=FALSE, include=FALSE}
-datatable(histcomm)
-```
-
 ```{r eval=FALSE, include=FALSE}
 histcomm_14 <- read_excel("data-raw/BfS/Gemeindestand - Stand vom 01.07.2021.xlsx",
                           col_types = c(
@@ -99,6 +89,16 @@ histcomm_14 <- read_excel("data-raw/BfS/Gemeindestand - Stand vom 01.07.2021.xls
   filter(datum_der_aufnahme >= ymd("2014-01-01") &
            datum_der_aufnahme < ymd("2015-01-01")) %>%
   arrange(desc(datum_der_aufnahme), gemeindename)
+```
+
+```{r}
+histcomm <- read_rds("data/BfS/histcomm.Rds") %>%
+  filter(datum_der_aufnahme >= ymd("2021-01-01")) %>%
+  select(bfs_gde_num_old, bfs_gde_num_new, gemeindename_new)
+```
+
+```{r eval=FALSE, include=FALSE}
+datatable(histcomm)
 ```
 
 ## Data preps
@@ -357,11 +357,16 @@ population %>%
 
 For each age, sex, nationality stratum, for each municipality separately, simple mean of the two years of data is used to estimate the middle point. In such case we use, for instance data from 31st Dec 2014 and 31st Dec 2015 to estimate population mid-2015.   
 
+```{r eval=FALSE, include=FALSE}
+table(population$year)
+table(population_ext_poi$year)
+```
+
 ```{r}
 data <- population %>%
   filter(year < 2020) %>%
   bind_rows(population_ext_poi) %>%
-  # 2020 replaced by estimates from lm extrapol
+  # 2020 replaced by estimates from poisson
   mutate(population = if_else(year >= 2020,
                               population_ext_poi, population
   )) %>%
@@ -394,7 +399,10 @@ for (i in 2014:2020) {
 ```
 
 ```{r include=FALSE}
-rm(i, data, result)
+table(data$year)
+table(population_mid_poi$year)
+
+rm(i, data, result, population_ext_lm)
 
 population_mid_poi %<>%
   arrange(year, GMDNR, sex, age) %>%

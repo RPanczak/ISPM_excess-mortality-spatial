@@ -18,15 +18,22 @@ geom_002_deaths_to_grid <- function(deaths_data, pop_data, n_iter) {
     l <- length(d)
     r <- rmultinom(n, size = d, prob = p + 1e-10) # add small number to avoid numerical issues with pop=0
     while (any(r > p)) { # check that deaths never exceed pop
-      r <- rmultinom(n, size = d, prob = p + 1e-10)
+      r <- unlist(rmultinom(n, size = d, prob = p + 1e-10))
     }
     return(r)
   }
   # distribute
   imputed_data <- merged_data %>%
+    dplyr::filter(pop>0) %>% 
     dplyr::group_by(year, month, GMDNAME, GMDNR, age, sex) %>%
     dplyr::mutate(dist_deaths = distribute_deaths(n_iter, deaths_by_gem, pop)) %>%
     dplyr::ungroup()
+  # bring back places with pop 0
+  imputed_data <- merged_data %>%
+    dplyr::filter(pop==0) %>% 
+    dplyr::bind_rows(imputed_data) %>% 
+    tidyr::replace_na(list(dist_deaths=0)) %>% 
+    dplyr::arrange(ID,age,sex,year,month)
   # format
   imputed_data <- imputed_data$dist_deaths %>%
     tibble::as_tibble() %>%

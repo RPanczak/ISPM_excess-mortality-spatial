@@ -1030,44 +1030,58 @@ snc5_deaths %>%
   qtm()
 
 View(st_drop_geometry(snc5_deaths))
+
+cell_number = 26844
+
+grid_1km_over %>% 
+  filter(ID == cell_number) %>% 
+  qtm(text = "ID2")
 ```
 
-## Aggregate deaths by grid 
+## Aggregate deaths by grid X municipality
 
 ```{r eval=FALSE}
-temp <- st_join(snc5_deaths,
-                grid_1km,
-                join = st_intersects
+temp1 <- st_join(snc5_deaths,
+                 grid_1km_over,
+                 join = st_intersects
 ) %>%
   st_drop_geometry() %>%
-  group_by(ID, year, month, sex, age) %>%
+  group_by(ID, ID2, GMDNR, GMDNAME, year, month, sex, age) %>%
   summarize(deaths = as.integer(n())) %>%
-  ungroup()
+  ungroup() 
 
-st_grid_deaths_2014_2019 <-
+temp2 <- temp1 %>% 
+  select(ID, ID2, GMDNR, GMDNAME) %>% 
+  distinct() %>% 
   expand_grid(
-    ID = unique(grid_1km$ID),
-    year = unique(temp$year),
-    month = unique(temp$month),
-    sex = unique(temp$sex),
-    age = unique(temp$age)
+    year = unique(temp1$year),
+    month = unique(temp1$month),
+    sex = unique(temp1$sex),
+    age = unique(temp1$age)
   ) %>%
-  dplyr::arrange(ID, year, month, sex, age) %>%
-  left_join(temp) %>%
+  dplyr::arrange(year, month, sex, age) 
+
+st_grid_deaths_2014_2019 <- 
+  temp2 %>% 
+  left_join(temp1) %>% 
   mutate(deaths = replace_na(deaths, 0)) %>%
-  mutate(deaths = as.integer(deaths))
+  mutate(deaths = as.integer(deaths)) %>% 
+  dplyr::arrange(ID, ID2, GMDNR, GMDNAME, year, month, sex, age) %>% 
+  relocate(ID, ID2, GMDNR, GMDNAME)
 ```
 
 ```{r eval=FALSE, include=FALSE}
-stopifnot(length(unique(grid_1km$ID)) *
-            length(unique(temp$year)) *
-            length(unique(temp$month)) *
-            length(levels(temp$age)) *
-            length(levels(temp$sex)) == nrow(st_grid_deaths_2014_2019))
-
-rm(temp, snc5_deaths); gc()
+rm(temp1, temp2, snc5_deaths); gc()
 
 write_rds(st_grid_deaths_2014_2019, "data/blob/st_grid_deaths_2014_2019.Rds")
+
+cell_number = 26844
+
+grid_1km_over %>% 
+  filter(ID == cell_number) %>% 
+  left_join(st_grid_deaths_2014_2019) %>% 
+  filter(sex == "Female" & age == "80+",
+         year == 2014 & month == 1)
 ```
 
 ```{r include=FALSE}

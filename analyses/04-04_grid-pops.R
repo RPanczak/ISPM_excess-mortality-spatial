@@ -5,7 +5,7 @@
 set.seed(12345)
 
 library(tidyverse)
-# library(splines)
+library(splines)
 
 library(INLA)
 

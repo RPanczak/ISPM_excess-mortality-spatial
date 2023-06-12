@@ -9,4 +9,4 @@
 ml vital-it
 ml R/3.6.1
 
-Rscript ~/ISPM_excess-mortality-spatial/analyses/04-04_grid-pops.R
+Rscript analyses/04-04_grid-pops.R

@@ -8,4 +8,4 @@
 
 ml R
 
-Rscript ~/ISPM_excess-mortality-spatial/analyses/04-03_grid-pops.R
+Rscript analyses/04-03_grid-pops.R

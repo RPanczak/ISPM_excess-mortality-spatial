@@ -516,7 +516,7 @@ write_rds(w_deaths_2015_2021_pop, "data/BfS-closed/monthly_deaths/w_deaths_2015_
 
 # STATPOP
 
-```{r}
+```{r eval=FALSE}
 statpop2020 <- read_delim("data-raw/BfS-closed/STATPOP/statpop2020_220098p.zip", 
                           delim = ";", escape_double = FALSE, 
                           col_types = cols(STATYEAR = col_integer(), 
@@ -548,17 +548,19 @@ statpop2020_agg <- statpop2020 %>%
   ungroup() %>% 
   st_as_sf(coords = c("geocoorde", "geocoordn"), 
            crs = 2056)
+
+write_rds(statpop2020_agg, "data/BfS-closed/STATPOP/statpop2020_agg.Rds")
+
+rm(statpop2020); gc()
+```
+
+```{r include=FALSE}
+statpop2020_agg <- read_rds("data-raw/BfS-closed/STATPOP/statpop2020_agg.Rds")
 ```
 
 Using data from `STATPOP` **2020**.  
 
 Dataset consists of `r scales::number(nrow(statpop2020), big.mark = ",")` individuals and `r scales::number(nrow(statpop2020_agg), big.mark = ",")` buildings. We selected individuals with type of residence *Hauptwohnsitz*, population type *Ständige Wohnbevölkerung*, main residency category *Nur ein Hauptwohnsitz* and with valid EGID building ID.  
-
-```{r include=FALSE}
-write_rds(statpop2020_agg, "data/BfS-closed/STATPOP/statpop2020_agg.Rds")
-
-rm(statpop2020); gc()
-```
 
 ```{r eval=FALSE, include=FALSE}
 # largest building

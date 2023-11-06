@@ -591,8 +591,7 @@ Alternative solution is to use `STATPOP` **2020** dataset prepared in `03`. This
 
 ```{r eval=FALSE}
 # STATPOP 2020
-statpop2020_agg <- read_rds("data/BfS-closed/STATPOP/statpop2020_agg.Rds") %>% 
-  select(-geocoorde, -geocoordn)
+statpop2020_agg <- read_rds("data/BfS-closed/STATPOP/statpop2020_agg.Rds")
 
 # join to sep3
 ssep3_pop <- st_join(statpop2020_agg, sep3, join = st_nearest_feature)
@@ -990,7 +989,7 @@ rm(temp_checks); gc()
 Prepared in `/Stata/mort_2014-2020.do`.  
 
 ```{r}
-snc5_deaths <- read_dta("data/BfS-closed/SNC/deaths.dta") %>%
+snc5_deaths <- read_dta("data-raw/BfS-closed/SNC/deaths.dta") %>%
   zap_formats() %>%
   zap_labels() %>%
   zap_label() %>%

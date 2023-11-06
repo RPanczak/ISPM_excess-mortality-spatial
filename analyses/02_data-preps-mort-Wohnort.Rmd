@@ -135,6 +135,7 @@ rm(no_link)
 ```
 
 There were `r number(nrow(raum), big.mark = ",")` municipalities in Jul 2021 in CH.  
+
 ```{r echo=FALSE}
 no_cases <- raum %>% 
   anti_join(
